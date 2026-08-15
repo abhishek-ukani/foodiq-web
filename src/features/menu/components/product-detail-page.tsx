@@ -6,20 +6,15 @@ import {
   Plus,
   ShoppingBag,
   Star,
-  Home,
-  Flame,
-  Truck,
-  Sparkles,
-  ChevronRight,
+  ChevronLeft,
+  MessageSquare,
+  X,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/common/error-state'
 import { useFoodItemBySlug } from '@/features/menu/hooks/use-menu-queries'
 import { ItemCustomizationPicker } from '@/features/menu/components/item-customization-picker'
 import { DynamicThaliOptionPicker } from '@/features/menu/components/dynamic-thali-option-picker'
-import { ThaliCompositionList } from '@/features/menu/components/thali-composition-list'
 import { useAddToCart } from '@/features/cart/hooks/use-cart'
 import { FavoriteButton } from '@/features/favorites/components/favorite-button'
 import { useAuth } from '@/hooks/use-auth'
@@ -39,7 +34,7 @@ const REVIEWS_MOCK = [
     id: '2',
     name: 'Ananya M.',
     avatar: 'A',
-    color: 'bg-amber-600',
+    color: 'bg-amber-500',
     rating: 5,
     date: '1 week ago',
     comment: 'Fresh, warm rotis and great portion size. Definitely ordering again for lunch.',
@@ -48,7 +43,7 @@ const REVIEWS_MOCK = [
     id: '3',
     name: 'Priya S.',
     avatar: 'P',
-    color: 'bg-[#2E7D32]',
+    color: 'bg-violet-500',
     rating: 5,
     date: '2 weeks ago',
     comment: 'Super fast delivery and delicious Kathiyawadi flavor! Best Gujarati meal in town.',
@@ -59,34 +54,36 @@ export function ProductDetailPage() {
   const { slug = '' } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const state = location.state as { date?: string; mealType?: string } | undefined
   const { isAuthenticated } = useAuth()
   const { data: item, isPending, isError, refetch } = useFoodItemBySlug(slug)
   const addToCart = useAddToCart()
 
   const [quantity, setQuantity] = useState(1)
   const [instructions, setInstructions] = useState('')
+  const [showInstructions, setShowInstructions] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [optionSelections, setOptionSelections] = useState<Record<string, string[]>>({})
   const [isOptionSelectionValid, setIsOptionSelectionValid] = useState(true)
-  const [activeImageIndex, setActiveImageIndex] = useState(0)
 
   if (isPending) {
     return (
-      <div className="min-h-screen bg-[#F8F7F4] py-12">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 grid gap-10 lg:grid-cols-12">
-          <div className="lg:col-span-7 space-y-4">
-            <Skeleton className="aspect-square rounded-2xl bg-white/80" />
-            <div className="flex gap-3">
-              <Skeleton className="size-20 rounded-xl bg-white/80" />
-              <Skeleton className="size-20 rounded-xl bg-white/80" />
-              <Skeleton className="size-20 rounded-xl bg-white/80" />
-            </div>
-          </div>
-          <div className="lg:col-span-5 space-y-5">
-            <Skeleton className="h-6 w-1/3 rounded-md bg-white/80" />
-            <Skeleton className="h-10 w-3/4 rounded-md bg-white/80" />
-            <Skeleton className="h-12 w-full rounded-2xl bg-white/80" />
-            <Skeleton className="h-40 w-full rounded-2xl bg-white/80" />
+      <div className="min-h-screen bg-gray-50">
+        {/* Image skeleton */}
+        <Skeleton className="w-full h-[220px] sm:h-[280px] rounded-none" />
+        <div className="max-w-2xl mx-auto px-4 pt-5 space-y-4">
+          <Skeleton className="h-7 w-2/3 rounded-lg" />
+          <Skeleton className="h-4 w-full rounded-lg" />
+          <div className="space-y-3 pt-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-4 w-28 rounded" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-9 w-20 rounded-full" />
+                  <Skeleton className="h-9 w-24 rounded-full" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -95,8 +92,8 @@ export function ProductDetailPage() {
 
   if (isError || !item) {
     return (
-      <div className="min-h-screen bg-[#F8F7F4] py-16">
-        <div className="mx-auto max-w-3xl px-4">
+      <div className="min-h-screen bg-gray-50 py-16">
+        <div className="mx-auto max-w-2xl px-4">
           <ErrorState
             title="Dish not found"
             description="This item may have been removed from the menu."
@@ -127,22 +124,14 @@ export function ProductDetailPage() {
       navigate(ROUTES.login, { state: { from: location } })
       return
     }
-
     const customizationList = selectedCustomizations.map((c) => ({
       id: c.id,
       name: c.name,
       price_delta: c.price_delta,
     }))
-
-    const selectedOptionIds = Object.values(optionSelections).flat()
-    selectedOptionIds.forEach((optId) => {
-      customizationList.push({
-        id: optId,
-        name: `Option Selection`,
-        price_delta: 0,
-      })
+    Object.values(optionSelections).flat().forEach((optId) => {
+      customizationList.push({ id: optId, name: 'Option Selection', price_delta: 0 })
     })
-
     addToCart.mutate({
       food_item_id: item.id,
       quantity,
@@ -151,275 +140,266 @@ export function ProductDetailPage() {
     })
   }
 
-  // Thumbnails gallery fallback
-  const galleryImages = [
-    item.image_url,
-    item.image_url,
-    item.image_url,
-  ].filter(Boolean) as string[]
-
   return (
-    <div className="min-h-screen bg-[#F8F7F4] text-[#1D1D1D] font-sans py-6 sm:py-10">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-12">
-        {/* TWO COLUMN PRODUCT SECTION */}
-        <div className="grid gap-8 lg:grid-cols-12 lg:gap-12 items-start">
-          
-          {/* LEFT COLUMN: HERO IMAGE & GALLERY (55%) */}
-          <div className="lg:col-span-7 space-y-4 lg:sticky lg:top-8">
-            {/* Breadcrumb (Mobile) */}
-            <div className="flex items-center gap-1.5 text-xs text-[#666666] font-medium lg:hidden">
-              <Link to={ROUTES.home} className="hover:text-[#1D1D1D]">Home</Link>
-              <ChevronRight className="size-3" />
-              <Link to={ROUTES.menu} className="hover:text-[#1D1D1D]">Menu</Link>
-              <ChevronRight className="size-3" />
-              <span className="text-[#1D1D1D] font-semibold">{item.name}</span>
-            </div>
+    <div className="min-h-screen bg-gray-50 font-sans">
 
-            {/* Main Hero Image */}
-            <div className="relative aspect-square sm:aspect-4/3 lg:aspect-square overflow-hidden rounded-2xl bg-white border border-[#E7E7E7] shadow-sm group">
-              {item.image_url ? (
-                <img
-                  src={galleryImages[activeImageIndex] || item.image_url}
-                  alt={item.name}
-                  className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-              ) : (
-                <div className="flex size-full items-center justify-center bg-[#FFF8E8] text-6xl">
-                  🍱
+      {/* ── HERO IMAGE SECTION ── */}
+      <div className="relative w-full bg-[#1a1a1a] overflow-hidden" style={{ height: 'clamp(200px, 40vw, 300px)' }}>
+        {item.image_url ? (
+          <img
+            src={item.image_url}
+            alt={item.name}
+            className="absolute inset-0 w-full h-full object-cover opacity-90"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-7xl opacity-60">🍱</div>
+        )}
+
+        {/* Gradient overlay: top (nav) and bottom (into white content) */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
+
+        {/* Back button (mobile) */}
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="absolute top-3 left-3 sm:hidden z-10 bg-black/40 backdrop-blur-sm text-white rounded-full p-2"
+          aria-label="Go back"
+        >
+          <ChevronLeft className="size-5" />
+        </button>
+
+        {/* Favorite button */}
+        <div className="absolute top-3 right-3 z-10 bg-black/40 backdrop-blur-sm rounded-full p-1.5">
+          <FavoriteButton foodItemId={item.id} />
+        </div>
+
+        {/* Bestseller chip */}
+        <div className="absolute top-3 left-12 sm:left-3 z-10">
+          <span className="inline-flex items-center gap-1 bg-amber-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow">
+            ⭐ Bestseller
+          </span>
+        </div>
+      </div>
+
+      {/* ── CONTENT CARD ── */}
+      {/* On mobile: white card below image, stacks full width */}
+      {/* On desktop: centered, max-w-2xl */}
+      <div className="max-w-2xl mx-auto">
+
+        {/* White info card */}
+        <div className="bg-white mx-0 sm:mx-4 lg:mx-auto sm:rounded-2xl sm:-mt-6 relative z-10 sm:shadow-sm">
+
+          {/* Item header */}
+          <div className="px-4 sm:px-5 pt-5 pb-4 border-b border-gray-100">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl font-bold text-gray-900 leading-tight">{item.name}</h1>
+                {/* Badges */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600">
+                    <Star className="size-3 fill-amber-400 text-amber-400" />
+                    4.8
+                  </span>
+                  <span className="text-gray-200 text-xs">•</span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                    <Leaf className="size-3 fill-emerald-600" />
+                    Pure veg
+                  </span>
+                  {item.description && (
+                    <>
+                      <span className="text-gray-200 text-xs">•</span>
+                      <span className="text-[11px] text-gray-500 font-medium">Homemade</span>
+                    </>
+                  )}
                 </div>
-              )}
-
-              {/* Floating Bestseller / Fresh Badge */}
-              <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-                <span className="bg-white/90 backdrop-blur-md text-[#1D1D1D] text-xs font-bold px-3 py-1.5 rounded-full shadow-xs border border-[#E7E7E7] flex items-center gap-1.5">
-                  <Sparkles className="size-3.5 text-amber-500 fill-amber-500" />
-                  Bestseller
-                </span>
               </div>
-
-              {/* Floating Favorite Button */}
-              <div className="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-md p-1.5 rounded-full shadow-xs border border-[#E7E7E7] hover:scale-105 transition-all">
-                <FavoriteButton foodItemId={item.id} />
+              {/* Price */}
+              <div className="text-right shrink-0">
+                <div className="text-xl font-bold text-[#2E7D32] tabular-nums">
+                  {CURRENCY_SYMBOL}{basePrice}
+                </div>
+                {strikePrice && (
+                  <div className="text-sm text-gray-400 line-through tabular-nums">
+                    {CURRENCY_SYMBOL}{strikePrice}
+                  </div>
+                )}
               </div>
-            </div>
-
-            {/* Image Gallery Thumbnails */}
-            {galleryImages.length > 1 && (
-              <div className="flex items-center gap-3 pt-1 overflow-x-auto">
-                {galleryImages.map((img, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setActiveImageIndex(idx)}
-                    className={`relative size-20 shrink-0 rounded-xl overflow-hidden border-2 transition-all cursor-pointer bg-white ${
-                      activeImageIndex === idx
-                        ? 'border-[#2E7D32] ring-2 ring-[#2E7D32]/20'
-                        : 'border-[#E7E7E7] opacity-70 hover:opacity-100'
-                    }`}
-                  >
-                    <img src={img} alt="" className="size-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT COLUMN: DETAILS & CUSTOMIZATION (45%) */}
-          <div className="lg:col-span-5 space-y-6">
-            {/* Breadcrumb (Desktop) */}
-            <div className="hidden lg:flex items-center gap-1.5 text-xs text-[#666666] font-medium">
-              <Link to={ROUTES.home} className="hover:text-[#1D1D1D]">Home</Link>
-              <ChevronRight className="size-3" />
-              <Link to={ROUTES.menu} className="hover:text-[#1D1D1D]">Menu</Link>
-              <ChevronRight className="size-3" />
-              <span className="text-[#1D1D1D] font-semibold">{item.name}</span>
-            </div>
-
-            {/* Title & Badges */}
-            <div className="space-y-3">
-              <h1 className="font-sans text-3xl sm:text-[36px] font-bold text-[#1D1D1D] tracking-tight leading-tight">
-                {item.name}
-              </h1>
-
-              {/* Rounded Feature Badges Row */}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="bg-white border border-[#E7E7E7] text-[#1D1D1D] text-xs font-semibold px-3 py-1.5 rounded-full shadow-2xs flex items-center gap-1">
-                  <Star className="size-3.5 fill-amber-400 text-amber-400" />
-                  4.8 (182 Reviews)
-                </span>
-                <span className="bg-[#E8F5E9] text-[#2E7D32] border border-[#2E7D32]/20 text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1">
-                  <Leaf className="size-3.5 fill-[#2E7D32]" />
-                  Pure Veg
-                </span>
-                <span className="bg-[#FFF8E8] text-[#855B14] border border-[#FFE8B5] text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1">
-                  <Home className="size-3.5" />
-                  Homemade
-                </span>
-                <span className="bg-white border border-[#E7E7E7] text-[#1D1D1D] text-xs font-medium px-3 py-1.5 rounded-full shadow-2xs flex items-center gap-1">
-                  <Flame className="size-3.5 text-orange-500" />
-                  Fresh Today
-                </span>
-                <span className="bg-white border border-[#E7E7E7] text-[#1D1D1D] text-xs font-medium px-3 py-1.5 rounded-full shadow-2xs flex items-center gap-1">
-                  <Truck className="size-3.5 text-blue-600" />
-                  Fast Delivery
-                </span>
-              </div>
-            </div>
-
-            {/* Price Tag */}
-            <div className="flex items-baseline gap-3 pt-1">
-              <span className="text-[34px] font-bold text-[#2E7D32] tracking-tight tabular-nums">
-                {CURRENCY_SYMBOL}
-                {basePrice}
-              </span>
-              {strikePrice && (
-                <span className="text-xl text-[#666666] line-through tabular-nums">
-                  {CURRENCY_SYMBOL}
-                  {strikePrice}
-                </span>
-              )}
             </div>
 
             {/* Description */}
             {item.description && (
-              <p className="text-sm text-[#666666] leading-relaxed max-w-md">
-                {item.description}
-              </p>
+              <p className="mt-2.5 text-sm text-gray-500 leading-relaxed">{item.description}</p>
             )}
+          </div>
 
-            <ThaliCompositionList items={item.thali_items} />
-
-            {/* CUSTOMIZATION CATEGORY CARDS */}
-            {item.kind === 'thali' && (
+          {/* ── THALI CUSTOMIZATIONS ── */}
+          {item.kind === 'thali' && (
+            <div className="px-4 sm:px-5">
               <DynamicThaliOptionPicker
                 foodItemId={item.id}
+                selectedDate={state?.date}
+                mealType={state?.mealType}
                 onSelectionChange={(selMap, isValid) => {
                   setOptionSelections(selMap)
                   setIsOptionSelectionValid(isValid)
                 }}
               />
-            )}
+            </div>
+          )}
 
+          {/* ── ADD-ONS ── */}
+          <div className="px-4 sm:px-5">
             <ItemCustomizationPicker
               customizations={item.item_customizations}
               selectedIds={selectedIds}
               onToggle={toggleCustomization}
             />
+          </div>
 
-            {/* QUANTITY SELECTOR (Modern Pill Shaped) */}
-            <div className="bg-white rounded-2xl p-4 border border-[#E7E7E7] shadow-xs flex items-center justify-between">
-              <span className="text-sm font-semibold text-[#1D1D1D]">Select Quantity</span>
-              <div className="flex items-center gap-4 rounded-full border border-[#E7E7E7] bg-[#F8F7F4] px-3 py-1.5 shadow-2xs">
-                <button
-                  type="button"
-                  disabled={quantity <= 1}
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="size-8 rounded-full flex items-center justify-center text-[#1D1D1D] hover:bg-white transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-                  aria-label="Decrease quantity"
-                >
-                  <Minus className="size-4" />
-                </button>
-                <span className="w-6 text-center font-bold text-base tabular-nums text-[#1D1D1D]">
-                  {quantity}
-                </span>
-                <button
-                  type="button"
-                  disabled={quantity >= 10}
-                  onClick={() => setQuantity((q) => Math.min(10, q + 1))}
-                  className="size-8 rounded-full flex items-center justify-center text-[#1D1D1D] hover:bg-white transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-                  aria-label="Increase quantity"
-                >
-                  <Plus className="size-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* SPECIAL INSTRUCTIONS */}
-            <div className="bg-white rounded-2xl p-4 border border-[#E7E7E7] shadow-xs space-y-2">
-              <label htmlFor="instructions" className="text-sm font-semibold text-[#1D1D1D] block">
-                Special instructions (optional)
-              </label>
-              <Textarea
-                id="instructions"
-                rows={2}
-                placeholder="Example: Less spicy, no onion, extra pickle..."
-                value={instructions}
-                onChange={(e) => setInstructions(e.target.value)}
-                className="rounded-xl border-[#E7E7E7] bg-[#F8F7F4] p-3 text-sm focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] resize-none"
-              />
-            </div>
-
-            {/* STICKY / PROMINENT ADD TO CART BUTTON */}
-            {!item.is_available ? (
-              <p className="text-sm font-semibold text-[#D32F2F] text-center p-3 bg-red-50 rounded-xl">
-                This item is currently unavailable.
-              </p>
+          {/* ── SPECIAL INSTRUCTIONS ── */}
+          <div className="px-4 sm:px-5 py-3 border-t border-gray-100">
+            {!showInstructions ? (
+              <button
+                type="button"
+                onClick={() => setShowInstructions(true)}
+                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-[#2E7D32] transition-colors"
+              >
+                <MessageSquare className="size-4" />
+                Add special instructions
+              </button>
             ) : (
-              <div className="sticky bottom-4 z-40 sm:relative sm:bottom-auto">
-                <Button
-                  size="lg"
-                  onClick={handleAddToCart}
-                  disabled={addToCart.isPending || !isOptionSelectionValid}
-                  className="h-14 w-full rounded-2xl bg-[#2E7D32] hover:bg-[#256C2B] text-white font-bold text-base sm:text-lg shadow-lg hover:shadow-xl transition-all duration-200 gap-2 cursor-pointer"
-                >
-                  <ShoppingBag className="size-5" />
-                  {addToCart.isPending
-                    ? 'Adding to Cart…'
-                    : `Add Premium Thali · ${CURRENCY_SYMBOL}${totalPrice}`}
-                </Button>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700">Special instructions</span>
+                  <button
+                    type="button"
+                    onClick={() => { setShowInstructions(false); setInstructions('') }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+                <textarea
+                  autoFocus
+                  rows={2}
+                  placeholder="e.g. Less spicy, no onion, extra pickle..."
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 focus:border-[#2E7D32] focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 resize-none transition"
+                />
               </div>
             )}
           </div>
-        </div>
 
-        {/* MODERN REVIEWS SECTION */}
-        <div className="pt-8 border-t border-[#E7E7E7] space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-[#1D1D1D]">Customer Reviews</h2>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="flex text-amber-400">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="size-4 fill-amber-400 text-amber-400" />
-                  ))}
-                </div>
-                <span className="text-sm font-bold text-[#1D1D1D]">4.8 out of 5</span>
-                <span className="text-sm text-[#666666]">(182 verified reviews)</span>
+          {/* ── STICKY BOTTOM CTA ── */}
+          {!item.is_available ? (
+            <div className="px-4 sm:px-5 pb-5">
+              <div className="bg-red-50 border border-red-100 text-red-500 text-sm font-semibold text-center py-3 rounded-xl">
+                Currently unavailable
               </div>
             </div>
+          ) : (
+            <div className="sticky bottom-0 z-20 px-4 sm:px-5 py-4 bg-white border-t border-gray-100 sm:rounded-b-2xl">
+              <div className="flex items-center gap-3">
+                {/* Qty stepper */}
+                <div className="flex items-center gap-0 rounded-xl border-2 border-gray-200 overflow-hidden shrink-0 h-11">
+                  <button
+                    type="button"
+                    disabled={quantity <= 1}
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    className="h-full w-10 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition disabled:opacity-30"
+                    aria-label="Decrease"
+                  >
+                    <Minus className="size-3.5" />
+                  </button>
+                  <span className="w-8 text-center text-sm font-bold tabular-nums text-gray-900">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={quantity >= 10}
+                    onClick={() => setQuantity((q) => Math.min(10, q + 1))}
+                    className="h-full w-10 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition disabled:opacity-30"
+                    aria-label="Increase"
+                  >
+                    <Plus className="size-3.5" />
+                  </button>
+                </div>
+
+                {/* Add to cart */}
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={addToCart.isPending || !isOptionSelectionValid}
+                  className="flex-1 h-11 rounded-xl bg-[#2E7D32] hover:bg-[#256C2B] disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm flex items-center justify-center gap-2 transition-all duration-150 shadow-sm shadow-green-100 cursor-pointer"
+                >
+                  <ShoppingBag className="size-4 shrink-0" />
+                  <span>
+                    {addToCart.isPending
+                      ? 'Adding…'
+                      : `Add thali · ${CURRENCY_SYMBOL}${totalPrice}`}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── REVIEWS ── */}
+        <div className="px-4 sm:px-0 py-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-base font-bold text-gray-900">Reviews</h2>
+            <div className="flex">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star key={i} className="size-3.5 fill-amber-400 text-amber-400" />
+              ))}
+            </div>
+            <span className="text-xs text-gray-400">4.8 · 182 verified</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="space-y-3 sm:grid sm:grid-cols-3 sm:gap-3 sm:space-y-0">
             {REVIEWS_MOCK.map((rev) => (
               <div
                 key={rev.id}
-                className="bg-white rounded-2xl p-5 border border-[#E7E7E7] shadow-xs space-y-3 hover:shadow-md transition-all"
+                className="bg-white rounded-xl p-4 border border-gray-100"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`size-9 rounded-full ${rev.color} text-white font-bold text-sm flex items-center justify-center`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`size-7 rounded-full ${rev.color} text-white font-bold text-xs flex items-center justify-center shrink-0`}>
                       {rev.avatar}
                     </div>
                     <div>
-                      <span className="text-sm font-semibold text-[#1D1D1D] block">{rev.name}</span>
-                      <span className="text-[11px] text-[#666666]">{rev.date}</span>
+                      <div className="text-xs font-semibold text-gray-800">{rev.name}</div>
+                      <div className="text-[10px] text-gray-400">{rev.date}</div>
                     </div>
                   </div>
-                  <div className="flex text-amber-400">
+                  <div className="flex">
                     {Array.from({ length: rev.rating }).map((_, i) => (
-                      <Star key={i} className="size-3.5 fill-amber-400 text-amber-400" />
+                      <Star key={i} className="size-3 fill-amber-400 text-amber-400" />
                     ))}
                   </div>
                 </div>
-
-                <p className="text-sm text-[#666666] leading-relaxed">
-                  "{rev.comment}"
-                </p>
+                <p className="text-xs text-gray-500 leading-relaxed">"{rev.comment}"</p>
               </div>
             ))}
           </div>
         </div>
+
       </div>
+
+      {/* Desktop breadcrumb (shown above fold) — hidden on mobile since we have back button */}
+      <div className="hidden sm:block absolute top-0 left-0 right-0 z-20 pointer-events-none">
+        <div className="max-w-2xl mx-auto px-4 py-3">
+          <nav className="flex items-center gap-1.5 text-xs text-white/80 font-medium pointer-events-auto drop-shadow">
+            <Link to={ROUTES.home} className="hover:text-white transition-colors">Home</Link>
+            <span>›</span>
+            <Link to={ROUTES.menu} className="hover:text-white transition-colors">Menu</Link>
+            <span>›</span>
+            <span className="text-white font-semibold">{item.name}</span>
+          </nav>
+        </div>
+      </div>
+
     </div>
   )
 }

@@ -1,7 +1,6 @@
 -- ====================================================================
--- FoodIQ — Update place_order RPC with Server-Side Delivery Validation
--- Recalculates & verifies delivery charge server-side using delivery_zones
--- and delivery_fee_rules to prevent client-side fee manipulation.
+-- FoodIQ — Update place_order RPC with explicit enum type casting
+-- & Server-side Cutoff Time Enforcement
 -- ====================================================================
 
 CREATE OR REPLACE FUNCTION public.place_order(
@@ -30,6 +29,7 @@ DECLARE
   v_rule_rec          RECORD;
   v_order_number      TEXT;
   v_order             public.orders%ROWTYPE;
+  v_menu_cutoff       TEXT;
 BEGIN
   -- 1. Authenticated user check
   v_user_id := auth.uid();
@@ -62,6 +62,21 @@ BEGIN
     RAISE EXCEPTION 'No active branch configured';
   END IF;
 
+  -- 4b. Enforce Cutoff Time Validation for Same-Day Orders
+  IF p_delivery_date = CURRENT_DATE THEN
+    SELECT cutoff_time INTO v_menu_cutoff
+    FROM public.daily_menus
+    WHERE menu_date = CURRENT_DATE
+      AND branch_id = v_branch_id
+      AND cutoff_time IS NOT NULL
+    ORDER BY created_at DESC
+    LIMIT 1;
+
+    IF v_menu_cutoff IS NOT NULL AND (LOCALTIME > v_menu_cutoff::time) THEN
+      RAISE EXCEPTION 'Order cutoff time (%) for today''s meal service has passed. Please order for tomorrow.', v_menu_cutoff;
+    END IF;
+  END IF;
+
   -- 5. Compute subtotal from cart
   SELECT COALESCE(SUM(
     (
@@ -82,7 +97,6 @@ BEGIN
   END IF;
 
   -- 6. Server-side Delivery Charge Validation / Calculation
-  -- Check delivery_zones table first by pincode match or city match
   SELECT * INTO v_zone_rec
   FROM public.delivery_zones
   WHERE is_active = true
@@ -101,7 +115,6 @@ BEGIN
       v_calculated_charge := v_zone_rec.fixed_fee;
     END IF;
   ELSE
-    -- If no zone match, verify client passed fee against fee rules or accept client fee
     v_calculated_charge := COALESCE(p_delivery_charge, 0);
   END IF;
 
@@ -109,7 +122,7 @@ BEGIN
   v_order_number := 'KK-' || TO_CHAR(now(), 'YYYYMMDD') || '-' ||
                     LPAD(FLOOR(RANDOM() * 9000 + 1000)::TEXT, 4, '0');
 
-  -- 8. Insert order with validated delivery charge
+  -- 8. Insert order with validated delivery charge & explicit enum casts
   INSERT INTO public.orders (
     order_number, branch_id, user_id, status,
     payment_method, payment_status, payment_reference,
@@ -121,9 +134,9 @@ BEGIN
     special_instructions, placed_at
   )
   VALUES (
-    v_order_number, v_branch_id, v_user_id, 'pending',
+    v_order_number, v_branch_id, v_user_id, 'pending'::public.order_status,
     p_payment_method,
-    CASE WHEN p_payment_method = 'upi' THEN 'awaiting_verification' ELSE 'pending' END,
+    (CASE WHEN p_payment_method = 'upi' THEN 'awaiting_verification' ELSE 'pending' END)::public.payment_status,
     p_payment_reference,
     p_delivery_date, p_delivery_slot_id, COALESCE(v_slot.label, 'Standard Delivery'),
     NULL, p_address_id,
@@ -168,7 +181,7 @@ BEGIN
 
   -- 10. Record status history
   INSERT INTO public.order_status_history (order_id, from_status, to_status, changed_by)
-  VALUES (v_order.id, NULL, 'pending', v_user_id);
+  VALUES (v_order.id, NULL, 'pending'::public.order_status, v_user_id);
 
   -- 11. Clear cart
   DELETE FROM public.cart_items WHERE user_id = v_user_id;

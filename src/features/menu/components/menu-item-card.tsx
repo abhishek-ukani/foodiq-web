@@ -16,10 +16,15 @@ export function MenuItemCard({ listing, delay = 0 }: { listing: MenuListing; del
   const cutoffPassed = isCutoffPassed(listing)
   const unavailable = soldOut || cutoffPassed
 
+  const linkState = {
+    date: listing.daily_menus?.menu_date,
+    mealType: listing.daily_menus?.meal_type,
+  }
+
   return (
     <Reveal delay={delay}>
       <Card className="h-full gap-0 overflow-hidden py-0 transition-shadow hover:shadow-md">
-        <Link to={ROUTES.menuItem(item.slug)} className="block">
+        <Link to={ROUTES.menuItem(item.slug)} state={linkState} className="block">
           <div className="bg-muted relative aspect-[4/3] shrink-0 overflow-hidden">
             {item.image_url ? (
               <img
@@ -53,7 +58,7 @@ export function MenuItemCard({ listing, delay = 0 }: { listing: MenuListing; del
         </Link>
 
         <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-          <Link to={ROUTES.menuItem(item.slug)} className="block">
+          <Link to={ROUTES.menuItem(item.slug)} state={linkState} className="block">
             <p className="line-clamp-1 text-sm font-medium">{item.name}</p>
           </Link>
           <div className="flex items-baseline gap-1.5">

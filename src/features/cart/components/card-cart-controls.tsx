@@ -18,7 +18,15 @@ const MAX_QUANTITY = 10
  * (no add-ons) cart line — customised lines are managed from the cart page,
  * so bumping quantity here can't silently change someone's chosen add-ons.
  */
-export function CardCartControls({ foodItemId, className }: { foodItemId: string; className?: string }) {
+export function CardCartControls({
+  foodItemId,
+  className,
+  disabled,
+}: {
+  foodItemId: string
+  className?: string
+  disabled?: boolean
+}) {
   const navigate = useNavigate()
   const location = useLocation()
   const { isAuthenticated } = useAuth()
@@ -38,6 +46,20 @@ export function CardCartControls({ foodItemId, className }: { foodItemId: string
   const stop = (event: React.MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
+  }
+
+  if (disabled) {
+    return (
+      <Button
+        size="sm"
+        variant="secondary"
+        className={cn('w-full opacity-60 cursor-not-allowed text-xs font-medium', className)}
+        disabled
+      >
+        <ShoppingBag className="size-3.5 mr-1" aria-hidden />
+        Closed
+      </Button>
+    )
   }
 
   if (!line) {

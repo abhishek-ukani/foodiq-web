@@ -120,15 +120,22 @@ export function CheckoutPage() {
   const placeOrder = usePlaceOrder()
   const resolveDelivery = useResolveDelivery()
 
-  // Dynamic default: Lunch if ordering before 3:00 PM, else Dinner
+  const [deliveryDate, setDeliveryDate] = useState(dayjs().format('YYYY-MM-DD'))
+
+  const isToday = deliveryDate === dayjs().format('YYYY-MM-DD')
+  const currentTimeStr = dayjs().format('HH:mm')
+
+  const isLunchCutoffPassed = isToday && currentTimeStr >= '11:30'
+  const isDinnerCutoffPassed = isToday && currentTimeStr >= '23:00'
+
+  // Dynamic default: Lunch if ordering before 11:30 AM, else Dinner
   const initialMealOption = useMemo<'lunch' | 'dinner'>(() => {
-    const currentHour = dayjs().hour()
-    return currentHour < 15 ? 'lunch' : 'dinner'
+    const currentHM = dayjs().format('HH:mm')
+    return currentHM < '11:30' ? 'lunch' : 'dinner'
   }, [])
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const [showAddressForm, setShowAddressForm] = useState(false)
-  const [deliveryDate, setDeliveryDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [deliveryTimeOption, setDeliveryTimeOption] = useState<'lunch' | 'dinner' | 'custom'>(initialMealOption)
   const [customDeliveryTime, setCustomDeliveryTime] = useState('')
   const [slotId, setSlotId] = useState<string | null>(null)
@@ -172,12 +179,18 @@ export function CheckoutPage() {
   const deliveryFee = deliveryResolved?.deliverable ? (deliveryResolved.fee ?? 0) : null
   const total = deliveryFee !== null ? subtotal + deliveryFee : subtotal
 
-  // Order can proceed if an address is selected and deliverable
+  const isTimingCutoffPassed =
+    isToday &&
+    ((deliveryTimeOption === 'lunch' && isLunchCutoffPassed) ||
+      (deliveryTimeOption === 'dinner' && isDinnerCutoffPassed))
+
+  // Order can proceed if an address is selected, deliverable, and cutoff hasn't passed
   const canSubmit = Boolean(
     selectedAddressId &&
       items.length &&
       deliveryResolved?.deliverable === true &&
-      !resolveDelivery.isPending,
+      !resolveDelivery.isPending &&
+      !isTimingCutoffPassed,
   )
 
   const handlePlaceOrder = () => {
@@ -352,13 +365,13 @@ export function CheckoutPage() {
                     onValueChange={(v) => setDeliveryTimeOption(v as 'lunch' | 'dinner' | 'custom')}
                     className="grid grid-cols-1 sm:grid-cols-3 gap-2"
                   >
-                    <label className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium">
-                      <RadioGroupItem value="lunch" id="time-lunch" />
-                      <span>🍱 Lunch (Before 1:30 PM)</span>
+                    <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isLunchCutoffPassed ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
+                      <RadioGroupItem value="lunch" id="time-lunch" disabled={isLunchCutoffPassed} />
+                      <span>🍱 Lunch {isLunchCutoffPassed ? '(Closed)' : '(Before 1:30 PM)'}</span>
                     </label>
-                    <label className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium">
-                      <RadioGroupItem value="dinner" id="time-dinner" />
-                      <span>🍲 Dinner (Before 8:00 PM)</span>
+                    <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isDinnerCutoffPassed ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
+                      <RadioGroupItem value="dinner" id="time-dinner" disabled={isDinnerCutoffPassed} />
+                      <span>🍲 Dinner {isDinnerCutoffPassed ? '(Closed)' : '(Before 8:00 PM)'}</span>
                     </label>
                     <label className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium">
                       <RadioGroupItem value="custom" id="time-custom" />
@@ -367,6 +380,15 @@ export function CheckoutPage() {
                   </RadioGroup>
                 </div>
               </div>
+
+              {isTimingCutoffPassed && (
+                <Alert variant="destructive" className="mt-2">
+                  <AlertTriangle className="size-4" />
+                  <AlertDescription>
+                    Ordering for today's {deliveryTimeOption === 'lunch' ? 'Lunch (Cutoff 11:30 AM)' : 'Dinner'} is closed. Please select Dinner or choose a future delivery date.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {deliveryTimeOption === 'custom' && (
                 <div className="pt-1">

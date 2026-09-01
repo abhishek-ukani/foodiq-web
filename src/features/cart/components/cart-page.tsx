@@ -48,7 +48,7 @@ export function CartPage() {
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
             {items.map((item) => {
-              const basePrice = item.food_items.offer_price ?? item.food_items.price
+              const basePrice = item.food_items.price
               const addOns = (item.customizations as SelectedCustomization[] | null) ?? []
               const price = basePrice + customizationsTotal(addOns)
               return (

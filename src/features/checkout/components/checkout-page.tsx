@@ -24,7 +24,6 @@ import { AddressForm } from '@/features/addresses/components/address-form'
 import { useAddresses } from '@/features/addresses/hooks/use-addresses'
 import {
   useActiveDeliverySlots,
-  useActiveUpiQr,
   usePlaceOrder,
 } from '@/features/checkout/hooks/use-checkout'
 import { useResolveDelivery } from '@/features/checkout/hooks/use-resolve-delivery'
@@ -116,7 +115,6 @@ export function CheckoutPage() {
   const { items, subtotal } = useCartSummary()
   const { data: addresses, isPending: addressesPending } = useAddresses()
   const { data: slots, isPending: slotsPending } = useActiveDeliverySlots()
-  const { data: upiQr } = useActiveUpiQr()
   const placeOrder = usePlaceOrder()
   const resolveDelivery = useResolveDelivery()
 
@@ -447,25 +445,12 @@ export function CheckoutPage() {
               </RadioGroup>
 
               {paymentMethod === 'upi' ? (
-                <div className="space-y-3 rounded-lg border p-4">
-                  {upiQr?.qr_image_url ? (
-                    <img
-                      src={upiQr.qr_image_url}
-                      alt="UPI QR code"
-                      className="mx-auto size-48 rounded-lg"
-                    />
-                  ) : (
-                    <p className="text-muted-foreground text-center text-sm">
-                      QR code not available right now — you can still place the order and pay via UPI ID.
-                    </p>
-                  )}
-                  {upiQr?.upi_id ? (
-                    <p className="text-center text-sm font-medium">
-                      UPI ID: <span className="font-mono">{upiQr.upi_id}</span>
-                    </p>
-                  ) : null}
+                <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
+                  <p className="text-sm font-medium text-foreground">
+                    Pay via UPI on delivery or via manual payment link provided by kitchen staff.
+                  </p>
                   <Input
-                    placeholder="Enter UPI reference / Transaction ID"
+                    placeholder="Optional: Enter UPI transaction / UTR reference number"
                     value={paymentReference}
                     onChange={(e) => setPaymentReference(e.target.value)}
                   />

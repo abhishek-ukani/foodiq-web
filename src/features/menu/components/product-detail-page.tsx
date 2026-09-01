@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
 import {
   Leaf,
@@ -63,8 +63,30 @@ export function ProductDetailPage() {
   const [instructions, setInstructions] = useState('')
   const [showInstructions, setShowInstructions] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [availableSabjis, setAvailableSabjis] = useState<{ id: string; label: string }[]>([])
+  const [groupAddOns, setGroupAddOns] = useState<{ id: string; name: string; price_delta: number }[]>([])
+  const [customAddonMap, setCustomAddonMap] = useState<Map<string, { id: string; name: string; price_delta: number }>>(new Map())
   const [optionSelections, setOptionSelections] = useState<Record<string, string[]>>({})
   const [isOptionSelectionValid, setIsOptionSelectionValid] = useState(true)
+
+  const handleSabjiOptionsLoaded = useCallback((sabjis: { id: string; label: string }[]) => {
+    setAvailableSabjis((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(sabjis)) return prev
+      return sabjis
+    })
+  }, [])
+
+  const handleAddOnOptionsLoaded = useCallback((addOns: { id: string; name: string; price_delta: number }[]) => {
+    setGroupAddOns((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(addOns)) return prev
+      return addOns
+    })
+  }, [])
+
+  const handleSelectionChange = useCallback((selMap: Record<string, string[]>, isValid: boolean) => {
+    setOptionSelections(selMap)
+    setIsOptionSelectionValid(isValid)
+  }, [])
 
   if (isPending) {
     return (
@@ -104,17 +126,33 @@ export function ProductDetailPage() {
     )
   }
 
-  const basePrice = item.offer_price ?? item.price
-  const strikePrice = item.offer_price ? item.price : null
-  const selectedCustomizations = item.item_customizations.filter((c) => selectedIds.has(c.id))
-  const addOnsTotal = selectedCustomizations.reduce((sum, c) => sum + c.price_delta, 0)
+  const basePrice = item.price
+  const strikePrice = item.compare_price ?? null
+  const resolvedSelectedCustomizations = Array.from(selectedIds).map((id) => {
+    if (customAddonMap.has(id)) {
+      return customAddonMap.get(id)!
+    }
+    const match = item.item_customizations.find((c) => c.id === id)
+    return {
+      id,
+      name: match?.name || 'Add-on',
+      price_delta: Number(match?.price_delta || 0),
+    }
+  })
+  const addOnsTotal = resolvedSelectedCustomizations.reduce((sum, c) => sum + c.price_delta, 0)
   const totalPrice = (basePrice + addOnsTotal) * quantity
 
-  const toggleCustomization = (id: string) => {
+  const toggleCustomization = (id: string, dynamicDetails?: { name: string; price_delta: number }) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+        if (dynamicDetails) {
+          setCustomAddonMap((m) => new Map(m).set(id, { id, name: dynamicDetails.name, price_delta: dynamicDetails.price_delta }))
+        }
+      }
       return next
     })
   }
@@ -124,7 +162,7 @@ export function ProductDetailPage() {
       navigate(ROUTES.login, { state: { from: location } })
       return
     }
-    const customizationList = selectedCustomizations.map((c) => ({
+    const customizationList = resolvedSelectedCustomizations.map((c) => ({
       id: c.id,
       name: c.name,
       price_delta: c.price_delta,
@@ -239,10 +277,9 @@ export function ProductDetailPage() {
                 foodItemId={item.id}
                 selectedDate={state?.date}
                 mealType={state?.mealType}
-                onSelectionChange={(selMap, isValid) => {
-                  setOptionSelections(selMap)
-                  setIsOptionSelectionValid(isValid)
-                }}
+                onSabjiOptionsLoaded={handleSabjiOptionsLoaded}
+                onAddOnOptionsLoaded={handleAddOnOptionsLoaded}
+                onSelectionChange={handleSelectionChange}
               />
             </div>
           )}
@@ -251,6 +288,8 @@ export function ProductDetailPage() {
           <div className="px-4 sm:px-5">
             <ItemCustomizationPicker
               customizations={item.item_customizations}
+              groupAddOns={groupAddOns}
+              availableSabjis={availableSabjis}
               selectedIds={selectedIds}
               onToggle={toggleCustomization}
             />

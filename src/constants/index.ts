@@ -84,7 +84,6 @@ export const ORDER_STATUS_META: Record<
 export const ORDER_TIMELINE: OrderStatus[] = [
   'pending',
   'accepted',
-  'preparing',
   'ready',
   'out_for_delivery',
   'delivered',

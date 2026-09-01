@@ -35,7 +35,7 @@ export function FavoritesTab() {
     <div className="grid gap-4 sm:grid-cols-2">
       {favorites.map((favorite) => {
         const item = favorite.food_items
-        const price = item.offer_price ?? item.price
+        const price = item.price
         return (
           <Card key={favorite.id} className="overflow-hidden">
             <Link to={ROUTES.menuItem(item.slug)} className="flex gap-3">

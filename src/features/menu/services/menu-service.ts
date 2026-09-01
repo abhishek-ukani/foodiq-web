@@ -108,14 +108,14 @@ export async function fetchFoodItemBySlug(slug: string): Promise<FoodItemDetail>
       '*, categories(*), thali_items!thali_items_thali_id_fkey(*, food_items!thali_items_food_item_id_fkey(name)), item_customizations(*)',
     )
     .eq('slug', slug)
-    .eq('item_customizations.is_active', true)
     .single()
   if (error) throw error
   const item = data as unknown as FoodItemDetail
+  const activeCustomizations = (item.item_customizations || []).filter((c) => c.is_active !== false)
   return {
     ...item,
-    thali_items: [...item.thali_items].sort((a, b) => a.display_order - b.display_order),
-    item_customizations: [...item.item_customizations].sort(
+    thali_items: [...(item.thali_items || [])].sort((a, b) => a.display_order - b.display_order),
+    item_customizations: [...activeCustomizations].sort(
       (a, b) => a.display_order - b.display_order,
     ),
   }

@@ -1,8 +1,40 @@
 -- ====================================================================
--- FoodIQ — Update place_order RPC with explicit enum type casting
--- & Server-side Cutoff Time Enforcement
+-- FoodIQ — Migration 3: Order & Cart Variant Support + RPC Update
+-- Run AFTER add_variants_and_pricing.sql
+-- Run in Supabase SQL Editor (Database -> SQL Editor)
 -- ====================================================================
 
+-- ── 1. Extend cart_items with variant_id ─────────────────────────────
+ALTER TABLE public.cart_items
+  ADD COLUMN IF NOT EXISTS variant_id UUID
+    REFERENCES public.food_item_variants(id) ON DELETE SET NULL;
+
+-- Unique constraint: one row per (user, food_item, variant) in cart
+-- variant_id IS NULL means "item without a variant" — handled separately
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'unique_user_food_item_variant_in_cart'
+  ) THEN
+    ALTER TABLE public.cart_items
+      ADD CONSTRAINT unique_user_food_item_variant_in_cart
+      UNIQUE NULLS NOT DISTINCT (user_id, food_item_id, variant_id);
+  END IF;
+END$$;
+
+-- ── 2. Extend order_items with variant support ────────────────────────
+ALTER TABLE public.order_items
+  ADD COLUMN IF NOT EXISTS variant_id       UUID
+    REFERENCES public.food_item_variants(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS variant_snapshot JSONB; -- freeze variant at order time
+
+-- ── 3. Update place_order RPC ─────────────────────────────────────────
+--      Key changes from the original:
+--      a) fi.offer_price → fi.compare_price (column rename)
+--      b) When cart item has variant_id, use the variant's price
+--      c) Populate variant_id and variant_snapshot in order_items
+-- ====================================================================
 CREATE OR REPLACE FUNCTION public.place_order(
   p_address_id           UUID,
   p_delivery_date        DATE,
@@ -26,10 +58,13 @@ DECLARE
   v_subtotal          NUMERIC := 0;
   v_calculated_charge NUMERIC := 0;
   v_zone_rec          RECORD;
-  v_rule_rec          RECORD;
   v_order_number      TEXT;
   v_order             public.orders%ROWTYPE;
   v_menu_cutoff       TEXT;
+  v_cart_item         RECORD;
+  v_variant           public.food_item_variants%ROWTYPE;
+  v_unit_price        NUMERIC;
+  v_line_total        NUMERIC;
 BEGIN
   -- 1. Authenticated user check
   v_user_id := auth.uid();
@@ -78,9 +113,11 @@ BEGIN
   END IF;
 
   -- 5. Compute subtotal from cart
+  --    If cart item has a variant_id, use variant price; otherwise use food_item price.
+  --    compare_price is the MRP — the actual selling price is always `price`.
   SELECT COALESCE(SUM(
     (
-      COALESCE(fi.offer_price, fi.price)
+      COALESCE(fiv.price, fi.price)
       + COALESCE((
           SELECT SUM((cust->>'price_delta')::NUMERIC)
           FROM jsonb_array_elements(ci.customizations) AS cust
@@ -90,6 +127,7 @@ BEGIN
   INTO v_subtotal
   FROM public.cart_items ci
   JOIN public.food_items fi ON fi.id = ci.food_item_id
+  LEFT JOIN public.food_item_variants fiv ON fiv.id = ci.variant_id
   WHERE ci.user_id = v_user_id;
 
   IF v_subtotal = 0 THEN
@@ -118,7 +156,7 @@ BEGIN
     v_calculated_charge := COALESCE(p_delivery_charge, 0);
   END IF;
 
-  -- 7. Generate decodable order number (Option 1: FIQ-[CAT]-[SLOT][YYMMDD]-[RAND])
+  -- 7. Generate decodable order number
   DECLARE
     v_has_thali BOOLEAN := FALSE;
     v_has_other BOOLEAN := FALSE;
@@ -126,7 +164,7 @@ BEGIN
     v_slot_code TEXT    := 'L';
     v_date_code TEXT;
   BEGIN
-    SELECT 
+    SELECT
       EXISTS(SELECT 1 FROM public.cart_items ci JOIN public.food_items fi ON fi.id = ci.food_item_id WHERE ci.user_id = v_user_id AND (fi.kind = 'thali' OR fi.name ILIKE '%thali%')),
       EXISTS(SELECT 1 FROM public.cart_items ci JOIN public.food_items fi ON fi.id = ci.food_item_id WHERE ci.user_id = v_user_id AND NOT (fi.kind = 'thali' OR fi.name ILIKE '%thali%'))
     INTO v_has_thali, v_has_other;
@@ -151,7 +189,7 @@ BEGIN
                       LPAD(FLOOR(RANDOM() * 9000 + 1000)::TEXT, 4, '0');
   END;
 
-  -- 8. Insert order with validated delivery charge & explicit enum casts
+  -- 8. Insert order
   INSERT INTO public.orders (
     order_number, branch_id, user_id, status,
     payment_method, payment_status, payment_reference,
@@ -177,36 +215,90 @@ BEGIN
   )
   RETURNING * INTO v_order;
 
-  -- 9. Copy cart items -> order items
-  INSERT INTO public.order_items (
-    order_id, food_item_id, item_name, item_kind, item_image_url,
-    item_snapshot, unit_price, quantity, customizations,
-    customization_total, line_total
-  )
-  SELECT
-    v_order.id,
-    fi.id,
-    fi.name,
-    fi.kind,
-    fi.image_url,
-    to_jsonb(fi),
-    COALESCE(fi.offer_price, fi.price),
-    ci.quantity,
-    ci.customizations,
-    COALESCE((
-      SELECT SUM((cust->>'price_delta')::NUMERIC)
-      FROM jsonb_array_elements(ci.customizations) AS cust
-    ), 0),
-    (
-      COALESCE(fi.offer_price, fi.price)
+  -- 9. Copy cart items → order items
+  --    Includes variant_id and variant_snapshot for variant-based items.
+  FOR v_cart_item IN
+    SELECT
+      ci.food_item_id,
+      ci.quantity,
+      ci.customizations,
+      ci.special_instructions,
+      ci.variant_id,
+      fi.name      AS food_name,
+      fi.kind      AS food_kind,
+      fi.image_url AS food_image_url,
+      fi.price     AS food_price,
+      fiv.price    AS variant_price,
+      fiv.label    AS variant_label,
+      fiv.sku      AS variant_sku,
+      fiv.unit_type AS variant_unit_type,
+      fiv.quantity  AS variant_quantity
+    FROM public.cart_items ci
+    JOIN public.food_items fi ON fi.id = ci.food_item_id
+    LEFT JOIN public.food_item_variants fiv ON fiv.id = ci.variant_id
+    WHERE ci.user_id = v_user_id
+  LOOP
+    -- Resolve effective unit price: variant price takes priority over food_item price
+    v_unit_price := COALESCE(v_cart_item.variant_price, v_cart_item.food_price);
+
+    v_line_total := (
+      v_unit_price
       + COALESCE((
           SELECT SUM((cust->>'price_delta')::NUMERIC)
-          FROM jsonb_array_elements(ci.customizations) AS cust
+          FROM jsonb_array_elements(v_cart_item.customizations) AS cust
         ), 0)
-    ) * ci.quantity
-  FROM public.cart_items ci
-  JOIN public.food_items fi ON fi.id = ci.food_item_id
-  WHERE ci.user_id = v_user_id;
+    ) * v_cart_item.quantity;
+
+    INSERT INTO public.order_items (
+      order_id,
+      food_item_id,
+      item_name,
+      item_kind,
+      item_image_url,
+      unit_price,
+      quantity,
+      customizations,
+      customization_total,
+      line_total,
+      special_instructions,
+      variant_id,
+      variant_snapshot
+    )
+    VALUES (
+      v_order.id,
+      v_cart_item.food_item_id,
+      CASE
+        WHEN v_cart_item.variant_label IS NOT NULL
+          THEN v_cart_item.food_name || ' – ' || v_cart_item.variant_label
+        ELSE v_cart_item.food_name
+      END,
+      v_cart_item.food_kind,
+      v_cart_item.food_image_url,
+      v_unit_price,
+      v_cart_item.quantity,
+      v_cart_item.customizations,
+      COALESCE((
+        SELECT SUM((cust->>'price_delta')::NUMERIC)
+        FROM jsonb_array_elements(v_cart_item.customizations) AS cust
+      ), 0),
+      v_line_total,
+      v_cart_item.special_instructions,
+      v_cart_item.variant_id,
+      -- Snapshot the variant details at time of order (immutable record)
+      CASE
+        WHEN v_cart_item.variant_id IS NOT NULL THEN
+          jsonb_build_object(
+            'id',        v_cart_item.variant_id,
+            'sku',       v_cart_item.variant_sku,
+            'label',     v_cart_item.variant_label,
+            'unit_type', v_cart_item.variant_unit_type,
+            'quantity',  v_cart_item.variant_quantity,
+            'price',     v_cart_item.variant_price
+          )
+        ELSE NULL
+      END
+    );
+  END LOOP;
 
   -- 10. Record status history
   INSERT INTO public.order_status_history (order_id, from_status, to_status, changed_by)

@@ -10,8 +10,8 @@ import { Reveal } from '@/components/common/reveal'
 
 export function MenuItemCard({ listing, delay = 0 }: { listing: MenuListing; delay?: number }) {
   const item = listing.food_items
-  const price = listing.price_override ?? item.offer_price ?? item.price
-  const strikePrice = listing.price_override ? null : item.offer_price ? item.price : null
+  const price = listing.price_override ?? item.price
+  const strikePrice = listing.price_override ? null : item.compare_price ?? null
   const soldOut = isSoldOut(listing)
   const cutoffPassed = isCutoffPassed(listing)
   const unavailable = soldOut || cutoffPassed

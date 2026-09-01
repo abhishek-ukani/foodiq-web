@@ -11,17 +11,6 @@ export async function fetchActiveDeliverySlots(): Promise<Tables<'delivery_slots
   return data
 }
 
-export async function fetchActiveUpiQr(): Promise<Tables<'upi_qr_codes'> | null> {
-  const { data, error } = await supabase
-    .from('upi_qr_codes')
-    .select('*')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (error) throw error
-  return data
-}
 
 type PlaceOrderArgs = Database['public']['Functions']['place_order']['Args']
 

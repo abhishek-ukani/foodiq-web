@@ -27,7 +27,7 @@ export function useCartSummary() {
     const itemCount = items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
     const subtotal =
       items?.reduce((sum, item) => {
-        const price = item.food_items.offer_price ?? item.food_items.price
+        const price = item.food_items.price
         return sum + (price + customizationsTotal(item.customizations)) * item.quantity
       }, 0) ?? 0
     return { itemCount, subtotal, items: items ?? [] }

@@ -99,7 +99,7 @@ export function MenuPage() {
     }
 
     const priceOf = (l: (typeof result)[number]) =>
-      l.price_override ?? l.food_items.offer_price ?? l.food_items.price
+      l.price_override ?? l.food_items.price
 
     if (sort === 'price-asc') result = [...result].sort((a, b) => priceOf(a) - priceOf(b))
     if (sort === 'price-desc') result = [...result].sort((a, b) => priceOf(b) - priceOf(a))

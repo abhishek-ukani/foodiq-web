@@ -65,8 +65,8 @@ export function HeroSection() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Button size="lg" asChild>
-              <Link to={banner?.cta_url ?? ROUTES.register}>
-                {banner?.cta_label ?? 'Order your first tiffin'}
+              <Link to={banner?.cta_url ?? ROUTES.menu}>
+                {banner?.cta_label ?? 'Order now'}
                 <ArrowRight className="size-4" aria-hidden />
               </Link>
             </Button>

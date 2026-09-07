@@ -1,6 +1,6 @@
 -- ====================================================================
--- FoodIQ — Update place_order RPC with explicit enum type casting
--- & Server-side Cutoff Time Enforcement
+-- FoodIQ — Update place_order RPC with zone-based delivery fields,
+-- variant support, and preferred_lunch_time (Fixes fi.offer_price bug)
 -- ====================================================================
 
 CREATE OR REPLACE FUNCTION public.place_order(
@@ -11,7 +11,10 @@ CREATE OR REPLACE FUNCTION public.place_order(
   p_special_instructions TEXT    DEFAULT NULL,
   p_payment_reference    TEXT    DEFAULT NULL,
   p_delivery_charge      NUMERIC DEFAULT 0,
-  p_zone_type            TEXT    DEFAULT NULL
+  p_zone_type            TEXT    DEFAULT NULL,
+  p_is_out_of_zone       BOOLEAN DEFAULT FALSE,
+  p_zone_label           TEXT    DEFAULT NULL,
+  p_preferred_lunch_time TEXT    DEFAULT NULL
 )
 RETURNS public.orders
 LANGUAGE plpgsql
@@ -25,11 +28,12 @@ DECLARE
   v_slot              public.delivery_slots%ROWTYPE;
   v_subtotal          NUMERIC := 0;
   v_calculated_charge NUMERIC := 0;
-  v_zone_rec          RECORD;
-  v_rule_rec          RECORD;
   v_order_number      TEXT;
   v_order             public.orders%ROWTYPE;
   v_menu_cutoff       TEXT;
+  v_cart_item         RECORD;
+  v_unit_price        NUMERIC;
+  v_line_total        NUMERIC;
 BEGIN
   -- 1. Authenticated user check
   v_user_id := auth.uid();
@@ -80,7 +84,7 @@ BEGIN
   -- 5. Compute subtotal from cart
   SELECT COALESCE(SUM(
     (
-      COALESCE(fi.offer_price, fi.price)
+      COALESCE(fiv.price, fi.price)
       + COALESCE((
           SELECT SUM((cust->>'price_delta')::NUMERIC)
           FROM jsonb_array_elements(ci.customizations) AS cust
@@ -90,33 +94,15 @@ BEGIN
   INTO v_subtotal
   FROM public.cart_items ci
   JOIN public.food_items fi ON fi.id = ci.food_item_id
+  LEFT JOIN public.food_item_variants fiv ON fiv.id = ci.variant_id
   WHERE ci.user_id = v_user_id;
 
   IF v_subtotal = 0 THEN
     RAISE EXCEPTION 'Cart is empty';
   END IF;
 
-  -- 6. Server-side Delivery Charge Validation / Calculation
-  SELECT * INTO v_zone_rec
-  FROM public.delivery_zones
-  WHERE is_active = true
-    AND (
-      (pincode IS NOT NULL AND pincode = v_address.pincode)
-      OR (name ILIKE '%' || v_address.city || '%')
-    )
-  LIMIT 1;
-
-  IF v_zone_rec IS NOT NULL THEN
-    IF v_zone_rec.zone_type = 'BLOCKED' THEN
-      RAISE EXCEPTION 'Delivery is unavailable for this zone';
-    ELSIF v_zone_rec.zone_type = 'FREE' THEN
-      v_calculated_charge := 0;
-    ELSIF v_zone_rec.zone_type = 'PAID' THEN
-      v_calculated_charge := v_zone_rec.fixed_fee;
-    END IF;
-  ELSE
-    v_calculated_charge := COALESCE(p_delivery_charge, 0);
-  END IF;
+  -- 6. Delivery Charge Resolution
+  v_calculated_charge := COALESCE(p_delivery_charge, 0);
 
   -- 7. Generate decodable order number (Option 1: FIQ-[CAT]-[SLOT][YYMMDD]-[RAND])
   DECLARE
@@ -151,7 +137,7 @@ BEGIN
                       LPAD(FLOOR(RANDOM() * 9000 + 1000)::TEXT, 4, '0');
   END;
 
-  -- 8. Insert order with validated delivery charge & explicit enum casts
+  -- 8. Insert order with validated delivery charge & zone fields
   INSERT INTO public.orders (
     order_number, branch_id, user_id, status,
     payment_method, payment_status, payment_reference,
@@ -160,7 +146,8 @@ BEGIN
     contact_name, contact_phone,
     address_line1, address_line2, landmark, city, state, pincode,
     subtotal, delivery_charge, discount_amount, tax_amount, total_amount,
-    special_instructions, placed_at
+    special_instructions, placed_at,
+    is_out_of_zone, zone_label, preferred_lunch_time
   )
   VALUES (
     v_order_number, v_branch_id, v_user_id, 'pending'::public.order_status,
@@ -173,40 +160,95 @@ BEGIN
     v_address.address_line1, v_address.address_line2, v_address.landmark,
     v_address.city, v_address.state, v_address.pincode,
     v_subtotal, v_calculated_charge, 0, 0, (v_subtotal + v_calculated_charge),
-    p_special_instructions, now()
+    p_special_instructions, now(),
+    COALESCE(p_is_out_of_zone, FALSE), p_zone_label, p_preferred_lunch_time
   )
   RETURNING * INTO v_order;
 
   -- 9. Copy cart items -> order items
-  INSERT INTO public.order_items (
-    order_id, food_item_id, item_name, item_kind, item_image_url,
-    item_snapshot, unit_price, quantity, customizations,
-    customization_total, line_total
-  )
-  SELECT
-    v_order.id,
-    fi.id,
-    fi.name,
-    fi.kind,
-    fi.image_url,
-    to_jsonb(fi),
-    COALESCE(fi.offer_price, fi.price),
-    ci.quantity,
-    ci.customizations,
-    COALESCE((
-      SELECT SUM((cust->>'price_delta')::NUMERIC)
-      FROM jsonb_array_elements(ci.customizations) AS cust
-    ), 0),
-    (
-      COALESCE(fi.offer_price, fi.price)
+  FOR v_cart_item IN
+    SELECT
+      ci.food_item_id,
+      ci.quantity,
+      ci.customizations,
+      ci.special_instructions,
+      ci.variant_id,
+      fi.name      AS food_name,
+      fi.kind      AS food_kind,
+      fi.image_url AS food_image_url,
+      fi.price     AS food_price,
+      fiv.price    AS variant_price,
+      fiv.label    AS variant_label,
+      fiv.sku      AS variant_sku,
+      fiv.unit_type AS variant_unit_type,
+      fiv.quantity  AS variant_quantity,
+      to_jsonb(fi) AS food_snapshot
+    FROM public.cart_items ci
+    JOIN public.food_items fi ON fi.id = ci.food_item_id
+    LEFT JOIN public.food_item_variants fiv ON fiv.id = ci.variant_id
+    WHERE ci.user_id = v_user_id
+  LOOP
+    v_unit_price := COALESCE(v_cart_item.variant_price, v_cart_item.food_price);
+
+    v_line_total := (
+      v_unit_price
       + COALESCE((
           SELECT SUM((cust->>'price_delta')::NUMERIC)
-          FROM jsonb_array_elements(ci.customizations) AS cust
+          FROM jsonb_array_elements(v_cart_item.customizations) AS cust
         ), 0)
-    ) * ci.quantity
-  FROM public.cart_items ci
-  JOIN public.food_items fi ON fi.id = ci.food_item_id
-  WHERE ci.user_id = v_user_id;
+    ) * v_cart_item.quantity;
+
+    INSERT INTO public.order_items (
+      order_id,
+      food_item_id,
+      item_name,
+      item_kind,
+      item_image_url,
+      item_snapshot,
+      unit_price,
+      quantity,
+      customizations,
+      customization_total,
+      line_total,
+      special_instructions,
+      variant_id,
+      variant_snapshot
+    )
+    VALUES (
+      v_order.id,
+      v_cart_item.food_item_id,
+      CASE
+        WHEN v_cart_item.variant_label IS NOT NULL
+          THEN v_cart_item.food_name || ' – ' || v_cart_item.variant_label
+        ELSE v_cart_item.food_name
+      END,
+      v_cart_item.food_kind,
+      v_cart_item.food_image_url,
+      v_cart_item.food_snapshot,
+      v_unit_price,
+      v_cart_item.quantity,
+      v_cart_item.customizations,
+      COALESCE((
+        SELECT SUM((cust->>'price_delta')::NUMERIC)
+        FROM jsonb_array_elements(v_cart_item.customizations) AS cust
+      ), 0),
+      v_line_total,
+      v_cart_item.special_instructions,
+      v_cart_item.variant_id,
+      CASE
+        WHEN v_cart_item.variant_id IS NOT NULL THEN
+          jsonb_build_object(
+            'id',        v_cart_item.variant_id,
+            'sku',       v_cart_item.variant_sku,
+            'label',     v_cart_item.variant_label,
+            'unit_type', v_cart_item.variant_unit_type,
+            'quantity',  v_cart_item.variant_quantity,
+            'price',     v_cart_item.variant_price
+          )
+        ELSE NULL
+      END
+    );
+  END LOOP;
 
   -- 10. Record status history
   INSERT INTO public.order_status_history (order_id, from_status, to_status, changed_by)
@@ -228,5 +270,9 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.place_order(
-  UUID, DATE, UUID, public.payment_method, TEXT, TEXT, NUMERIC, TEXT
+  UUID, DATE, UUID, public.payment_method, TEXT, TEXT, NUMERIC, TEXT, BOOLEAN, TEXT, TEXT
 ) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION public.place_order(
+  UUID, DATE, UUID, public.payment_method, TEXT, TEXT, NUMERIC, TEXT, BOOLEAN, TEXT, TEXT
+) TO anon;

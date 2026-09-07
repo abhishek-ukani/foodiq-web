@@ -51,7 +51,7 @@ export async function fetchMenuForDate(date: string): Promise<MenuListing[]> {
   const { data: thaliFoods } = await supabase
     .from('food_items')
     .select('*, categories(*)')
-    .eq('kind', 'composite' as any)
+    .eq('kind', 'thali')
     .eq('is_available', true)
 
   if (thaliFoods && thaliFoods.length > 0 && publishedMenus && publishedMenus.length > 0) {

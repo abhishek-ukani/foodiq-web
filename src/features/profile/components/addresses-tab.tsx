@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/common/empty-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { AddressForm } from '@/features/addresses/components/address-form'
+import { AddressFlowDialog } from '@/features/addresses/components/address-flow-dialog'
 import {
   useAddresses,
   useDeleteAddress,
@@ -27,17 +27,18 @@ export function AddressesTab() {
   const deleteAddress = useDeleteAddress()
   const setDefault = useSetDefaultAddress()
 
-  const [formOpen, setFormOpen] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Address | null>(null)
   const [deleting, setDeleting] = useState<Address | null>(null)
 
   const openCreateForm = () => {
     setEditing(null)
-    setFormOpen(true)
+    setDialogOpen(true)
   }
+
   const openEditForm = (address: Address) => {
     setEditing(address)
-    setFormOpen(true)
+    setDialogOpen(true)
   }
 
   if (isPending) {
@@ -54,25 +55,13 @@ export function AddressesTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-muted-foreground text-sm">Manage the addresses you deliver to.</p>
-        {!formOpen ? (
-          <Button size="sm" onClick={openCreateForm}>
-            <Plus className="size-4" aria-hidden />
-            Add address
-          </Button>
-        ) : null}
+        <Button size="sm" onClick={openCreateForm}>
+          <Plus className="size-4" aria-hidden />
+          Add address
+        </Button>
       </div>
 
-      {formOpen ? (
-        <Card>
-          <CardContent className="pt-6">
-            <AddressForm
-              address={editing}
-              onSaved={() => setFormOpen(false)}
-              onCancel={() => setFormOpen(false)}
-            />
-          </CardContent>
-        </Card>
-      ) : !addresses?.length ? (
+      {!addresses?.length ? (
         <EmptyState
           icon={MapPin}
           title="No saved addresses"
@@ -126,6 +115,14 @@ export function AddressesTab() {
           ))}
         </div>
       )}
+
+      {/* 2-Step Interactive Google Map & Address Flow Modal */}
+      <AddressFlowDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        addressToEdit={editing}
+        onSaved={() => setDialogOpen(false)}
+      />
 
       <ConfirmDialog
         open={Boolean(deleting)}

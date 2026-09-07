@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import dayjs from 'dayjs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { QUERY_KEYS } from '@/constants'
@@ -9,7 +10,10 @@ import {
   fetchCartItems,
   removeCartItem,
   updateCartItemQuantity,
+  type CartItemWithFood,
 } from '@/features/cart/services/cart-service'
+import { useMenuForDate } from '@/features/menu/hooks/use-menu-queries'
+import { isCutoffPassed, isSoldOut } from '@/features/menu/services/menu-service'
 import { useAuth } from '@/hooks/use-auth'
 
 export function useCartItems() {
@@ -22,7 +26,10 @@ export function useCartItems() {
 }
 
 export function useCartSummary() {
-  const { data: items } = useCartItems()
+  const { data: items, isPending: isCartPending } = useCartItems()
+  const today = useMemo(() => dayjs().format('YYYY-MM-DD'), [])
+  const { data: menuListings, isPending: isMenuPending } = useMenuForDate(today)
+
   return useMemo(() => {
     const itemCount = items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
     const subtotal =
@@ -30,8 +37,48 @@ export function useCartSummary() {
         const price = item.food_items.price
         return sum + (price + customizationsTotal(item.customizations)) * item.quantity
       }, 0) ?? 0
-    return { itemCount, subtotal, items: items ?? [] }
-  }, [items])
+
+    const getItemUnavailabilityReason = (item: CartItemWithFood): string | null => {
+      if (!item.food_items.is_available) {
+        return 'Out of Stock'
+      }
+      if (!menuListings || menuListings.length === 0) {
+        return "Today's menu not published"
+      }
+      const listing = menuListings.find((l) => l.food_item_id === item.food_item_id)
+      if (!listing) {
+        return "Not on today's menu"
+      }
+      if (isSoldOut(listing)) {
+        return 'Sold Out'
+      }
+      if (isCutoffPassed(listing)) {
+        return 'Cutoff Passed'
+      }
+      return null
+    }
+
+    const unavailableItemsMap = new Map<string, string>()
+    if (items) {
+      for (const item of items) {
+        const reason = getItemUnavailabilityReason(item)
+        if (reason) {
+          unavailableItemsMap.set(item.id, reason)
+        }
+      }
+    }
+
+    const hasUnavailableItems = unavailableItemsMap.size > 0
+
+    return {
+      itemCount,
+      subtotal,
+      items: items ?? [],
+      hasUnavailableItems,
+      unavailableItemsMap,
+      isPending: isCartPending || isMenuPending,
+    }
+  }, [items, menuListings, isCartPending, isMenuPending])
 }
 
 export function useAddToCart() {

@@ -7,9 +7,10 @@ import {
   ChevronLeft,
   Loader2,
   MapPin,
+  Navigation,
   Plus,
-  RefreshCw,
   ShoppingBag,
+  Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -20,103 +21,33 @@ import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { EmptyState } from '@/components/common/empty-state'
-import { AddressForm } from '@/features/addresses/components/address-form'
+import { AddressFlowDialog } from '@/features/addresses/components/address-flow-dialog'
 import { useAddresses } from '@/features/addresses/hooks/use-addresses'
+import { usePlaceOrder } from '@/features/checkout/hooks/use-checkout'
 import {
-  useActiveDeliverySlots,
-  usePlaceOrder,
-} from '@/features/checkout/hooks/use-checkout'
-import { useResolveDelivery } from '@/features/checkout/hooks/use-resolve-delivery'
+  useDeliveryAreas,
+  useDeliveryFeeRules,
+  useKitchenLocation,
+} from '@/features/addresses/hooks/use-delivery-zones'
+import {
+  resolveDeliveryCharge,
+  type DeliveryResolutionResult,
+} from '@/features/checkout/services/delivery-charge-resolver'
 import { useCartSummary } from '@/features/cart/hooks/use-cart'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
 import type { PaymentMethod, Tables } from '@/types/database.types'
-import type { DeliveryResult } from '@/features/checkout/services/resolve-delivery-service'
-
-// ---------------------------------------------------------------------------
-// Helper: Delivery Status Banner
-// ---------------------------------------------------------------------------
-
-function DeliveryStatusBanner({
-  isPending,
-  data,
-  isError,
-  onRetry,
-}: {
-  isPending: boolean
-  data?: DeliveryResult
-  isError: boolean
-  onRetry: () => void
-}) {
-  if (isPending) {
-    return (
-      <div className="bg-muted/40 text-muted-foreground flex items-center gap-2 rounded-lg border p-3.5 text-xs font-medium">
-        <Loader2 className="size-4 animate-spin text-primary" aria-hidden />
-        <span>Calculating delivery availability for selected address…</span>
-      </div>
-    )
-  }
-
-  if (isError) {
-    return (
-      <Alert variant="warning">
-        <AlertTriangle className="size-4" />
-        <AlertDescription className="flex items-center justify-between">
-          <span>We couldn't determine your delivery availability right now.</span>
-          <Button variant="ghost" size="sm" onClick={onRetry} className="gap-1 text-xs">
-            <RefreshCw className="size-3.5" />
-            Retry
-          </Button>
-        </AlertDescription>
-      </Alert>
-    )
-  }
-
-  if (!data) return null
-
-  if (!data.deliverable) {
-    const isBlocked = data.zone_type === 'BLOCKED'
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle className="size-4" />
-        <AlertDescription>
-          {isBlocked
-            ? 'We do not deliver to this area at present. Please select another address.'
-            : data.distance_km != null
-            ? `Address is outside our ${data.distance_km} km service radius. Please choose a closer location.`
-            : 'Delivery is unavailable for this location. Please try another address.'}
-        </AlertDescription>
-      </Alert>
-    )
-  }
-
-  return (
-    <div className="bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 flex items-center justify-between rounded-lg border p-3.5 text-xs text-emerald-900 dark:text-emerald-200">
-      <span className="font-medium">
-        {data.zone_type === 'FREE' ? (
-          '🎉 Free Delivery available for this address!'
-        ) : (
-          <>
-            Delivery available! Charge:{' '}
-            <strong className="font-semibold">{CURRENCY_SYMBOL}{data.fee}</strong>
-            {data.distance_km != null ? ` (${data.distance_km} km away)` : ''}
-          </>
-        )}
-      </span>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Main checkout page
-// ---------------------------------------------------------------------------
 
 export function CheckoutPage() {
   const navigate = useNavigate()
-  const { items, subtotal } = useCartSummary()
+  const { items, subtotal, hasUnavailableItems } = useCartSummary()
   const { data: addresses, isPending: addressesPending } = useAddresses()
-  const { data: slots, isPending: slotsPending } = useActiveDeliverySlots()
+  
+  // Zone Data Hooks (Standard delivery_areas + distance fee rules)
+  const { data: areas = [] } = useDeliveryAreas()
+  const { data: feeRules = [] } = useDeliveryFeeRules()
+  const { data: kitchenLoc } = useKitchenLocation()
+
   const placeOrder = usePlaceOrder()
-  const resolveDelivery = useResolveDelivery()
 
   const [deliveryDate, setDeliveryDate] = useState(dayjs().format('YYYY-MM-DD'))
 
@@ -126,17 +57,15 @@ export function CheckoutPage() {
   const isLunchCutoffPassed = isToday && currentTimeStr >= '11:30'
   const isDinnerCutoffPassed = isToday && currentTimeStr >= '23:00'
 
-  // Dynamic default: Lunch if ordering before 11:30 AM, else Dinner
   const initialMealOption = useMemo<'lunch' | 'dinner'>(() => {
     const currentHM = dayjs().format('HH:mm')
     return currentHM < '11:30' ? 'lunch' : 'dinner'
   }, [])
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
-  const [showAddressForm, setShowAddressForm] = useState(false)
+  const [addressDialogOpen, setAddressDialogOpen] = useState(false)
   const [deliveryTimeOption, setDeliveryTimeOption] = useState<'lunch' | 'dinner' | 'custom'>(initialMealOption)
   const [customDeliveryTime, setCustomDeliveryTime] = useState('')
-  const [slotId, setSlotId] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [paymentReference, setPaymentReference] = useState('')
   const [instructions, setInstructions] = useState('')
@@ -154,74 +83,56 @@ export function CheckoutPage() {
     }
   }, [addresses, selectedAddressId])
 
-  // When the selected address changes, reset any previous delivery resolution
-  useEffect(() => {
-    resolveDelivery.reset()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAddressId])
+  // Resolve delivery charge based on selected address
+  const deliveryResolution: DeliveryResolutionResult = useMemo(() => {
+    return resolveDeliveryCharge(
+      selectedAddress,
+      areas,
+      feeRules,
+      kitchenLoc,
+    )
+  }, [selectedAddress, areas, feeRules, kitchenLoc])
 
-  // Auto-trigger delivery check when an address is selected
-  useEffect(() => {
-    if (!selectedAddress) return
-    resolveDelivery.mutate({
-      locality: selectedAddress.address_line1 || selectedAddress.city || undefined,
-      pincode: selectedAddress.pincode || undefined,
-      lat: selectedAddress.latitude ?? undefined,
-      lng: selectedAddress.longitude ?? undefined,
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAddress])
-
-  // Derived delivery state
-  const deliveryResolved = resolveDelivery.data
-  const deliveryFee = deliveryResolved?.deliverable ? (deliveryResolved.fee ?? 0) : null
-  const total = deliveryFee !== null ? subtotal + deliveryFee : subtotal
+  const deliveryFee = deliveryResolution.fee
+  const total = subtotal + deliveryFee
 
   const isTimingCutoffPassed =
     isToday &&
     ((deliveryTimeOption === 'lunch' && isLunchCutoffPassed) ||
       (deliveryTimeOption === 'dinner' && isDinnerCutoffPassed))
 
-  // Order can proceed if an address is selected, deliverable, and cutoff hasn't passed
   const canSubmit = Boolean(
     selectedAddressId &&
       items.length &&
-      deliveryResolved?.deliverable === true &&
-      !resolveDelivery.isPending &&
-      !isTimingCutoffPassed,
+      !hasUnavailableItems &&
+      !isTimingCutoffPassed &&
+      !placeOrder.isPending,
   )
 
   const handlePlaceOrder = () => {
-    if (!selectedAddressId || !deliveryResolved?.deliverable) return
+    if (!selectedAddressId) return
 
-    const timeLabel =
+    const preferredTime =
       deliveryTimeOption === 'lunch'
-        ? 'Deliver before 1:30 PM (Lunch)'
+        ? 'Before 1:30 PM (Lunch)'
         : deliveryTimeOption === 'dinner'
-        ? 'Deliver before 8:00 PM (Dinner)'
-        : customDeliveryTime
-        ? `Deliver before ${customDeliveryTime}`
-        : 'Deliver before requested time'
-
-    const fullInstructions = [
-      `[Target Delivery: ${timeLabel}]`,
-      instructions.trim(),
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-    const effectiveSlotId = slotId || slots?.[0]?.id || undefined
+        ? 'Before 8:00 PM (Dinner)'
+        : customDeliveryTime.trim()
+        ? `Before ${customDeliveryTime.trim()}`
+        : 'As soon as possible'
 
     placeOrder.mutate(
       {
         addressId: selectedAddressId,
         deliveryDate,
-        deliverySlotId: effectiveSlotId as any,
         paymentMethod,
-        specialInstructions: fullInstructions,
+        specialInstructions: instructions.trim() || null,
         paymentReference: paymentMethod === 'upi' ? paymentReference.trim() || null : null,
-        deliveryCharge: deliveryResolved.fee,
-        zoneType: deliveryResolved.zone_type,
+        deliveryCharge: deliveryFee,
+        zoneType: deliveryResolution.zoneType,
+        isOutOfZone: deliveryResolution.isOutOfZone,
+        zoneLabel: deliveryResolution.zoneLabel,
+        preferredLunchTime: preferredTime,
       },
       {
         onSuccess: (order) => navigate(ROUTES.orderSuccess(order.id)),
@@ -236,7 +147,23 @@ export function CheckoutPage() {
 
   const handleAddressSaved = (address: Tables<'addresses'> | null) => {
     if (address) setSelectedAddressId(address.id)
-    setShowAddressForm(false)
+    setAddressDialogOpen(false)
+  }
+
+  if (hasUnavailableItems) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16">
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="size-4" />
+          <AlertDescription>
+            Your cart contains items that are currently out of stock or unavailable. Please return to your cart and remove them before placing an order.
+          </AlertDescription>
+        </Alert>
+        <Button asChild>
+          <Link to={ROUTES.cart}>Return to cart</Link>
+        </Button>
+      </div>
+    )
   }
 
   if (!items.length) {
@@ -262,6 +189,7 @@ export function CheckoutPage() {
 
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          
           {/* ── Delivery address ── */}
           <Card>
             <CardContent className="space-y-4 pt-6">
@@ -270,21 +198,21 @@ export function CheckoutPage() {
                   <MapPin className="size-4" aria-hidden />
                   Delivery address
                 </p>
-                {addresses?.length && !showAddressForm ? (
-                  <Button variant="ghost" size="sm" onClick={() => setShowAddressForm(true)}>
-                    <Plus className="size-3.5" aria-hidden />
-                    Add new
-                  </Button>
-                ) : null}
+                <Button variant="ghost" size="sm" onClick={() => setAddressDialogOpen(true)}>
+                  <Plus className="size-3.5" aria-hidden />
+                  Add new address
+                </Button>
               </div>
 
               {addressesPending ? (
                 <Skeleton className="h-20 w-full rounded-lg" />
-              ) : showAddressForm || !addresses?.length ? (
-                <AddressForm
-                  onSaved={handleAddressSaved}
-                  onCancel={addresses?.length ? () => setShowAddressForm(false) : undefined}
-                />
+              ) : !addresses?.length ? (
+                <div className="text-center py-6 border border-dashed rounded-lg space-y-3">
+                  <p className="text-xs text-muted-foreground">No delivery addresses saved yet.</p>
+                  <Button size="sm" onClick={() => setAddressDialogOpen(true)}>
+                    <Plus className="size-3.5 mr-1" /> Pin Location on Map & Add Address
+                  </Button>
+                </div>
               ) : (
                 <RadioGroup value={selectedAddressId ?? undefined} onValueChange={handleAddressSelect}>
                   <div className="space-y-2">
@@ -299,10 +227,11 @@ export function CheckoutPage() {
                           <p className="font-medium capitalize">
                             {address.label} — {address.contact_name}
                           </p>
-                          <p className="text-muted-foreground">
+                          <p className="text-muted-foreground text-xs">
                             {address.address_line1}
-                            {address.landmark ? `, ${address.landmark}` : ''}, {address.city},{' '}
-                            {address.state} {address.pincode}
+                            {address.address_line2 ? `, ${address.address_line2}` : ''}
+                            {address.landmark ? `, ${address.landmark}` : ''}, {address.city}{' '}
+                            {address.pincode}
                           </p>
                         </div>
                       </label>
@@ -311,32 +240,55 @@ export function CheckoutPage() {
                 </RadioGroup>
               )}
 
-              {/* Delivery resolution status banner */}
+              {/* Delivery Resolution Status Banner */}
               {selectedAddress && (
-                <DeliveryStatusBanner
-                  isPending={resolveDelivery.isPending}
-                  data={resolveDelivery.data}
-                  isError={resolveDelivery.isError}
-                  onRetry={() =>
-                    resolveDelivery.mutate({
-                      locality: selectedAddress.address_line1 || selectedAddress.city || undefined,
-                      pincode: selectedAddress.pincode || undefined,
-                      lat: selectedAddress.latitude ?? undefined,
-                      lng: selectedAddress.longitude ?? undefined,
-                    })
-                  }
-                />
+                <div className="pt-2">
+                  {!deliveryResolution.isOutOfZone ? (
+                    <div className="bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300 flex items-center justify-between rounded-lg border p-3.5 text-xs font-medium">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="size-4 text-emerald-600 shrink-0" />
+                        <span>
+                          {deliveryResolution.fee === 0 ? (
+                            '🎉 Free Delivery for this address!'
+                          ) : (
+                            <>
+                              Verified Delivery Zone ({deliveryResolution.zoneLabel}): Delivery Fee{' '}
+                              <strong className="font-semibold">{CURRENCY_SYMBOL}{deliveryResolution.fee}</strong>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-300 rounded-lg border p-3.5 text-xs space-y-1">
+                      <div className="flex items-center gap-2 font-semibold">
+                        <Navigation className="size-4 text-amber-600 shrink-0" />
+                        <span>Request Delivery to Your Location</span>
+                      </div>
+                      <p className="text-muted-foreground text-[11px] leading-relaxed">
+                        We don't have a fixed delivery charge for this area yet, but we will reach out to you as soon as your order is placed to confirm delivery details!
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
 
-          {/* ── Delivery timing & Deliver-Before Preference ── */}
+          {/* 2-Step Address Flow Dialog (Map Location Picker + Details Form) */}
+          <AddressFlowDialog
+            open={addressDialogOpen}
+            onOpenChange={setAddressDialogOpen}
+            onSaved={handleAddressSaved}
+          />
+
+          {/* ── Delivery timing & Preferred Lunch Time ── */}
           <Card>
             <CardContent className="space-y-4 pt-6">
               <div>
-                <p className="font-medium">Delivery Timing Preference</p>
+                <p className="font-medium">Preferred Delivery Window</p>
                 <p className="text-muted-foreground text-xs">
-                  Choose when you need your meal delivered (e.g., before lunch or dinner).
+                  Choose when you prefer your meal delivered.
                 </p>
               </div>
 
@@ -356,24 +308,24 @@ export function CheckoutPage() {
 
                 <div>
                   <Label className="mb-1.5 block text-sm font-medium">
-                    Deliver Before Time
+                    Target Meal Window
                   </Label>
                   <RadioGroup
                     value={deliveryTimeOption}
                     onValueChange={(v) => setDeliveryTimeOption(v as 'lunch' | 'dinner' | 'custom')}
-                    className="grid grid-cols-1 sm:grid-cols-3 gap-2"
+                    className="grid grid-cols-1 gap-2"
                   >
                     <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isLunchCutoffPassed ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
                       <RadioGroupItem value="lunch" id="time-lunch" disabled={isLunchCutoffPassed} />
-                      <span>🍱 Lunch {isLunchCutoffPassed ? '(Closed)' : '(Before 1:30 PM)'}</span>
+                      <span>🍱 Lunch (Deliver Before 1:30 PM) {isLunchCutoffPassed ? '— Closed' : ''}</span>
                     </label>
                     <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isDinnerCutoffPassed ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
                       <RadioGroupItem value="dinner" id="time-dinner" disabled={isDinnerCutoffPassed} />
-                      <span>🍲 Dinner {isDinnerCutoffPassed ? '(Closed)' : '(Before 8:00 PM)'}</span>
+                      <span>🍲 Dinner (Deliver Before 8:00 PM) {isDinnerCutoffPassed ? '— Closed' : ''}</span>
                     </label>
                     <label className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium">
                       <RadioGroupItem value="custom" id="time-custom" />
-                      <span>🕒 Custom Time</span>
+                      <span>🕒 Specific Time Request</span>
                     </label>
                   </RadioGroup>
                 </div>
@@ -383,7 +335,7 @@ export function CheckoutPage() {
                 <Alert variant="destructive" className="mt-2">
                   <AlertTriangle className="size-4" />
                   <AlertDescription>
-                    Ordering for today's {deliveryTimeOption === 'lunch' ? 'Lunch (Cutoff 11:30 AM)' : 'Dinner'} is closed. Please select Dinner or choose a future delivery date.
+                    Cutoff time for today's service has passed. Please select Dinner or a future delivery date.
                   </AlertDescription>
                 </Alert>
               )}
@@ -391,37 +343,15 @@ export function CheckoutPage() {
               {deliveryTimeOption === 'custom' && (
                 <div className="pt-1">
                   <Label htmlFor="custom-time" className="mb-1 block text-xs text-muted-foreground">
-                    Enter your preferred time (e.g. 1:00 PM or 7:30 PM)
+                    Enter your preferred time (e.g. 1:15 PM or 7:45 PM)
                   </Label>
                   <Input
                     id="custom-time"
-                    placeholder="e.g. 1:00 PM"
+                    placeholder="e.g. 1:15 PM"
                     value={customDeliveryTime}
                     onChange={(e) => setCustomDeliveryTime(e.target.value)}
-                    className="max-w-xs"
+                    className="max-w-xs text-xs"
                   />
-                </div>
-              )}
-
-              {slots && slots.length > 0 && (
-                <div className="pt-2">
-                  <Label className="mb-1.5 block text-xs text-muted-foreground">
-                    Optional: Select specific kitchen window
-                  </Label>
-                  <RadioGroup value={slotId ?? undefined} onValueChange={setSlotId}>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {slots.map((slot) => (
-                        <label
-                          key={slot.id}
-                          htmlFor={`slot-${slot.id}`}
-                          className="hover:bg-muted/50 flex items-center gap-2 rounded-lg border p-2.5 text-xs cursor-pointer"
-                        >
-                          <RadioGroupItem value={slot.id} id={`slot-${slot.id}`} />
-                          {slot.label}
-                        </label>
-                      ))}
-                    </div>
-                  </RadioGroup>
                 </div>
               )}
             </CardContent>
@@ -439,20 +369,21 @@ export function CheckoutPage() {
                   </label>
                   <label htmlFor="pay-upi" className="hover:bg-muted/50 flex items-center gap-2 rounded-lg border p-3 text-sm cursor-pointer">
                     <RadioGroupItem value="upi" id="pay-upi" />
-                    UPI
+                    UPI / Online
                   </label>
                 </div>
               </RadioGroup>
 
               {paymentMethod === 'upi' ? (
                 <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
-                  <p className="text-sm font-medium text-foreground">
-                    Pay via UPI on delivery or via manual payment link provided by kitchen staff.
+                  <p className="text-xs text-muted-foreground">
+                    Pay via UPI on delivery or via payment link sent by kitchen staff.
                   </p>
                   <Input
-                    placeholder="Optional: Enter UPI transaction / UTR reference number"
+                    placeholder="Optional: UPI UTR reference number"
                     value={paymentReference}
                     onChange={(e) => setPaymentReference(e.target.value)}
+                    className="text-xs"
                   />
                 </div>
               ) : null}
@@ -467,7 +398,7 @@ export function CheckoutPage() {
               </Label>
               <Textarea
                 id="instructions"
-                placeholder="e.g. Make it extra spicy, ring the bell twice, or leave at door..."
+                placeholder="e.g. Less spicy, ring the bell, leave at security desk..."
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 rows={3}
@@ -490,16 +421,12 @@ export function CheckoutPage() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Delivery charge</span>
                   <span>
-                    {resolveDelivery.isPending ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : deliveryResolved?.deliverable ? (
-                      deliveryResolved.fee === 0 ? (
-                        <span className="font-medium text-emerald-600">Free</span>
-                      ) : (
-                        `${CURRENCY_SYMBOL}${deliveryResolved.fee}`
-                      )
+                    {deliveryResolution.isOutOfZone ? (
+                      <span className="text-amber-600 font-medium text-xs">To be confirmed</span>
+                    ) : deliveryFee === 0 ? (
+                      <span className="font-medium text-emerald-600">Free</span>
                     ) : (
-                      '—'
+                      `${CURRENCY_SYMBOL}${deliveryFee}`
                     )}
                   </span>
                 </div>
@@ -509,12 +436,6 @@ export function CheckoutPage() {
                 <span>Total</span>
                 <span>{CURRENCY_SYMBOL}{total}</span>
               </div>
-
-              {!deliveryResolved?.deliverable && selectedAddress ? (
-                <p className="text-destructive text-xs font-medium">
-                  Confirm your delivery area to continue.
-                </p>
-              ) : null}
 
               <Button
                 className="w-full"
@@ -527,6 +448,8 @@ export function CheckoutPage() {
                     <Loader2 className="mr-2 size-4 animate-spin" />
                     Placing order…
                   </>
+                ) : deliveryResolution.isOutOfZone ? (
+                  'Request Delivery & Place Order'
                 ) : (
                   'Place order'
                 )}

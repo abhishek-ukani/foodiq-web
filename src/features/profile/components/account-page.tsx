@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,10 @@ function initialsOf(name: string | null | undefined, email: string | null | unde
 
 export function AccountPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user, profile } = useAuth()
+
+  const activeTab = searchParams.get('tab') || 'profile'
 
   const handleLogout = async () => {
     try {
@@ -34,6 +37,10 @@ export function AccountPage() {
     } catch (error) {
       toast.error(toFriendlyAuthMessage(error))
     }
+  }
+
+  const handleTabChange = (value: string) => {
+    setSearchParams({ tab: value })
   }
 
   return (
@@ -58,8 +65,8 @@ export function AccountPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="profile">
-        <TabsList>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="profile">Personal Info</TabsTrigger>
           <TabsTrigger value="addresses">Addresses</TabsTrigger>
           <TabsTrigger value="favorites">Favorites</TabsTrigger>

@@ -116,19 +116,19 @@ export function Navbar() {
                 <DropdownMenuItem asChild>
                   <Link to={ROUTES.orders} className="cursor-pointer">
                     <Package className="mr-2 size-4" />
-                    My Orders
+                    Orders
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to={`${ROUTES.profile}?tab=addresses`} className="cursor-pointer">
                     <MapPin className="mr-2 size-4" />
-                    My Addresses
+                    Saved addresses
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to={`${ROUTES.profile}?tab=favorites`} className="cursor-pointer">
                     <Heart className="mr-2 size-4" />
-                    My Favorites
+                    Favorites
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
@@ -178,19 +178,19 @@ export function Navbar() {
                     <Button variant="outline" className="w-full justify-start" asChild>
                       <Link to={ROUTES.orders} onClick={() => setMobileOpen(false)}>
                         <Package className="mr-2 size-4" />
-                        My Orders
+                        Orders
                       </Link>
                     </Button>
                     <Button variant="outline" className="w-full justify-start" asChild>
                       <Link to={`${ROUTES.profile}?tab=addresses`} onClick={() => setMobileOpen(false)}>
                         <MapPin className="mr-2 size-4" />
-                        My Addresses
+                        Saved addresses
                       </Link>
                     </Button>
                     <Button variant="outline" className="w-full justify-start" asChild>
                       <Link to={`${ROUTES.profile}?tab=favorites`} onClick={() => setMobileOpen(false)}>
                         <Heart className="mr-2 size-4 text-rose-500" />
-                        My Favorites
+                        Favorites
                       </Link>
                     </Button>
                     <Button variant="ghost" className="w-full justify-start text-destructive" onClick={handleLogout}>

@@ -34,6 +34,7 @@ import {
   type DeliveryResolutionResult,
 } from '@/features/checkout/services/delivery-charge-resolver'
 import { useCartSummary } from '@/features/cart/hooks/use-cart'
+import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
 import type { PaymentMethod, Tables } from '@/types/database.types'
 
@@ -50,17 +51,16 @@ export function CheckoutPage() {
   const placeOrder = usePlaceOrder()
 
   const [deliveryDate, setDeliveryDate] = useState(dayjs().format('YYYY-MM-DD'))
+  const timing = useMealTiming(deliveryDate)
 
   const isToday = deliveryDate === dayjs().format('YYYY-MM-DD')
-  const currentTimeStr = dayjs().format('HH:mm')
 
-  const isLunchCutoffPassed = isToday && currentTimeStr >= '11:30'
-  const isDinnerCutoffPassed = isToday && currentTimeStr >= '23:00'
+  const isLunchCutoffPassed = isToday && !(timing.slots.lunch?.isOpen ?? true)
+  const isDinnerCutoffPassed = isToday && !(timing.slots.dinner?.isOpen ?? true)
 
   const initialMealOption = useMemo<'lunch' | 'dinner'>(() => {
-    const currentHM = dayjs().format('HH:mm')
-    return currentHM < '11:30' ? 'lunch' : 'dinner'
-  }, [])
+    return timing.activeSlot === 'dinner' ? 'dinner' : 'lunch'
+  }, [timing.activeSlot])
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
@@ -96,7 +96,24 @@ export function CheckoutPage() {
   const deliveryFee = deliveryResolution.fee
   const total = subtotal + deliveryFee
 
+  const isOnly24x7Items =
+    items.length > 0 &&
+    items.every((ci) => {
+      const catType = (ci.food_items as any)?.categories?.category_type
+      const catSlug = (ci.food_items as any)?.categories?.slug || ''
+      return (
+        ci.food_items.kind === 'single' &&
+        (catType === 'snack' ||
+          catType === 'beverage' ||
+          catType === 'sweet' ||
+          catSlug.includes('snack') ||
+          catSlug.includes('farsan') ||
+          catSlug.includes('nasta'))
+      )
+    })
+
   const isTimingCutoffPassed =
+    !isOnly24x7Items &&
     isToday &&
     ((deliveryTimeOption === 'lunch' && isLunchCutoffPassed) ||
       (deliveryTimeOption === 'dinner' && isDinnerCutoffPassed))
@@ -315,13 +332,13 @@ export function CheckoutPage() {
                     onValueChange={(v) => setDeliveryTimeOption(v as 'lunch' | 'dinner' | 'custom')}
                     className="grid grid-cols-1 gap-2"
                   >
-                    <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isLunchCutoffPassed ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
-                      <RadioGroupItem value="lunch" id="time-lunch" disabled={isLunchCutoffPassed} />
-                      <span>🍱 Lunch (Deliver Before 1:30 PM) {isLunchCutoffPassed ? '— Closed' : ''}</span>
+                    <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isLunchCutoffPassed && !isOnly24x7Items ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
+                      <RadioGroupItem value="lunch" id="time-lunch" disabled={isLunchCutoffPassed && !isOnly24x7Items} />
+                      <span>🍱 Lunch (Deliver Before 1:30 PM) {isLunchCutoffPassed ? `— Closed (${timing.slots.lunch?.formattedCutoff || '11:30 AM'})` : ''}</span>
                     </label>
-                    <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isDinnerCutoffPassed ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
-                      <RadioGroupItem value="dinner" id="time-dinner" disabled={isDinnerCutoffPassed} />
-                      <span>🍲 Dinner (Deliver Before 8:00 PM) {isDinnerCutoffPassed ? '— Closed' : ''}</span>
+                    <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isDinnerCutoffPassed && !isOnly24x7Items ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
+                      <RadioGroupItem value="dinner" id="time-dinner" disabled={isDinnerCutoffPassed && !isOnly24x7Items} />
+                      <span>🍲 Dinner (Deliver Before 8:00 PM) {isDinnerCutoffPassed ? `— Closed (${timing.slots.dinner?.formattedCutoff || '10:30 PM'})` : ''}</span>
                     </label>
                     <label className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium">
                       <RadioGroupItem value="custom" id="time-custom" />

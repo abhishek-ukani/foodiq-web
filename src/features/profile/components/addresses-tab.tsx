@@ -51,6 +51,13 @@ export function AddressesTab() {
     )
   }
 
+  const validAddresses = (addresses || []).filter(
+    (addr) =>
+      Boolean(addr?.address_line1?.trim()) ||
+      Boolean(addr?.city?.trim()) ||
+      Boolean(addr?.contact_name?.trim())
+  )
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -61,7 +68,7 @@ export function AddressesTab() {
         </Button>
       </div>
 
-      {!addresses?.length ? (
+      {!validAddresses.length ? (
         <EmptyState
           icon={MapPin}
           title="No saved addresses"
@@ -70,9 +77,9 @@ export function AddressesTab() {
         />
       ) : (
         <div className="space-y-3">
-          {addresses.map((address) => (
-            <Card key={address.id}>
-              <CardContent className="flex items-start justify-between gap-3 pt-6">
+          {validAddresses.map((address) => (
+            <Card key={address.id} className="gap-0 py-0 shadow-sm">
+              <CardContent className="flex items-start justify-between gap-3 p-5">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <p className="font-medium capitalize">{address.label}</p>

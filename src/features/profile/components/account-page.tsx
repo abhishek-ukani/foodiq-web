@@ -3,7 +3,6 @@ import { LogOut } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PersonalInfoForm } from '@/features/profile/components/personal-info-form'
 import { AddressesTab } from '@/features/profile/components/addresses-tab'
 import { FavoritesTab } from '@/features/favorites/components/favorites-tab'
@@ -25,7 +24,7 @@ function initialsOf(name: string | null | undefined, email: string | null | unde
 
 export function AccountPage() {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const { user, profile } = useAuth()
 
   const activeTab = searchParams.get('tab') || 'profile'
@@ -37,10 +36,6 @@ export function AccountPage() {
     } catch (error) {
       toast.error(toFriendlyAuthMessage(error))
     }
-  }
-
-  const handleTabChange = (value: string) => {
-    setSearchParams({ tab: value })
   }
 
   return (
@@ -65,22 +60,13 @@ export function AccountPage() {
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="profile">Personal Info</TabsTrigger>
-          <TabsTrigger value="addresses">Addresses</TabsTrigger>
-          <TabsTrigger value="favorites">Favorites</TabsTrigger>
-        </TabsList>
-        <TabsContent value="profile" className="mt-6">
-          <PersonalInfoForm />
-        </TabsContent>
-        <TabsContent value="addresses" className="mt-6">
-          <AddressesTab />
-        </TabsContent>
-        <TabsContent value="favorites" className="mt-6">
-          <FavoritesTab />
-        </TabsContent>
-      </Tabs>
+      {activeTab === 'addresses' ? (
+        <AddressesTab />
+      ) : activeTab === 'favorites' ? (
+        <FavoritesTab />
+      ) : (
+        <PersonalInfoForm />
+      )}
     </div>
   )
 }

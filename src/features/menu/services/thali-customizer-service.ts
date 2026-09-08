@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { Tables } from '@/types/database.types'
+import type { Tables, MealType } from '@/types/database.types'
 
 export type ResolvedOptionItem = {
   id: string
@@ -75,7 +75,7 @@ export async function fetchThaliOptionGroups(
     .from('daily_menu_items')
     .select('*, food_items(*, categories(id, name, category_type)), daily_menus!inner(menu_date, is_published, meal_type)')
     .eq('daily_menus.menu_date', targetDate)
-    .eq('daily_menus.meal_type', effectiveMealType)
+    .eq('daily_menus.meal_type', effectiveMealType as MealType)
     .eq('daily_menus.is_published', true)
     .eq('is_available', true)
     .neq('is_thali_option', false)

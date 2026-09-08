@@ -42,6 +42,23 @@ export function useCartSummary() {
       if (!item.food_items.is_available) {
         return 'Out of Stock'
       }
+
+      // 24x7 Always-available items (farsan, snacks, sweets, beverages) are not bound to daily menus
+      const catType = (item.food_items as any).categories?.category_type
+      const catSlug = (item.food_items as any).categories?.slug || ''
+      const isAlwaysAvailable =
+        item.food_items.kind === 'single' &&
+        (catType === 'snack' ||
+          catType === 'beverage' ||
+          catType === 'sweet' ||
+          catSlug.includes('snack') ||
+          catSlug.includes('farsan') ||
+          catSlug.includes('nasta'))
+
+      if (isAlwaysAvailable) {
+        return null
+      }
+
       if (!menuListings || menuListings.length === 0) {
         return "Today's menu not published"
       }

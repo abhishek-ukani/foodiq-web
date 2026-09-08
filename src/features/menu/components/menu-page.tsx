@@ -1,135 +1,96 @@
-import { useMemo, useState } from 'react'
+import { useState, useCallback } from 'react'
 import dayjs from 'dayjs'
-import { Search, UtensilsCrossed } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { EmptyState } from '@/components/common/empty-state'
+import { useMenuForDate, useAlwaysAvailableItems } from '@/features/menu/hooks/use-menu-queries'
+import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
+import { MobileMenuView } from '@/features/menu/components/mobile-menu-view'
+import { DesktopMenuView } from '@/features/menu/components/desktop-menu-view'
+import { ThaliCustomizerDrawer } from '@/features/menu/components/thali-customizer-drawer'
 import { ErrorState } from '@/components/common/error-state'
-import { MenuItemCard } from '@/features/menu/components/menu-item-card'
-import { useMenuForDate } from '@/features/menu/hooks/use-menu-queries'
-
-type SortOption = 'default' | 'price-asc' | 'price-desc' | 'name'
+import type { MenuListing } from '@/features/menu/services/menu-service'
 
 export function MenuPage() {
   const [date] = useState(dayjs().format('YYYY-MM-DD'))
-  const [category, setCategory] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [sort, setSort] = useState<SortOption>('default')
+  const timing = useMealTiming(date)
 
-  const { data: listings, isPending, isError, refetch } = useMenuForDate(date)
+  // Fetch menu filtered by active meal slot ('lunch' | 'dinner')
+  const {
+    data: listings = [],
+    isPending: isMenuPending,
+    isError: isMenuError,
+    refetch: refetchMenu,
+  } = useMenuForDate(date, timing.activeSlot)
 
-  const categories = useMemo(() => {
-    if (!listings) return []
-    const map = new Map<string, string>()
-    for (const listing of listings) {
-      const cat = listing.food_items.categories
-      if (cat) map.set(cat.id, cat.name)
-    }
-    return Array.from(map, ([id, name]) => ({ id, name }))
-  }, [listings])
+  // Fetch always available (24x7) items (farsan, snacks, sweets, beverages)
+  const {
+    data: alwaysAvailableItems = [],
+    isPending: isAlwaysPending,
+    isError: isAlwaysError,
+    refetch: refetchAlways,
+  } = useAlwaysAvailableItems()
 
-  const filtered = useMemo(() => {
-    if (!listings) return []
-    let result = listings
+  // Inline Customizer Drawer state
+  const [customizingSlug, setCustomizingSlug] = useState<string | null>(null)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
-    if (category) {
-      result = result.filter((l) => l.food_items.category_id === category)
-    }
-    const query = search.trim().toLowerCase()
-    if (query) {
-      result = result.filter((l) => l.food_items.name.toLowerCase().includes(query))
-    }
+  const handleCustomize = useCallback((listing: MenuListing) => {
+    setCustomizingSlug(listing.food_items.slug)
+    setIsDrawerOpen(true)
+  }, [])
 
-    const priceOf = (l: (typeof result)[number]) =>
-      l.price_override ?? l.food_items.price
+  const handleCloseDrawer = useCallback(() => {
+    setIsDrawerOpen(false)
+  }, [])
 
-    if (sort === 'price-asc') result = [...result].sort((a, b) => priceOf(a) - priceOf(b))
-    if (sort === 'price-desc') result = [...result].sort((a, b) => priceOf(b) - priceOf(a))
-    if (sort === 'name') result = [...result].sort((a, b) => a.food_items.name.localeCompare(b.food_items.name))
+  if (isMenuError || isAlwaysError) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16">
+        <ErrorState
+          title="Could not load menu"
+          description="We had trouble fetching today's menu. Please try again."
+          onRetry={() => {
+            refetchMenu()
+            refetchAlways()
+            timing.refetchTiming()
+          }}
+        />
+      </div>
+    )
+  }
 
-    return result
-  }, [listings, category, search, sort])
+  const isPending = isMenuPending || isAlwaysPending
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-8">
-        <h1 className="font-display text-3xl font-semibold">Today&apos;s Menu</h1>
-        <p className="text-muted-foreground mt-1">{dayjs(date).format('dddd, D MMMM YYYY')}</p>
-      </div>
-
-      <div className="mb-6 flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative max-w-sm flex-1">
-            <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" aria-hidden />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search dishes…"
-              className="pl-9"
-            />
-          </div>
-          <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Sort: Featured</SelectItem>
-              <SelectItem value="price-asc">Price: Low to High</SelectItem>
-              <SelectItem value="price-desc">Price: High to Low</SelectItem>
-              <SelectItem value="name">Name: A to Z</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {categories.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <Badge
-                key={cat.id}
-                variant={category === cat.id ? 'default' : 'outline'}
-                className="cursor-pointer px-3 py-1"
-                onClick={() => setCategory(category === cat.id ? null : cat.id)}
-              >
-                {cat.name}
-              </Badge>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      {isPending ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {Array.from({ length: 10 }, (_, i) => (
-            <Skeleton key={i} className="h-56 rounded-xl" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => refetch()} />
-      ) : !filtered.length ? (
-        <EmptyState
-          icon={UtensilsCrossed}
-          title={listings?.length ? 'No dishes match your filters' : "Today's menu isn't ready yet"}
-          description={
-            listings?.length
-              ? 'Try a different search term or category.'
-              : "Our kitchen hasn't published today's menu yet — check back soon."
-          }
+    <>
+      {/* ── MOBILE VIEW (< md) — Swiggy/Zomato Style Row Layout ── */}
+      <div className="block md:hidden">
+        <MobileMenuView
+          listings={listings}
+          alwaysAvailableItems={alwaysAvailableItems}
+          timing={timing}
+          isPending={isPending}
+          onCustomize={handleCustomize}
         />
-      ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {filtered.map((listing, index) => (
-            <MenuItemCard key={listing.id} listing={listing} delay={index * 0.02} />
-          ))}
-        </div>
-      )}
-    </div>
+      </div>
+
+      {/* ── DESKTOP VIEW (>= md) — Multi-column Grid Layout ── */}
+      <div className="hidden md:block">
+        <DesktopMenuView
+          listings={listings}
+          alwaysAvailableItems={alwaysAvailableItems}
+          timing={timing}
+          isPending={isPending}
+          onCustomize={handleCustomize}
+        />
+      </div>
+
+      {/* ── SHARED INLINE THALI CUSTOMIZER DRAWER (Bottom Sheet / Modal) ── */}
+      <ThaliCustomizerDrawer
+        slug={customizingSlug}
+        isOpen={isDrawerOpen}
+        onClose={handleCloseDrawer}
+        date={date}
+        mealType={timing.activeSlot}
+      />
+    </>
   )
 }

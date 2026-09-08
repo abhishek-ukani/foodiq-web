@@ -111,6 +111,7 @@ export const QUERY_KEYS = {
   testimonials: ['testimonials'] as const,
   todaysSpecial: ['todays-special'] as const,
   allActiveItems: ['all-active-items'] as const,
+  alwaysAvailableItems: ['always-available-items'] as const,
   popularItems: (limit: number) => ['popular-items', limit] as const,
   faqs: ['faqs'] as const,
   policy: (slug: string) => ['policy', slug] as const,

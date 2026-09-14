@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { Database, PaymentMethod, Tables } from '@/types/database.types'
+import type { PaymentMethod, Tables } from '@/types/database.types'
 
 export async function fetchActiveDeliverySlots(): Promise<Tables<'delivery_slots'>[]> {
   const { data, error } = await supabase
@@ -11,8 +11,6 @@ export async function fetchActiveDeliverySlots(): Promise<Tables<'delivery_slots
   return data
 }
 
-
-type PlaceOrderArgs = Database['public']['Functions']['place_order']['Args']
 
 export async function placeOrder(input: {
   addressId: string

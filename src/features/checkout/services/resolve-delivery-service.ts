@@ -21,12 +21,12 @@ export interface DeliveryResult {
 
 /** Error returned by the Edge Function when geocoding fails (HTTP 502). */
 export class DeliveryResolveError extends Error {
-  constructor(
-    message: string,
-    public readonly code?: string,
-  ) {
+  readonly code?: string
+
+  constructor(message: string, code?: string) {
     super(message)
     this.name = 'DeliveryResolveError'
+    this.code = code
   }
 }
 
@@ -92,7 +92,7 @@ export async function resolveDelivery(input: DeliveryRequest): Promise<DeliveryR
       .maybeSingle()
 
     if (area) {
-      const charge = Number(area.delivery_charge ?? 0)
+      const charge = Number((area as any).delivery_charge ?? 0)
       return {
         deliverable: true,
         fee: charge,

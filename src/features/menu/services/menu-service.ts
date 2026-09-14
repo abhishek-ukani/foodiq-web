@@ -148,6 +148,33 @@ export async function fetchDailyMenuSlots(date: string) {
   return data || []
 }
 
+const EXCLUDED_CATEGORY_SLUGS = new Set(['rice', 'sambhar', 'beverages'])
+const EXCLUDED_CATEGORY_NAMES = new Set(['dal-bhat & rice', 'sambhar', 'beverages'])
+const EXCLUDED_CATEGORY_IDS = new Set([
+  'dfacdbca-1ceb-42cd-903c-c389e5c50b1d', // Dal-Bhat & Rice
+  '8c6abc50-0af8-40d1-995c-fdc38a3dbfcd', // Sambhar
+  'd7009410-1f57-411a-acf6-c4fc0e1339f5', // Beverages
+])
+
+export function isExcludedCategory(cat: { id?: string; slug?: string | null; name?: string | null }): boolean {
+  if (cat.id && EXCLUDED_CATEGORY_IDS.has(cat.id)) return true
+  if (cat.slug && EXCLUDED_CATEGORY_SLUGS.has(cat.slug.toLowerCase())) return true
+  if (cat.name && EXCLUDED_CATEGORY_NAMES.has(cat.name.toLowerCase())) return true
+  return false
+}
+
+/** Active categories from admin, ordered by display_order. */
+export async function fetchActiveCategories(): Promise<Tables<'categories'>[]> {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true })
+
+  if (error) throw error
+  return (data || []).filter((cat) => !isExcludedCategory(cat))
+}
+
 export type ThaliComponent = Tables<'thali_items'> & { food_items: { name: string } | null }
 
 export type FoodItemDetail = Tables<'food_items'> & {

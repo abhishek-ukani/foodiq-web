@@ -1,27 +1,26 @@
 import { HeroSection } from '@/features/home/components/sections/hero-section'
-import { BrandStorySection } from '@/features/home/components/sections/brand-story-section'
-import { WhyChooseUsSection } from '@/features/home/components/sections/why-choose-us-section'
+import { CategoryStrip } from '@/features/home/components/sections/category-strip'
 import { TodaysSpecialSection } from '@/features/home/components/sections/todays-special-section'
-import { PopularMealsSection } from '@/features/home/components/sections/popular-meals-section'
-import { TestimonialsSection } from '@/features/home/components/sections/testimonials-section'
-import { DeliveryAreasSection } from '@/features/home/components/sections/delivery-areas-section'
-import { HowItWorksSection } from '@/features/home/components/sections/how-it-works-section'
-import { FaqTeaserSection } from '@/features/home/components/sections/faq-teaser-section'
+import { BrandStorySection } from '@/features/home/components/sections/brand-story-section'
 import { CtaSection } from '@/features/home/components/sections/cta-section'
 
 export function HomePage() {
   return (
-    <>
+    <div className="flex flex-col min-h-screen">
+      {/* 1. Hero Section: "Fresh Meals, Made with Love", brass thali, stats */}
       <HeroSection />
-      <BrandStorySection />
-      <WhyChooseUsSection />
+
+      {/* 2. 6 Category Tiles: Lunch, Dinner, Nasta, Farsan, Bulk, Party */}
+      <CategoryStrip />
+
+      {/* 3. Today's Special Dish Showcase (Sabji, Rotlo, Salad, Kadhi) + Menu CTA */}
       <TodaysSpecialSection />
-      {/* <PopularMealsSection /> */}
-      <HowItWorksSection />
-      <TestimonialsSection />
-      <DeliveryAreasSection />
-      <FaqTeaserSection />
+
+      {/* 4. Home Kitchen Story Banner: "From Our Home to Yours" + Desi Taste Seal */}
+      <BrandStorySection />
+
+      {/* 5. Green CTA Banner: "Good Food Brings People Together" + Order Now */}
       <CtaSection />
-    </>
+    </div>
   )
 }

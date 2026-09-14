@@ -1,96 +1,114 @@
 import { Link } from 'react-router-dom'
-import { Sparkles, ShoppingBag, UtensilsCrossed } from 'lucide-react'
+import { Sparkles, ArrowRight, Utensils } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { EmptyState } from '@/components/common/empty-state'
-import { ErrorState } from '@/components/common/error-state'
 import { Reveal } from '@/components/common/reveal'
+import { ROUTES, CURRENCY_SYMBOL } from '@/constants'
 import { useTodaysSpecial } from '@/features/home/hooks/use-home-queries'
-import { ROUTES } from '@/constants'
 
 export function TodaysSpecialSection() {
-  const { data: items, isPending, isError, refetch } = useTodaysSpecial()
+  const { data: specials, isLoading } = useTodaysSpecial()
+
+  // Only render if specials have been published for today
+  const validSpecials = (specials || []).filter((dish) => Boolean(dish.food_items))
+
+  if (isLoading || validSpecials.length === 0) {
+    return null
+  }
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16">
+    <section id="todays-special" className="relative mx-auto max-w-6xl px-4 py-12 sm:py-16">
+      {/* Section Header */}
       <div className="mb-10 text-center">
-        <p className="text-primary flex items-center justify-center gap-1.5 text-sm font-semibold tracking-wide uppercase">
-          <Sparkles className="size-4" aria-hidden />
-          Today's Special
-        </p>
-        <h2 className="font-display mt-3 text-3xl font-semibold sm:text-4xl">
-          Chef's picks for today
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-terracotta mb-2">
+          <Sparkles className="size-3.5" aria-hidden="true" />
+          Today&apos;s Special Preparations
+        </div>
+        <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground">
+          What&apos;s Cooking in Our Kitchen Today
         </h2>
-        <p className="text-muted-foreground mt-2 text-sm">
-          Browse today's special items — place a full order below.
+        <p className="text-muted-foreground mt-2 max-w-lg mx-auto text-sm sm:text-base">
+          Every morning we prepare authentic specials to include in our lunch &amp; dinner thalis.
+          Here are today&apos;s featured highlights.
         </p>
       </div>
 
-      {isPending ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {Array.from({ length: 5 }, (_, i) => (
-            <Skeleton key={i} className="h-48 rounded-xl" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => refetch()} />
-      ) : !items?.length ? (
-        <EmptyState
-          icon={Sparkles}
-          title="No special items available right now"
-          description="Our kitchen hasn't marked today's specials yet — check back soon."
-        />
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {items.map((item, index) => {
-              const foodItem = item.food_items
-              if (!foodItem) return null
-              return (
-                <Reveal key={item.id} delay={index * 0.05}>
-                  <Card className="h-full gap-0 overflow-hidden py-0 group transition-shadow hover:shadow-md">
-                    {/* Image */}
-                    <div className="bg-muted relative aspect-[4/3] shrink-0 overflow-hidden">
-                      {foodItem.image_url ? (
-                        <img
-                          src={foodItem.image_url}
-                          alt={foodItem.name}
-                          loading="lazy"
-                          className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <UtensilsCrossed className="size-8 text-muted-foreground/30" />
-                        </div>
-                      )}
-                    </div>
+      {/* Showcase Dishes Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {validSpecials.map((dish, index) => {
+          const item = dish.food_items!
+          const price = dish.price_override ?? item.price
 
-                    {/* Name only */}
-                    <div className="p-2.5">
-                      <p className="line-clamp-1 text-sm font-medium text-center">{foodItem.name}</p>
-                    </div>
-                  </Card>
-                </Reveal>
-              )
-            })}
-          </div>
+          return (
+            <Reveal key={dish.id} delay={index * 0.08}>
+              <Card className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/80 bg-card p-0 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5">
+                {/* Dish Photo or Placeholder */}
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#FAF5EC]">
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      loading="lazy"
+                      className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <img
+                      src="/images/dish-placeholder.svg"
+                      alt={item.name}
+                      loading="lazy"
+                      className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  )}
+                </div>
 
-          {/* Order CTA */}
-          <div className="mt-10 flex justify-center">
-            <Link to={ROUTES.menu}>
-              <Button
-                size="lg"
-                className="gap-2 bg-primary px-8 text-white shadow-md hover:opacity-90 transition-opacity"
-                id="todays-special-order-btn"
-              >
-                <ShoppingBag className="size-5" aria-hidden />
-                Order Now
-              </Button>
-            </Link>
-          </div>
-        </>
-      )}
+                {/* Dish Info */}
+                <div className="flex flex-1 flex-col p-4 sm:p-5">
+                  <h3 className="font-display text-base font-bold text-foreground group-hover:text-primary transition-colors leading-snug">
+                    {item.name}
+                  </h3>
+                  {item.name_gujarati && (
+                    <p className="text-xs text-muted-foreground/80 mt-0.5 font-medium">
+                      {item.name_gujarati}
+                    </p>
+                  )}
+                  {item.description && (
+                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed line-clamp-2">
+                      {item.description}
+                    </p>
+                  )}
+
+                  {/* Highlight Tag at bottom */}
+                  <div className="mt-auto pt-3 border-t border-border/60 flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                      <Utensils className="size-3 text-primary" />
+                      {dish.cutoff_note || "Today's Special"}
+                    </span>
+                    {price > 0 && (
+                      <span className="text-xs font-bold text-primary">
+                        {CURRENCY_SYMBOL}{price}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </Reveal>
+          )
+        })}
+      </div>
+
+      {/* Button to navigate to meals in menu */}
+      <div className="mt-10 flex flex-col items-center justify-center">
+        <Button
+          size="lg"
+          className="h-12 rounded-full bg-primary px-8 text-base font-semibold text-white shadow-md hover:bg-primary/90 transition-all pill-tap"
+          asChild
+        >
+          <Link to={ROUTES.menu} className="flex items-center gap-2">
+            Explore Thalis &amp; Meals
+            <ArrowRight className="size-4" />
+          </Link>
+        </Button>
+      </div>
     </section>
   )
 }

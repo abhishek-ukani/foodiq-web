@@ -55,14 +55,6 @@ export function AmbientTimingStrip({ timing, className }: AmbientTimingStripProp
           <span className="size-1.5 rounded-full bg-emerald-500" />
         )}
       </button>
-
-      <span className="text-neutral-300 shrink-0">•</span>
-
-      {/* Farsan 24x7 Badge */}
-      <div className="inline-flex items-center gap-1 text-emerald-800 font-semibold shrink-0">
-        <span className="size-1.5 rounded-full bg-emerald-500" />
-        <span>Farsan 24x7</span>
-      </div>
     </div>
   )
 }

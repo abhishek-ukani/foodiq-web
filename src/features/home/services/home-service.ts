@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import { supabase } from '@/lib/supabase'
 import type { BannerPlacement, Tables } from '@/types/database.types'
+import { isExcludedCategory } from '@/features/menu/services/menu-service'
 
 export async function fetchBanners(placement: BannerPlacement): Promise<Tables<'banners'>[]> {
   const { data, error } = await supabase
@@ -25,7 +26,7 @@ export async function fetchTestimonials(): Promise<Tables<'testimonials'>[]> {
 export async function fetchCategories(): Promise<Tables<'categories'>[]> {
   const { data, error } = await supabase.from('categories').select('*').order('display_order')
   if (error) throw error
-  return data
+  return (data || []).filter((cat) => !isExcludedCategory(cat))
 }
 
 export type SpecialMenuItem = Tables<'daily_menu_items'> & {

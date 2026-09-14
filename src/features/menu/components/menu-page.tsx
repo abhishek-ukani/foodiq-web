@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import dayjs from 'dayjs'
-import { useMenuForDate, useAlwaysAvailableItems } from '@/features/menu/hooks/use-menu-queries'
+import { useMenuForDate, useActiveCategories } from '@/features/menu/hooks/use-menu-queries'
 import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
 import { MobileMenuView } from '@/features/menu/components/mobile-menu-view'
 import { DesktopMenuView } from '@/features/menu/components/desktop-menu-view'
@@ -12,6 +12,10 @@ export function MenuPage() {
   const [date] = useState(dayjs().format('YYYY-MM-DD'))
   const timing = useMealTiming(date)
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [])
+
   // Fetch menu filtered by active meal slot ('lunch' | 'dinner')
   const {
     data: listings = [],
@@ -20,13 +24,13 @@ export function MenuPage() {
     refetch: refetchMenu,
   } = useMenuForDate(date, timing.activeSlot)
 
-  // Fetch always available (24x7) items (farsan, snacks, sweets, beverages)
+  // Fetch active categories from admin database
   const {
-    data: alwaysAvailableItems = [],
-    isPending: isAlwaysPending,
-    isError: isAlwaysError,
-    refetch: refetchAlways,
-  } = useAlwaysAvailableItems()
+    data: categories = [],
+    isPending: isCategoriesPending,
+    isError: isCategoriesError,
+    refetch: refetchCategories,
+  } = useActiveCategories()
 
   // Inline Customizer Drawer state
   const [customizingSlug, setCustomizingSlug] = useState<string | null>(null)
@@ -41,7 +45,7 @@ export function MenuPage() {
     setIsDrawerOpen(false)
   }, [])
 
-  if (isMenuError || isAlwaysError) {
+  if (isMenuError || isCategoriesError) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16">
         <ErrorState
@@ -49,7 +53,7 @@ export function MenuPage() {
           description="We had trouble fetching today's menu. Please try again."
           onRetry={() => {
             refetchMenu()
-            refetchAlways()
+            refetchCategories()
             timing.refetchTiming()
           }}
         />
@@ -57,7 +61,7 @@ export function MenuPage() {
     )
   }
 
-  const isPending = isMenuPending || isAlwaysPending
+  const isPending = isMenuPending || isCategoriesPending
 
   return (
     <>
@@ -65,7 +69,7 @@ export function MenuPage() {
       <div className="block md:hidden">
         <MobileMenuView
           listings={listings}
-          alwaysAvailableItems={alwaysAvailableItems}
+          categories={categories}
           timing={timing}
           isPending={isPending}
           onCustomize={handleCustomize}
@@ -76,7 +80,7 @@ export function MenuPage() {
       <div className="hidden md:block">
         <DesktopMenuView
           listings={listings}
-          alwaysAvailableItems={alwaysAvailableItems}
+          categories={categories}
           timing={timing}
           isPending={isPending}
           onCustomize={handleCustomize}

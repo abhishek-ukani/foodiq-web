@@ -3,7 +3,7 @@ import { QUERY_KEYS } from '@/constants'
 import {
   fetchFoodItemBySlug,
   fetchMenuForDate,
-  fetchAlwaysAvailableItems,
+  fetchActiveCategories,
   fetchDailyMenuSlots,
 } from '@/features/menu/services/menu-service'
 import type { MealType } from '@/types/database.types'
@@ -15,10 +15,10 @@ export function useMenuForDate(date: string, mealType?: MealType) {
   })
 }
 
-export function useAlwaysAvailableItems() {
+export function useActiveCategories() {
   return useQuery({
-    queryKey: QUERY_KEYS.alwaysAvailableItems,
-    queryFn: () => fetchAlwaysAvailableItems(),
+    queryKey: QUERY_KEYS.categories,
+    queryFn: () => fetchActiveCategories(),
   })
 }
 

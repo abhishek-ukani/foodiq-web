@@ -6,6 +6,8 @@ import { GuestRoute } from '@/components/common/guest-route'
 import { NotFoundPage } from '@/components/common/not-found-page'
 import { MainLayout } from '@/layouts/main-layout'
 import { ROUTES } from '@/constants'
+import { MenuPageSkeleton } from '@/features/menu/components/menu-page-skeleton'
+import { HomePageSkeleton } from '@/features/home/components/home-page-skeleton'
 
 const HomePage = lazy(() =>
   import('@/features/home/components/home-page').then((m) => ({ default: m.HomePage })),
@@ -96,8 +98,22 @@ export const router = createBrowserRouter([
   {
     element: <MainLayout />,
     children: [
-      { path: ROUTES.home, element: withSuspense(<HomePage />) },
-      { path: ROUTES.menu, element: withSuspense(<MenuPage />) },
+      {
+        path: ROUTES.home,
+        element: (
+          <Suspense fallback={<HomePageSkeleton />}>
+            <HomePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: ROUTES.menu,
+        element: (
+          <Suspense fallback={<MenuPageSkeleton />}>
+            <MenuPage />
+          </Suspense>
+        ),
+      },
       { path: ROUTES.menuItem(':slug'), element: withSuspense(<ProductDetailPage />) },
       {
         path: ROUTES.cart,

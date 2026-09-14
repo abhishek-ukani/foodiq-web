@@ -11,14 +11,12 @@ import { Reveal } from '@/components/common/reveal'
 type MenuItemCardProps = {
   listing: MenuListing
   delay?: number
-  isAlwaysAvailable?: boolean
   onCustomizeClick?: () => void
 }
 
 export function MenuItemCard({
   listing,
   delay = 0,
-  isAlwaysAvailable = false,
   onCustomizeClick,
 }: MenuItemCardProps) {
   const item = listing.food_items
@@ -26,7 +24,7 @@ export function MenuItemCard({
   const price = listing.price_override ?? item.price
   const strikePrice = listing.price_override ? null : item.compare_price ?? null
   const soldOut = isSoldOut(listing)
-  const cutoffPassed = !isAlwaysAvailable && isCutoffPassed(listing)
+  const cutoffPassed = isCutoffPassed(listing)
   const unavailable = soldOut || cutoffPassed
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -61,10 +59,6 @@ export function MenuItemCard({
             <Badge className="absolute top-2 left-2 gap-1 px-2 py-0.5 text-[10px] bg-amber-500 hover:bg-amber-600 text-white font-bold border-none shadow-sm">
               <Sparkles className="size-2.5" aria-hidden />
               Special
-            </Badge>
-          ) : isAlwaysAvailable ? (
-            <Badge className="absolute top-2 left-2 px-2 py-0.5 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold border-none shadow-sm">
-              24x7
             </Badge>
           ) : null}
 

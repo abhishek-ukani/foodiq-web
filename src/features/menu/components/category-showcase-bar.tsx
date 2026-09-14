@@ -1,43 +1,156 @@
 import { cn } from '@/lib/utils'
+import type { Tables } from '@/types/database.types'
+import { isExcludedCategory } from '@/features/menu/services/menu-service'
 
-export type CategoryKey = 'all' | 'thali' | 'farsan' | 'sabji' | 'sweet' | 'beverage'
+export type CategoryKey = string
 
-export type CategoryItem = {
-  key: CategoryKey
+export interface DynamicCategoryItem {
+  key: string
   label: string
   emoji: string
-  badge?: string
   color: string
 }
 
-export const CATEGORIES: CategoryItem[] = [
-  { key: 'all', label: 'All', emoji: '🍽️', color: 'bg-neutral-100 text-neutral-800' },
-  { key: 'thali', label: 'Thalis', emoji: '🍱', color: 'bg-amber-100/80 text-amber-900' },
-  { key: 'farsan', label: 'Farsan & Nasta', emoji: '🥟', badge: '24x7', color: 'bg-orange-100/80 text-orange-900' },
-  { key: 'sabji', label: 'Sabjis & Rotis', emoji: '🍛', color: 'bg-emerald-100/80 text-emerald-900' },
-  { key: 'sweet', label: 'Mithai', emoji: '🍯', color: 'bg-yellow-100/80 text-yellow-900' },
-  { key: 'beverage', label: 'Beverages', emoji: '🥛', color: 'bg-cyan-100/80 text-cyan-900' },
-]
+const LUCIDE_TO_EMOJI: Record<string, string> = {
+  utensils: '🍱',
+  utensilscrossed: '🍽️',
+  soup: '🍛',
+  coffee: '🥛',
+  cake: '🍯',
+  cookie: '🥟',
+  pluscircle: '➕',
+  tag: '🏷️',
+  package: '📦',
+  pizza: '🍕',
+  salad: '🥗',
+  flame: '🔥',
+}
+
+function getCategoryColor(type: string, slug: string): string {
+  if (type === 'thali' || slug.includes('thali')) return 'bg-amber-100/80 text-amber-900'
+  if (type === 'snack' || slug.includes('snack') || slug.includes('farsan')) return 'bg-orange-100/80 text-orange-900'
+  if (type === 'sabji' || slug.includes('shabji') || slug.includes('sabji')) return 'bg-emerald-100/80 text-emerald-900'
+  if (type === 'sweet' || slug.includes('sweet') || slug.includes('mithai')) return 'bg-yellow-100/80 text-yellow-900'
+  if (type === 'beverage' || slug.includes('beverage') || slug.includes('chaas')) return 'bg-cyan-100/80 text-cyan-900'
+  if (type === 'bread' || slug.includes('bread') || slug.includes('rotli')) return 'bg-amber-50/90 text-amber-900'
+  if (type === 'rice' || slug.includes('rice') || slug.includes('dal')) return 'bg-stone-100 text-stone-800'
+  return 'bg-neutral-100 text-neutral-800'
+}
+
+export function getCategoryVisuals(cat: Partial<Tables<'categories'>> | null): { emoji: string; color: string } {
+  if (!cat) return { emoji: '🍽️', color: 'bg-neutral-100 text-neutral-800' }
+
+  const type = (cat.category_type || '').toLowerCase()
+  const slug = (cat.slug || '').toLowerCase()
+  const name = (cat.name || '').toLowerCase()
+  const iconRaw = (cat.icon || '').trim()
+  const iconClean = iconRaw.toLowerCase().replace(/[-_\s]/g, '')
+
+  // 1. If cat.icon is a recognized icon identifier
+  if (iconClean && LUCIDE_TO_EMOJI[iconClean]) {
+    return { emoji: LUCIDE_TO_EMOJI[iconClean], color: getCategoryColor(type, slug) }
+  }
+
+  // 2. If cat.icon is an actual emoji character (short string)
+  if (iconRaw && iconRaw.length <= 4 && /\p{Emoji}/u.test(iconRaw)) {
+    return { emoji: iconRaw, color: getCategoryColor(type, slug) }
+  }
+
+  // 3. Fallback based on type, slug, or name
+  if (type === 'thali' || slug.includes('thali') || name.includes('thali')) {
+    return { emoji: '🍱', color: 'bg-amber-100/80 text-amber-900' }
+  }
+  if (type === 'snack' || slug.includes('snack') || slug.includes('farsan') || name.includes('farsan') || name.includes('nasta')) {
+    return { emoji: '🥟', color: 'bg-orange-100/80 text-orange-900' }
+  }
+  if (type === 'sabji' || slug.includes('shabji') || slug.includes('sabji') || name.includes('sabji') || name.includes('shabji')) {
+    return { emoji: '🍛', color: 'bg-emerald-100/80 text-emerald-900' }
+  }
+  if (type === 'sweet' || slug.includes('sweet') || name.includes('sweet') || name.includes('mithai')) {
+    return { emoji: '🍯', color: 'bg-yellow-100/80 text-yellow-900' }
+  }
+  if (type === 'beverage' || slug.includes('beverage') || name.includes('beverage') || name.includes('chaas') || name.includes('chhash')) {
+    return { emoji: '🥛', color: 'bg-cyan-100/80 text-cyan-900' }
+  }
+  if (type === 'bread' || slug.includes('bread') || name.includes('rotli') || name.includes('rotla') || name.includes('bhakhri')) {
+    return { emoji: '🫓', color: 'bg-amber-50/90 text-amber-900' }
+  }
+  if (type === 'rice' || slug.includes('rice') || name.includes('dal') || name.includes('rice') || name.includes('bhat')) {
+    return { emoji: '🍚', color: 'bg-stone-100 text-stone-800' }
+  }
+
+  return { emoji: '🍲', color: 'bg-neutral-100 text-neutral-800' }
+}
 
 type CategoryShowcaseBarProps = {
-  activeCategory: CategoryKey
-  onSelectCategory: (key: CategoryKey) => void
-  itemCounts?: Partial<Record<CategoryKey, number>>
+  categories: Tables<'categories'>[]
+  activeCategory: string
+  onSelectCategory: (key: string) => void
+  itemCounts?: Record<string, number>
+  isLoading?: boolean
   className?: string
 }
 
-export function CategoryShowcaseBar({
-  activeCategory,
-  onSelectCategory,
-  itemCounts,
-  className,
-}: CategoryShowcaseBarProps) {
+export function CategoryShowcaseBarSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn('w-full overflow-x-auto no-scrollbar py-2 -mx-4 px-4 sm:mx-0 sm:px-0', className)}>
       <div className="flex items-center gap-3 sm:gap-4 min-w-max">
-        {CATEGORIES.map((cat) => {
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="flex flex-col items-center gap-1.5 select-none shrink-0">
+            <div className="size-13 sm:size-14 rounded-full bg-neutral-200/80 animate-pulse border-2 border-transparent" />
+            <div className="h-2.5 w-11 rounded-full bg-neutral-200/80 animate-pulse mt-0.5" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function CategoryShowcaseBar({
+  categories,
+  activeCategory,
+  onSelectCategory,
+  itemCounts = {},
+  isLoading = false,
+  className,
+}: CategoryShowcaseBarProps) {
+  if (isLoading) {
+    return <CategoryShowcaseBarSkeleton className={className} />
+  }
+
+  // Exclude removed categories (Dal-Bhat & Rice, Sambhar, Beverages)
+  const validCategories = categories.filter((cat) => !isExcludedCategory(cat))
+
+  // Only display categories that actually contain items in today's menu
+  const itemsWithCounts = validCategories.filter(
+    (cat) => (itemCounts[cat.id] ?? 0) > 0 || (itemCounts[cat.slug] ?? 0) > 0,
+  )
+
+  // Built items: "All" followed by categories that have items in the current menu
+  const displayItems: DynamicCategoryItem[] = [
+    {
+      key: 'all',
+      label: 'All',
+      emoji: '🍽️',
+      color: 'bg-neutral-100 text-neutral-800',
+    },
+    ...itemsWithCounts.map((cat) => {
+      const visuals = getCategoryVisuals(cat)
+      return {
+        key: cat.id,
+        label: cat.name,
+        emoji: visuals.emoji,
+        color: visuals.color,
+      }
+    }),
+  ]
+
+  return (
+    <div className={cn('w-full overflow-x-auto no-scrollbar py-2 -mx-4 px-4 sm:mx-0 sm:px-0', className)}>
+      <div className="flex items-center gap-3 sm:gap-4 min-w-max">
+        {displayItems.map((cat) => {
           const isActive = activeCategory === cat.key
-          const count = itemCounts?.[cat.key]
+          const count = itemCounts[cat.key]
 
           return (
             <button
@@ -59,13 +172,6 @@ export function CategoryShowcaseBar({
                 >
                   <span>{cat.emoji}</span>
                 </div>
-
-                {/* Micro Badge (e.g. 24x7) */}
-                {cat.badge && (
-                  <span className="absolute -top-1 -right-1 text-[9px] font-extrabold text-white bg-emerald-600 px-1.5 py-0.2 rounded-full uppercase tracking-wider shadow-xs">
-                    {cat.badge}
-                  </span>
-                )}
               </div>
 
               {/* Label & Count */}
@@ -80,7 +186,7 @@ export function CategoryShowcaseBar({
                 </span>
                 {count !== undefined && count > 0 && cat.key !== 'all' && (
                   <span className="text-[9px] text-neutral-400 font-medium">
-                    {count} items
+                    {count} {count === 1 ? 'item' : 'items'}
                   </span>
                 )}
               </div>

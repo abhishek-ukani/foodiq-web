@@ -11,13 +11,11 @@ import { cn } from '@/lib/utils'
 type MobileMenuItemRowProps = {
   listing: MenuListing
   onCustomize?: (listing: MenuListing) => void
-  isAlwaysAvailable?: boolean
 }
 
 export function MobileMenuItemRow({
   listing,
   onCustomize,
-  isAlwaysAvailable = false,
 }: MobileMenuItemRowProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -32,7 +30,7 @@ export function MobileMenuItemRow({
   const price = listing.price_override ?? item.price
   const strikePrice = listing.price_override ? null : item.compare_price ?? null
   const soldOut = isSoldOut(listing)
-  const cutoffPassed = !isAlwaysAvailable && isCutoffPassed(listing)
+  const cutoffPassed = isCutoffPassed(listing)
   const isUnavailable = soldOut || cutoffPassed
 
   // Check if item is already in cart without customizations (for direct +/- stepper)
@@ -67,16 +65,11 @@ export function MobileMenuItemRow({
     >
       {/* ── LEFT: DISH DETAILS & COMPOSITION ── */}
       <div className="flex-1 min-w-0 pr-1">
-        {/* Badges: Veg dot + 24x7 or Special */}
+        {/* Badges: Veg dot + Special */}
         <div className="flex items-center gap-1.5 mb-1">
           <span className="flex size-3.5 items-center justify-center rounded-xs border border-green-600 bg-white p-0.5 shrink-0">
             <span className="size-1.5 rounded-full bg-green-600" />
           </span>
-          {isAlwaysAvailable && (
-            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-200 px-1.5 py-0.2 rounded-full">
-              24x7
-            </span>
-          )}
           {listing.is_special && (
             <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded-full">
               ★ Special

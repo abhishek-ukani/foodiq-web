@@ -23,7 +23,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { EmptyState } from '@/components/common/empty-state'
 import { AddressFlowDialog } from '@/features/addresses/components/address-flow-dialog'
 import { useAddresses } from '@/features/addresses/hooks/use-addresses'
-import { usePlaceOrder } from '@/features/checkout/hooks/use-checkout'
+import { useActiveDeliverySlots, usePlaceOrder } from '@/features/checkout/hooks/use-checkout'
 import {
   useDeliveryAreas,
   useDeliveryFeeRules,
@@ -36,7 +36,7 @@ import {
 import { useCartSummary } from '@/features/cart/hooks/use-cart'
 import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
-import type { PaymentMethod, Tables } from '@/types/database.types'
+import type { MealType, PaymentMethod, Tables } from '@/types/database.types'
 
 export function CheckoutPage() {
   const navigate = useNavigate()
@@ -49,26 +49,96 @@ export function CheckoutPage() {
   const { data: kitchenLoc } = useKitchenLocation()
 
   const placeOrder = usePlaceOrder()
+  const { data: dbSlots = [] } = useActiveDeliverySlots()
 
   const [deliveryDate, setDeliveryDate] = useState(dayjs().format('YYYY-MM-DD'))
   const timing = useMealTiming(deliveryDate)
 
   const isToday = deliveryDate === dayjs().format('YYYY-MM-DD')
 
-  const isLunchCutoffPassed = isToday && !(timing.slots.lunch?.isOpen ?? true)
-  const isDinnerCutoffPassed = isToday && !(timing.slots.dinner?.isOpen ?? true)
+  // Fallback to standard slots if admin hasn't configured custom slots yet
+  const slots = useMemo(() => {
+    if (dbSlots && dbSlots.length > 0) {
+      return dbSlots
+    }
+    return [
+      {
+        id: 'lunch',
+        branch_id: '',
+        label: 'Lunch (Deliver Before 1:30 PM)',
+        meal_type: 'lunch' as MealType,
+        start_time: '12:00:00',
+        end_time: '13:30:00',
+        cutoff_time: '11:30:00',
+        max_orders: null,
+        display_order: 1,
+        is_active: true,
+        created_at: '',
+        updated_at: '',
+      },
+      {
+        id: 'dinner',
+        branch_id: '',
+        label: 'Dinner (Deliver Before 8:00 PM)',
+        meal_type: 'dinner' as MealType,
+        start_time: '19:00:00',
+        end_time: '20:30:00',
+        cutoff_time: '20:00:00',
+        max_orders: null,
+        display_order: 2,
+        is_active: true,
+        created_at: '',
+        updated_at: '',
+      },
+    ]
+  }, [dbSlots])
 
-  const initialMealOption = useMemo<'lunch' | 'dinner'>(() => {
-    return timing.activeSlot === 'dinner' ? 'dinner' : 'lunch'
-  }, [timing.activeSlot])
+  const getSlotCutoffInfo = (slot: { meal_type: MealType; cutoff_time: string | null }) => {
+    const todayStr = dayjs().format('YYYY-MM-DD')
+    if (deliveryDate > todayStr) {
+      return { isPassed: false, formattedCutoff: '' }
+    }
+    if (deliveryDate < todayStr) {
+      return { isPassed: true, formattedCutoff: 'Past date' }
+    }
+    const mealTiming = timing.slots[slot.meal_type]
+    if (mealTiming) {
+      return {
+        isPassed: !mealTiming.isOpen,
+        formattedCutoff: mealTiming.formattedCutoff,
+      }
+    }
+    if (!slot.cutoff_time) return { isPassed: false, formattedCutoff: '' }
+    const parts = slot.cutoff_time.slice(0, 5).split(':').map(Number)
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return { isPassed: false, formattedCutoff: '' }
+    const cutoffDateTime = dayjs().hour(parts[0]).minute(parts[1]).second(0)
+    const isPassed = dayjs().isAfter(cutoffDateTime)
+    const d = new Date()
+    d.setHours(parts[0], parts[1], 0, 0)
+    const formattedCutoff = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    return { isPassed, formattedCutoff }
+  }
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
-  const [deliveryTimeOption, setDeliveryTimeOption] = useState<'lunch' | 'dinner' | 'custom'>(initialMealOption)
+  const [selectedSlotId, setSelectedSlotId] = useState<string>('')
   const [customDeliveryTime, setCustomDeliveryTime] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [paymentReference, setPaymentReference] = useState('')
   const [instructions, setInstructions] = useState('')
+
+  // Set default selected slot based on active timing or first available slot
+  useEffect(() => {
+    if (!slots.length) return
+    const isCurrentValid = slots.some((s) => s.id === selectedSlotId) || selectedSlotId === 'custom'
+    if (!selectedSlotId || !isCurrentValid) {
+      const preferred =
+        slots.find((s) => s.meal_type === timing.activeSlot && !getSlotCutoffInfo(s).isPassed) ||
+        slots.find((s) => !getSlotCutoffInfo(s).isPassed) ||
+        slots[0]
+      if (preferred) setSelectedSlotId(preferred.id)
+    }
+  }, [slots, timing.activeSlot, deliveryDate, selectedSlotId])
 
   const selectedAddress = useMemo(
     () => addresses?.find((a) => a.id === selectedAddressId) ?? null,
@@ -112,11 +182,15 @@ export function CheckoutPage() {
       )
     })
 
-  const isTimingCutoffPassed =
-    !isOnly24x7Items &&
-    isToday &&
-    ((deliveryTimeOption === 'lunch' && isLunchCutoffPassed) ||
-      (deliveryTimeOption === 'dinner' && isDinnerCutoffPassed))
+  const isTimingCutoffPassed = useMemo(() => {
+    if (isOnly24x7Items) return false
+    if (!isToday) return false
+    if (selectedSlotId === 'custom') {
+      return slots.every((s) => getSlotCutoffInfo(s).isPassed)
+    }
+    const currentSlot = slots.find((s) => s.id === selectedSlotId)
+    return currentSlot ? getSlotCutoffInfo(currentSlot).isPassed : false
+  }, [isOnly24x7Items, isToday, selectedSlotId, slots, timing.slots])
 
   const canSubmit = Boolean(
     selectedAddressId &&
@@ -129,19 +203,27 @@ export function CheckoutPage() {
   const handlePlaceOrder = () => {
     if (!selectedAddressId) return
 
-    const preferredTime =
-      deliveryTimeOption === 'lunch'
-        ? 'Before 1:30 PM (Lunch)'
-        : deliveryTimeOption === 'dinner'
-        ? 'Before 8:00 PM (Dinner)'
-        : customDeliveryTime.trim()
+    const chosenSlot = slots.find((s) => s.id === selectedSlotId)
+    const isCustom = selectedSlotId === 'custom'
+
+    const preferredTime = isCustom
+      ? customDeliveryTime.trim()
         ? `Before ${customDeliveryTime.trim()}`
         : 'As soon as possible'
+      : chosenSlot
+      ? chosenSlot.label
+      : 'Standard delivery'
+
+    const deliverySlotId =
+      !isCustom && chosenSlot && chosenSlot.id !== 'lunch' && chosenSlot.id !== 'dinner'
+        ? chosenSlot.id
+        : null
 
     placeOrder.mutate(
       {
         addressId: selectedAddressId,
         deliveryDate,
+        deliverySlotId,
         paymentMethod,
         specialInstructions: instructions.trim() || null,
         paymentReference: paymentMethod === 'upi' ? paymentReference.trim() || null : null,
@@ -328,20 +410,38 @@ export function CheckoutPage() {
                     Target Meal Window
                   </Label>
                   <RadioGroup
-                    value={deliveryTimeOption}
-                    onValueChange={(v) => setDeliveryTimeOption(v as 'lunch' | 'dinner' | 'custom')}
+                    value={selectedSlotId}
+                    onValueChange={setSelectedSlotId}
                     className="grid grid-cols-1 gap-2"
                   >
-                    <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isLunchCutoffPassed && !isOnly24x7Items ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
-                      <RadioGroupItem value="lunch" id="time-lunch" disabled={isLunchCutoffPassed && !isOnly24x7Items} />
-                      <span>🍱 Lunch (Deliver Before 1:30 PM) {isLunchCutoffPassed ? `— Closed (${timing.slots.lunch?.formattedCutoff || '11:30 AM'})` : ''}</span>
-                    </label>
-                    <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isDinnerCutoffPassed && !isOnly24x7Items ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
-                      <RadioGroupItem value="dinner" id="time-dinner" disabled={isDinnerCutoffPassed && !isOnly24x7Items} />
-                      <span>🍲 Dinner (Deliver Before 8:00 PM) {isDinnerCutoffPassed ? `— Closed (${timing.slots.dinner?.formattedCutoff || '10:30 PM'})` : ''}</span>
-                    </label>
-                    <label className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium">
-                      <RadioGroupItem value="custom" id="time-custom" />
+                    {slots.map((slot) => {
+                      const { isPassed, formattedCutoff } = getSlotCutoffInfo(slot)
+                      const isDisabled = isPassed && !isOnly24x7Items
+                      return (
+                        <label
+                          key={slot.id}
+                          htmlFor={`slot-${slot.id}`}
+                          className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${
+                            isDisabled ? 'opacity-50 bg-muted cursor-not-allowed' : ''
+                          }`}
+                        >
+                          <RadioGroupItem
+                            value={slot.id}
+                            id={`slot-${slot.id}`}
+                            disabled={isDisabled}
+                          />
+                          <span>
+                            {slot.meal_type === 'lunch' ? '🍱' : '🍲'} {slot.label}{' '}
+                            {isPassed && formattedCutoff ? `— Closed (${formattedCutoff})` : isPassed ? '— Closed' : ''}
+                          </span>
+                        </label>
+                      )
+                    })}
+                    <label
+                      htmlFor="slot-custom"
+                      className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium"
+                    >
+                      <RadioGroupItem value="custom" id="slot-custom" />
                       <span>🕒 Specific Time Request</span>
                     </label>
                   </RadioGroup>
@@ -352,12 +452,12 @@ export function CheckoutPage() {
                 <Alert variant="destructive" className="mt-2">
                   <AlertTriangle className="size-4" />
                   <AlertDescription>
-                    Cutoff time for today's service has passed. Please select Dinner or a future delivery date.
+                    Cutoff time for the selected delivery window has passed. Please select another slot or a future delivery date.
                   </AlertDescription>
                 </Alert>
               )}
 
-              {deliveryTimeOption === 'custom' && (
+              {selectedSlotId === 'custom' && (
                 <div className="pt-1">
                   <Label htmlFor="custom-time" className="mb-1 block text-xs text-muted-foreground">
                     Enter your preferred time (e.g. 1:15 PM or 7:45 PM)

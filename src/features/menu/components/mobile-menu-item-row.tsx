@@ -31,7 +31,8 @@ export function MobileMenuItemRow({
   const strikePrice = listing.price_override ? null : item.compare_price ?? null
   const soldOut = isSoldOut(listing)
   const cutoffPassed = isCutoffPassed(listing)
-  const isUnavailable = soldOut || cutoffPassed
+  const isDisabled = listing.is_available === false || item.is_available === false
+  const isUnavailable = soldOut || cutoffPassed || isDisabled
 
   // Check if item is already in cart without customizations (for direct +/- stepper)
   const cartLine = cartItems?.find(
@@ -42,6 +43,7 @@ export function MobileMenuItemRow({
 
   const handleActionClick = (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (isUnavailable) return
 
     // If it's a thali or has customizations, always open customizer
     if (isThali || (item as any).item_customizations?.length > 0) {
@@ -60,8 +62,14 @@ export function MobileMenuItemRow({
 
   return (
     <div
-      onClick={() => onCustomize?.(listing)}
-      className="flex items-start justify-between gap-3 py-4 border-b border-neutral-100 last:border-b-0 cursor-pointer group active:bg-neutral-50/50 transition-colors"
+      onClick={() => {
+        if (isUnavailable) return
+        onCustomize?.(listing)
+      }}
+      className={cn(
+        'flex items-start justify-between gap-3 py-4 border-b border-neutral-100 last:border-b-0 transition-colors',
+        isUnavailable ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer group active:bg-neutral-50/50',
+      )}
     >
       {/* ── LEFT: DISH DETAILS & COMPOSITION ── */}
       <div className="flex-1 min-w-0 pr-1">
@@ -152,7 +160,7 @@ export function MobileMenuItemRow({
         <div className="relative -mt-4.5 z-10 w-[84px] sm:w-[94px]">
           {isUnavailable ? (
             <div className="w-full py-1 bg-neutral-200 text-neutral-500 font-bold text-[11px] rounded-lg shadow-xs text-center select-none border border-neutral-300/80">
-              {soldOut ? 'Sold Out' : 'Closed'}
+              {soldOut ? 'Sold Out' : isDisabled ? 'Disabled' : 'Closed'}
             </div>
           ) : cartLine && !isThali ? (
             /* Active Stepper on image */

@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { Minus, Plus, X, MessageSquare } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -109,6 +110,10 @@ export function ThaliCustomizerDrawer({
 
   const handleAddToCart = () => {
     if (!item) return
+    if (item.is_available === false) {
+      toast.error('This item is currently disabled and unavailable.')
+      return
+    }
     if (!isAuthenticated) {
       navigate(ROUTES.login, { state: { from: location } })
       return
@@ -310,12 +315,16 @@ export function ThaliCustomizerDrawer({
           {/* Add to Cart Button */}
           <Button
             size="lg"
-            className="flex-1 h-11 text-sm font-semibold rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white shadow-md flex items-center justify-between px-4"
-            disabled={!item || !isOptionSelectionValid || addToCart.isPending}
+            className="flex-1 h-11 text-sm font-semibold rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white shadow-md flex items-center justify-between px-4 disabled:opacity-60"
+            disabled={!item || item.is_available === false || !isOptionSelectionValid || addToCart.isPending}
             onClick={handleAddToCart}
           >
             <span>
-              {!isOptionSelectionValid ? 'Select required choices' : 'Add to Order'}
+              {item?.is_available === false
+                ? 'Currently Unavailable'
+                : !isOptionSelectionValid
+                ? 'Select required choices'
+                : 'Add to Order'}
             </span>
             <span className="font-bold">
               {CURRENCY_SYMBOL}

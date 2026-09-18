@@ -79,7 +79,7 @@ export function CartPage() {
               {items.map((item) => {
                 const unavailabilityReason = unavailableItemsMap.get(item.id)
                 const isAvailable = !unavailabilityReason
-                const basePrice = item.food_items.price
+                const basePrice = item.food_item_variants ? item.food_item_variants.price : item.food_items.price
                 const addOns = (item.customizations as SelectedCustomization[] | null) ?? []
                 const price = basePrice + customizationsTotal(addOns)
                 return (
@@ -99,6 +99,11 @@ export function CartPage() {
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-medium">{item.food_items.name}</p>
+                              {item.food_item_variants && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-800 bg-emerald-50">
+                                  {item.food_item_variants.label}
+                                </Badge>
+                              )}
                               {!isAvailable && (
                                 <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
                                   {unavailabilityReason}

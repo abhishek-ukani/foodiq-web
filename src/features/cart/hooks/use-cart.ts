@@ -34,13 +34,17 @@ export function useCartSummary() {
     const itemCount = items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
     const subtotal =
       items?.reduce((sum, item) => {
-        const price = item.food_items.price
+        const price = item.food_item_variants ? item.food_item_variants.price : item.food_items.price
         return sum + (price + customizationsTotal(item.customizations)) * item.quantity
       }, 0) ?? 0
 
     const getItemUnavailabilityReason = (item: CartItemWithFood): string | null => {
       if (!item.food_items.is_available) {
         return 'Out of Stock'
+      }
+
+      if (item.food_item_variants && item.food_item_variants.is_active === false) {
+        return 'Variant Unavailable'
       }
 
       // 24x7 Always-available items (farsan, snacks, sweets, beverages) are not bound to daily menus

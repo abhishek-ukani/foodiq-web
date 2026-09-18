@@ -25,9 +25,11 @@ export function MenuItemCard({
   const strikePrice = listing.price_override ? null : item.compare_price ?? null
   const soldOut = isSoldOut(listing)
   const cutoffPassed = isCutoffPassed(listing)
-  const unavailable = soldOut || cutoffPassed
+  const isDisabled = listing.is_available === false || item.is_available === false
+  const unavailable = soldOut || cutoffPassed || isDisabled
 
   const handleCardClick = (e: React.MouseEvent) => {
+    if (unavailable) return
     if (onCustomizeClick && (isThali || (item as any).item_customizations?.length > 0)) {
       e.preventDefault()
       onCustomizeClick()

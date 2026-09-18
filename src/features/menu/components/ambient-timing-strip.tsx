@@ -30,7 +30,7 @@ export function AmbientTimingStrip({ timing, className }: AmbientTimingStripProp
         )}
       >
         <Sun className="size-3 text-amber-500 fill-amber-500" />
-        <span>Lunch: {lunch?.isOpen ? lunch.formattedCutoff || '11:30 AM' : 'Closed'}</span>
+        <span>Lunch: {lunch?.isOpen ? (lunch.formattedCutoff ? `Till ${lunch.formattedCutoff}` : 'Open') : 'Closed'}</span>
         {lunch?.isOpen && lunch?.isClosingSoon && (
           <span className="size-1.5 rounded-full bg-amber-500 animate-ping" />
         )}
@@ -50,7 +50,7 @@ export function AmbientTimingStrip({ timing, className }: AmbientTimingStripProp
         )}
       >
         <Moon className="size-3 text-indigo-500 fill-indigo-500" />
-        <span>Dinner: {dinner?.isOpen ? dinner.formattedCutoff || '10:30 PM' : 'Closed'}</span>
+        <span>Dinner: {dinner?.isOpen ? (dinner.formattedCutoff ? `Till ${dinner.formattedCutoff}` : 'Open') : 'Closed'}</span>
         {dinner?.isOpen && (
           <span className="size-1.5 rounded-full bg-emerald-500" />
         )}

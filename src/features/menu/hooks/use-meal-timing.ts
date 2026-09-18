@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import dayjs from 'dayjs'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { MealType } from '@/types/database.types'
+import type { MealType, Tables } from '@/types/database.types'
 
 export type SlotTimingInfo = {
   mealType: MealType
@@ -25,52 +26,58 @@ export type MealTimingState = {
   refetchTiming: () => Promise<void>
 }
 
-function parseCutoffMinutes(cutoffTimeStr: string | null): number | null {
+function parseCutoffMinutes(cutoffTimeStr: string | null, dateStr: string): number | null {
   if (!cutoffTimeStr) return null
   const now = dayjs()
-  const [hours, minutes] = cutoffTimeStr.substring(0, 5).split(':').map(Number)
-  const cutoffToday = dayjs().hour(hours).minute(minutes).second(0)
-
-  const diffMinutes = cutoffToday.diff(now, 'minute')
-  return diffMinutes
+  const parts = cutoffTimeStr.substring(0, 5).split(':').map(Number)
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return null
+  const cutoffDateTime = dayjs(dateStr).hour(parts[0]).minute(parts[1]).second(0)
+  return cutoffDateTime.diff(now, 'minute')
 }
 
 function formatCutoffDisplay(cutoffTimeStr: string | null): string {
   if (!cutoffTimeStr) return ''
-  const [hours, minutes] = cutoffTimeStr.substring(0, 5).split(':').map(Number)
+  const parts = cutoffTimeStr.substring(0, 5).split(':').map(Number)
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return ''
   const dateObj = new Date()
-  dateObj.setHours(hours, minutes, 0, 0)
+  dateObj.setHours(parts[0], parts[1], 0, 0)
   return dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
 export function useMealTiming(targetDate?: string): MealTimingState {
   const dateStr = targetDate || dayjs().format('YYYY-MM-DD')
-  const [rawSlots, setRawSlots] = useState<{ meal_type: MealType; cutoff_time: string | null; is_published: boolean }[]>([])
-  const [activeSlot, setActiveSlot] = useState<MealType>('lunch')
-  const [hasUserSwitched, setHasUserSwitched] = useState(false)
   const [tick, setTick] = useState(0)
 
-  // Fetch slot metadata for the date
-  const fetchTimingData = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('daily_menus')
-        .select('meal_type, cutoff_time, is_published')
-        .eq('menu_date', dateStr)
-        .eq('is_published', true)
+  // Fetch slot metadata from daily_menus and delivery_slots from database via React Query
+  const { data: timingRaw, refetch: refetchTimingQuery } = useQuery({
+    queryKey: ['meal-timing-data', dateStr],
+    queryFn: async () => {
+      const [menusRes, slotsRes] = await Promise.all([
+        supabase
+          .from('daily_menus')
+          .select('meal_type, cutoff_time, is_published')
+          .eq('menu_date', dateStr)
+          .eq('is_published', true),
+        supabase
+          .from('delivery_slots')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order'),
+      ])
 
-      if (error) throw error
-      if (data) {
-        setRawSlots(data as { meal_type: MealType; cutoff_time: string | null; is_published: boolean }[])
+      return {
+        rawMenus: (menusRes.data as { meal_type: MealType; cutoff_time: string | null; is_published: boolean }[]) || [],
+        deliverySlots: (slotsRes.data as Tables<'delivery_slots'>[]) || [],
       }
-    } catch {
-      // Fallback empty
-    }
-  }, [dateStr])
+    },
+  })
 
-  useEffect(() => {
-    fetchTimingData()
-  }, [fetchTimingData])
+  const rawMenus = timingRaw?.rawMenus || []
+  const deliverySlots = timingRaw?.deliverySlots || []
+
+  const refetchTiming = useCallback(async () => {
+    await refetchTimingQuery()
+  }, [refetchTimingQuery])
 
   // Live countdown ticker every 30 seconds
   useEffect(() => {
@@ -82,35 +89,52 @@ export function useMealTiming(targetDate?: string): MealTimingState {
 
   // Process timing details per slot
   const slots = useMemo(() => {
-    // Suppress unused tick warning while keeping reactivity
     void tick
 
+    const todayStr = dayjs().format('YYYY-MM-DD')
+    const isFutureDate = dayjs(dateStr).isAfter(todayStr, 'day')
+    const isPastDate = dayjs(dateStr).isBefore(todayStr, 'day')
     const nowStr = dayjs().format('HH:mm')
+
     const result: Record<MealType, SlotTimingInfo | null> = {
       breakfast: null,
       lunch: null,
       dinner: null,
     }
 
-    const defaultCutoffs: Record<string, string> = {
-      lunch: '11:30',
-      dinner: '22:30',
-    }
+    for (const type of ['breakfast', 'lunch', 'dinner'] as MealType[]) {
+      const menuMatch = rawMenus.find((s) => s.meal_type === type)
+      const slotMatch = deliverySlots.find((s) => s.meal_type === type)
 
-    for (const type of ['lunch', 'dinner'] as MealType[]) {
-      const match = rawSlots.find((s) => s.meal_type === type)
-      const rawCutoff = match?.cutoff_time || defaultCutoffs[type]
+      // Priority: daily menu cutoff override > delivery slot cutoff from admin
+      const rawCutoff = menuMatch?.cutoff_time || slotMatch?.cutoff_time || null
       const cutoffShort = rawCutoff ? rawCutoff.substring(0, 5) : null
 
-      const isOpen = cutoffShort ? nowStr < cutoffShort : true
-      const minutesRemaining = parseCutoffMinutes(rawCutoff)
-      const isClosingSoon = isOpen && minutesRemaining !== null && minutesRemaining > 0 && minutesRemaining <= 30
+      let isOpen = true
+      let minutesRemaining: number | null = null
+      let isClosingSoon = false
+
+      if (isPastDate) {
+        isOpen = false
+        minutesRemaining = 0
+        isClosingSoon = false
+      } else if (isFutureDate) {
+        // Future dates: pre-orders are open
+        isOpen = true
+        minutesRemaining = null
+        isClosingSoon = false
+      } else {
+        // Today: evaluate against current clock time
+        isOpen = cutoffShort ? nowStr < cutoffShort : true
+        minutesRemaining = parseCutoffMinutes(rawCutoff, dateStr)
+        isClosingSoon = isOpen && minutesRemaining !== null && minutesRemaining > 0 && minutesRemaining <= 30
+      }
 
       result[type] = {
         mealType: type,
         cutoffTime: rawCutoff,
         formattedCutoff: formatCutoffDisplay(rawCutoff),
-        isPublished: !!match,
+        isPublished: !!menuMatch,
         isOpen,
         isClosingSoon,
         minutesRemaining: isOpen && minutesRemaining !== null && minutesRemaining >= 0 ? minutesRemaining : 0,
@@ -118,29 +142,25 @@ export function useMealTiming(targetDate?: string): MealTimingState {
     }
 
     return result
-  }, [rawSlots, tick])
+  }, [rawMenus, deliverySlots, dateStr, tick])
 
   const isLunchOpen = slots.lunch?.isOpen ?? false
   const isDinnerOpen = slots.dinner?.isOpen ?? false
   const lunchMinutesRemaining = slots.lunch?.minutesRemaining ?? null
   const dinnerMinutesRemaining = slots.dinner?.minutesRemaining ?? null
 
-  // Auto-select lunch if open, or auto-switch to dinner if lunch is closed
-  useEffect(() => {
-    if (hasUserSwitched) return
+  const [userSelectedSlot, setUserSelectedSlot] = useState<MealType | null>(null)
 
-    if (isLunchOpen) {
-      setActiveSlot('lunch')
-    } else if (isDinnerOpen) {
-      setActiveSlot('dinner')
-    } else {
-      setActiveSlot('lunch')
-    }
-  }, [isLunchOpen, isDinnerOpen, hasUserSwitched])
+  // Auto-select lunch if open, or auto-switch to dinner if lunch is closed, unless explicitly chosen by user
+  const activeSlot = useMemo<MealType>(() => {
+    if (userSelectedSlot) return userSelectedSlot
+    if (isLunchOpen) return 'lunch'
+    if (isDinnerOpen) return 'dinner'
+    return 'lunch'
+  }, [userSelectedSlot, isLunchOpen, isDinnerOpen])
 
   const handleSetActiveSlot = useCallback((slot: MealType) => {
-    setHasUserSwitched(true)
-    setActiveSlot(slot)
+    setUserSelectedSlot(slot)
   }, [])
 
   return {
@@ -152,6 +172,6 @@ export function useMealTiming(targetDate?: string): MealTimingState {
     lunchMinutesRemaining,
     dinnerMinutesRemaining,
     activeSlotInfo: slots[activeSlot],
-    refetchTiming: fetchTimingData,
+    refetchTiming,
   }
 }

@@ -18,6 +18,39 @@ export function isSoldOut(listing: MenuListing): boolean {
 
 /** Returns true if the per-item or daily menu cutoff time has passed. */
 export function isCutoffPassed(listing: MenuListing): boolean {
+  // All-time 24/7 retail products (farsan, sweets, snacks/nasta, beverages) never expire due to daily meal cutoff!
+  const catType = (listing.food_items as any)?.categories?.category_type
+  const catSlug = ((listing.food_items as any)?.categories?.slug || '').toLowerCase()
+  const isAlwaysAvailable =
+    listing.food_items?.kind === 'single' &&
+    (catType === 'snack' ||
+      catType === 'beverage' ||
+      catType === 'sweet' ||
+      catSlug.includes('snack') ||
+      catSlug.includes('farsan') ||
+      catSlug.includes('nasta') ||
+      catSlug.includes('sweet') ||
+      catSlug.includes('beverage') ||
+      catSlug.includes('add-on'))
+
+  if (isAlwaysAvailable) {
+    return false
+  }
+
+  const menuDate = listing.daily_menus?.menu_date
+  const todayStr = dayjs().format('YYYY-MM-DD')
+
+  // 1. Future dates: pre-orders are always open
+  if (menuDate && dayjs(menuDate).isAfter(todayStr, 'day')) {
+    return false
+  }
+
+  // 2. Past dates: archived
+  if (menuDate && dayjs(menuDate).isBefore(todayStr, 'day')) {
+    return true
+  }
+
+  // 3. Today: evaluate cutoff time
   const cutoff = listing.cutoff_time || listing.daily_menus?.cutoff_time
   if (!cutoff) return false
 
@@ -56,7 +89,9 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
 
   if (error) throw error
 
-  const listings = (dailyItems as unknown as MenuListing[]) || []
+  const listings = ((dailyItems as unknown as MenuListing[]) || []).filter(
+    (l) => l.is_available && (l.food_items as any)?.is_available !== false,
+  )
 
   // Fetch active Thalis for the requested published meals
   const { data: thaliFoods } = await supabase
@@ -98,6 +133,63 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
           }
           listings.push(syntheticListing)
         }
+      }
+    }
+  }
+
+  // Fetch All-Time Store Products (Farsan, Sweets, Nasta, Snacks, Beverages, Add-ons)
+  // Only include items that are active and enabled for sale (is_available = true)
+  const { data: storeFoods } = await supabase
+    .from('food_items')
+    .select('*, categories(*)')
+    .eq('kind', 'single')
+    .eq('is_available', true)
+    .order('display_order', { ascending: true })
+
+  if (storeFoods && storeFoods.length > 0) {
+    const existingItemIds = new Set(listings.map((l) => l.food_item_id))
+
+    for (const storeItem of storeFoods as unknown as AlwaysAvailableItem[]) {
+      const catType = (storeItem.categories?.category_type || '').toLowerCase()
+      const catSlug = (storeItem.categories?.slug || '').toLowerCase()
+      const isStoreCategory =
+        catType === 'snack' ||
+        catType === 'beverage' ||
+        catType === 'sweet' ||
+        catSlug.includes('snack') ||
+        catSlug.includes('farsan') ||
+        catSlug.includes('nasta') ||
+        catSlug.includes('beverage') ||
+        catSlug.includes('sweet') ||
+        catSlug.includes('add-on')
+
+      if (isStoreCategory && !existingItemIds.has(storeItem.id) && storeItem.is_available) {
+        const syntheticListing: MenuListing = {
+          id: `store-prod-${storeItem.id}`,
+          daily_menu_id: publishedMenus?.[0]?.id || `store-${date}`,
+          food_item_id: storeItem.id,
+          price_override: null,
+          available_quantity: storeItem.track_stock ? storeItem.stock_quantity : null,
+          sold_quantity: 0,
+          is_available: storeItem.is_available,
+          is_special: storeItem.is_featured ?? false,
+          is_standalone_sale: true,
+          is_thali_option: false,
+          cutoff_time: null,
+          cutoff_note: null,
+          display_order: storeItem.display_order ?? 0,
+          created_at: storeItem.created_at,
+          updated_at: storeItem.updated_at,
+          food_items: storeItem as any,
+          daily_menus: {
+            menu_date: date,
+            is_published: true,
+            meal_type: (mealType || 'lunch') as MealType,
+            cutoff_time: null,
+          },
+        }
+        listings.push(syntheticListing)
+        existingItemIds.add(storeItem.id)
       }
     }
   }
@@ -148,21 +240,6 @@ export async function fetchDailyMenuSlots(date: string) {
   return data || []
 }
 
-const EXCLUDED_CATEGORY_SLUGS = new Set(['rice', 'sambhar', 'beverages'])
-const EXCLUDED_CATEGORY_NAMES = new Set(['dal-bhat & rice', 'sambhar', 'beverages'])
-const EXCLUDED_CATEGORY_IDS = new Set([
-  'dfacdbca-1ceb-42cd-903c-c389e5c50b1d', // Dal-Bhat & Rice
-  '8c6abc50-0af8-40d1-995c-fdc38a3dbfcd', // Sambhar
-  'd7009410-1f57-411a-acf6-c4fc0e1339f5', // Beverages
-])
-
-export function isExcludedCategory(cat: { id?: string; slug?: string | null; name?: string | null }): boolean {
-  if (cat.id && EXCLUDED_CATEGORY_IDS.has(cat.id)) return true
-  if (cat.slug && EXCLUDED_CATEGORY_SLUGS.has(cat.slug.toLowerCase())) return true
-  if (cat.name && EXCLUDED_CATEGORY_NAMES.has(cat.name.toLowerCase())) return true
-  return false
-}
-
 /** Active categories from admin, ordered by display_order. */
 export async function fetchActiveCategories(): Promise<Tables<'categories'>[]> {
   const { data, error } = await supabase
@@ -172,7 +249,7 @@ export async function fetchActiveCategories(): Promise<Tables<'categories'>[]> {
     .order('display_order', { ascending: true })
 
   if (error) throw error
-  return (data || []).filter((cat) => !isExcludedCategory(cat))
+  return data || []
 }
 
 export type ThaliComponent = Tables<'thali_items'> & { food_items: { name: string } | null }
@@ -181,25 +258,31 @@ export type FoodItemDetail = Tables<'food_items'> & {
   categories: Tables<'categories'> | null
   thali_items: ThaliComponent[]
   item_customizations: Tables<'item_customizations'>[]
+  food_item_variants: Tables<'food_item_variants'>[]
 }
 
 export async function fetchFoodItemBySlug(slug: string): Promise<FoodItemDetail> {
   const { data, error } = await supabase
     .from('food_items')
     .select(
-      '*, categories(*), thali_items!thali_items_thali_id_fkey(*, food_items!thali_items_food_item_id_fkey(name)), item_customizations(*)',
+      '*, categories(*), thali_items!thali_items_thali_id_fkey(*, food_items!thali_items_food_item_id_fkey(name)), item_customizations(*), food_item_variants(*)',
     )
     .eq('slug', slug)
     .single()
   if (error) throw error
   const item = data as unknown as FoodItemDetail
   const activeCustomizations = (item.item_customizations || []).filter((c) => c.is_active !== false)
+  const activeVariants = (item.food_item_variants || [])
+    .filter((v) => v.is_active !== false)
+    .sort((a, b) => a.display_order - b.display_order || a.price - b.price)
+
   return {
     ...item,
     thali_items: [...(item.thali_items || [])].sort((a, b) => a.display_order - b.display_order),
     item_customizations: [...activeCustomizations].sort(
       (a, b) => a.display_order - b.display_order,
     ),
+    food_item_variants: activeVariants,
   }
 }
 

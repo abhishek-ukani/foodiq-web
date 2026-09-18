@@ -1,6 +1,5 @@
 import { cn } from '@/lib/utils'
 import type { Tables } from '@/types/database.types'
-import { isExcludedCategory } from '@/features/menu/services/menu-service'
 
 export type CategoryKey = string
 
@@ -118,12 +117,9 @@ export function CategoryShowcaseBar({
     return <CategoryShowcaseBarSkeleton className={className} />
   }
 
-  // Exclude removed categories (Dal-Bhat & Rice, Sambhar, Beverages)
-  const validCategories = categories.filter((cat) => !isExcludedCategory(cat))
-
-  // Only display categories that actually contain items in today's menu
-  const itemsWithCounts = validCategories.filter(
-    (cat) => (itemCounts[cat.id] ?? 0) > 0 || (itemCounts[cat.slug] ?? 0) > 0,
+  // Only display active categories that actually contain items in the current menu
+  const itemsWithCounts = categories.filter(
+    (cat) => cat.is_active !== false && ((itemCounts[cat.id] ?? 0) > 0 || (itemCounts[cat.slug] ?? 0) > 0),
   )
 
   // Built items: "All" followed by categories that have items in the current menu

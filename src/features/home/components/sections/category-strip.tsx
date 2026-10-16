@@ -16,14 +16,14 @@ const CATEGORY_ITEMS: CategoryCardItem[] = [
     id: 'lunch',
     title: 'Lunch Meals',
     subtitle: 'Healthy & Tasty',
-    to: `${ROUTES.menu}?meal=lunch`,
+    to: `${ROUTES.menu}?meal=lunch&category=thalis`,
     image: '/images/dishes/dish-lunch.png',
   },
   {
     id: 'dinner',
     title: 'Dinner Meals',
     subtitle: 'Light & Wholesome',
-    to: `${ROUTES.menu}?meal=dinner`,
+    to: `${ROUTES.menu}?meal=dinner&category=thalis`,
     image: '/images/dishes/dish-dinner.png',
   },
   {
@@ -44,14 +44,14 @@ const CATEGORY_ITEMS: CategoryCardItem[] = [
     id: 'bulk',
     title: 'Bulk Order',
     subtitle: 'For Families & Events',
-    to: ROUTES.contact,
+    to: '/#occasions',
     image: '/images/dishes/dish-bulk.png',
   },
   {
     id: 'party',
     title: 'Party Order',
     subtitle: 'Special Occasions',
-    to: ROUTES.contact,
+    to: '/#occasions',
     image: '/images/dishes/dish-party.png',
   },
 ]
@@ -108,4 +108,3 @@ export function CategoryStrip({ className }: { className?: string }) {
     </section>
   )
 }
-

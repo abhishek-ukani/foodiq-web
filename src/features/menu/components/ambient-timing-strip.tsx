@@ -11,6 +11,22 @@ export function AmbientTimingStrip({ timing, className }: AmbientTimingStripProp
   const lunch = timing.slots.lunch
   const dinner = timing.slots.dinner
 
+  const getSlotStatusLabel = (slot: typeof lunch, slotName: string) => {
+    if (timing.isTomorrow) {
+      if (slot?.isOpen) {
+        return slot.formattedCutoff ? `${slotName}: Pre-order (Till ${slot.formattedCutoff})` : `${slotName}: Pre-order Open`
+      }
+      return `${slotName}: Closed`
+    }
+    if (slot?.isOpen) {
+      return slot.formattedCutoff ? `${slotName}: Till ${slot.formattedCutoff}` : `${slotName}: Open`
+    }
+    if (slot?.isCutoffPassed) {
+      return `${slotName}: Closed`
+    }
+    return `${slotName}: Publishing Soon`
+  }
+
   return (
     <div
       className={cn(
@@ -30,7 +46,7 @@ export function AmbientTimingStrip({ timing, className }: AmbientTimingStripProp
         )}
       >
         <Sun className="size-3 text-amber-500 fill-amber-500" />
-        <span>Lunch: {lunch?.isOpen ? (lunch.formattedCutoff ? `Till ${lunch.formattedCutoff}` : 'Open') : 'Closed'}</span>
+        <span>{getSlotStatusLabel(lunch, 'Lunch')}</span>
         {lunch?.isOpen && lunch?.isClosingSoon && (
           <span className="size-1.5 rounded-full bg-amber-500 animate-ping" />
         )}
@@ -50,7 +66,7 @@ export function AmbientTimingStrip({ timing, className }: AmbientTimingStripProp
         )}
       >
         <Moon className="size-3 text-indigo-500 fill-indigo-500" />
-        <span>Dinner: {dinner?.isOpen ? (dinner.formattedCutoff ? `Till ${dinner.formattedCutoff}` : 'Open') : 'Closed'}</span>
+        <span>{getSlotStatusLabel(dinner, 'Dinner')}</span>
         {dinner?.isOpen && (
           <span className="size-1.5 rounded-full bg-emerald-500" />
         )}

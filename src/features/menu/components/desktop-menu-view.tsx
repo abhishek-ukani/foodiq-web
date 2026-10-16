@@ -1,23 +1,19 @@
-import { useState, useMemo } from 'react'
-import { Search, UtensilsCrossed, Sun, Moon } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { useState, useMemo, useEffect } from 'react'
+import { ArrowRight, UtensilsCrossed, Clock } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { EmptyState } from '@/components/common/empty-state'
-import { AmbientTimingStrip } from '@/features/menu/components/ambient-timing-strip'
 import {
   CategoryShowcaseBar,
   getCategoryVisuals,
 } from '@/features/menu/components/category-showcase-bar'
-import { MobileMenuItemRow } from '@/features/menu/components/mobile-menu-item-row'
-import type { MenuListing } from '@/features/menu/services/menu-service'
-import type { MealTimingState } from '@/features/menu/hooks/use-meal-timing'
+import { MenuProductCard } from '@/features/menu/components/menu-product-card'
+import { DesktopThaliCard } from '@/features/menu/components/desktop-thali-card'
+import { MenuHero } from '@/features/menu/components/menu-hero'
+import { isCutoffPassed, type MenuListing } from '@/features/menu/services/menu-service'
+import { formatCutoffDisplay, type MealTimingState } from '@/features/menu/hooks/use-meal-timing'
+import { useCartSummary } from '@/features/cart/hooks/use-cart'
+import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
 import type { Tables } from '@/types/database.types'
 import { cn } from '@/lib/utils'
 
@@ -29,42 +25,197 @@ type DesktopMenuViewProps = {
   timing: MealTimingState
   isPending: boolean
   onCustomize: (listing: MenuListing) => void
+  selectedCategory?: string
+  onSelectCategory?: (key: string) => void
 }
 
+// ── Timing & Slot Switcher for Thalis (Matching Target Design Mock) ───────────
+function ThaliSlotSwitcher({ timing }: { timing: MealTimingState }) {
+  return (
+    <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+      {/* Today / Tomorrow pill */}
+      <div className="flex items-center p-0.5 bg-neutral-100/90 rounded-full border border-[#E9E5DA] text-xs">
+        <button
+          type="button"
+          onClick={() => timing.setDate(timing.todayDate)}
+          className={cn(
+            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none',
+            timing.isToday
+              ? 'bg-[#185834] text-white shadow-xs'
+              : 'text-neutral-600 hover:text-neutral-900',
+          )}
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          onClick={() => timing.setDate(timing.tomorrowDate)}
+          className={cn(
+            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none',
+            timing.isTomorrow
+              ? 'bg-[#185834] text-white shadow-xs'
+              : 'text-neutral-600 hover:text-neutral-900',
+          )}
+        >
+          Tomorrow
+        </button>
+      </div>
+
+      {/* Lunch / Dinner pill */}
+      <div className="flex items-center p-0.5 bg-neutral-100/90 rounded-full border border-[#E9E5DA] text-xs">
+        <button
+          type="button"
+          onClick={() => timing.setActiveSlot('lunch')}
+          className={cn(
+            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none',
+            timing.activeSlot === 'lunch'
+              ? 'bg-[#185834] text-white shadow-xs'
+              : 'text-neutral-600 hover:text-neutral-900',
+          )}
+        >
+          Lunch
+        </button>
+        <button
+          type="button"
+          onClick={() => timing.setActiveSlot('dinner')}
+          className={cn(
+            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none',
+            timing.activeSlot === 'dinner'
+              ? 'bg-[#185834] text-white shadow-xs'
+              : 'text-neutral-600 hover:text-neutral-900',
+          )}
+        >
+          Dinner
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── SKELETON LOADER ─────────────────────────────────────────────────────────
+function ContentSkeleton() {
+  return (
+    <div className="space-y-12">
+      {[1, 2].map((sec) => (
+        <div key={sec} className="space-y-4">
+          <div className="flex items-center justify-between border-b border-[#E9E5DA] pb-3">
+            <Skeleton className="h-7 w-48 rounded-lg" />
+            <Skeleton className="h-5 w-24 rounded-full" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="bg-white border border-[#E9E5DA] rounded-2xl overflow-hidden p-3 space-y-3">
+                <Skeleton className="aspect-[16/10] w-full rounded-xl" />
+                <Skeleton className="h-4 w-3/4 rounded" />
+                <Skeleton className="h-3 w-full rounded" />
+                <div className="flex justify-between items-center pt-2">
+                  <Skeleton className="h-4 w-16 rounded" />
+                  <Skeleton className="h-7 w-20 rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Main Component ───────────────────────────────────────────────────────────
 export function DesktopMenuView({
   listings,
   categories,
   timing,
   isPending,
   onCustomize,
+  selectedCategory: controlledSelectedCategory,
+  onSelectCategory: controlledOnSelectCategory,
 }: DesktopMenuViewProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [internalCategory, setInternalCategory] = useState<string>('all')
+  const selectedCategory = controlledSelectedCategory ?? internalCategory
+  const setSelectedCategory = controlledOnSelectCategory ?? setInternalCategory
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortOption>('default')
+  const { itemCount, subtotal } = useCartSummary()
 
-  // Item counts per category
+  // Item counts per category based on currently available listings
   const itemCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      all: listings.length,
-    }
+    const counts: Record<string, number> = { all: listings.length }
     for (const cat of categories) {
-      counts[cat.id] = listings.filter(
-        (l) => l.food_items?.category_id === cat.id || l.food_items?.categories?.slug === cat.slug,
+      const count = listings.filter(
+        (l) =>
+          l.food_items?.category_id === cat.id ||
+          l.food_items?.categories?.id === cat.id ||
+          l.food_items?.categories?.slug === cat.slug,
       ).length
+      counts[cat.id] = count
+      if (cat.slug) {
+        counts[cat.slug] = count
+      }
+    }
+    const uncategorizedCount = listings.filter(
+      (l) =>
+        !l.food_items?.category_id &&
+        !l.food_items?.categories?.id &&
+        !l.food_items?.categories?.slug,
+    ).length
+    if (uncategorizedCount > 0) {
+      counts['other'] = uncategorizedCount
     }
     return counts
   }, [listings, categories])
+
+  // Only display categories defined by admin products available that actually have items
+  // Always keep Thalis/Meals category active so customers can always view and switch meal slots
+  const availableCategories = useMemo(() => {
+    return categories.filter((c) => {
+      if (c.is_active === false) return false
+      const isThaliCategory =
+        c.category_type === 'thali' ||
+        c.slug === 'thalis' ||
+        c.name.toLowerCase().includes('thali') ||
+        c.name.toLowerCase().includes('meal')
+      if (isThaliCategory) return true
+      const count = itemCounts[c.id] ?? (c.slug ? itemCounts[c.slug] : 0) ?? 0
+      return count > 0
+    })
+  }, [categories, itemCounts])
+
+  // Automatically reset category filter if currently selected category has no available items
+  useEffect(() => {
+    if (selectedCategory !== 'all' && selectedCategory !== 'other') {
+      const exists = availableCategories.some(
+        (c) => c.id === selectedCategory || c.slug === selectedCategory,
+      )
+      if (!exists) {
+        setSelectedCategory('all')
+      }
+    } else if (selectedCategory === 'other' && (itemCounts['other'] ?? 0) === 0) {
+      setSelectedCategory('all')
+    }
+  }, [availableCategories, selectedCategory, itemCounts])
 
   // Filter & sort
   const filtered = useMemo(() => {
     let items = listings
 
     if (selectedCategory !== 'all') {
-      items = items.filter(
-        (l) =>
-          l.food_items?.category_id === selectedCategory ||
-          l.food_items?.categories?.slug === selectedCategory,
-      )
+      if (selectedCategory === 'other') {
+        items = items.filter(
+          (l) =>
+            !l.food_items?.category_id &&
+            !l.food_items?.categories?.id &&
+            !l.food_items?.categories?.slug,
+        )
+      } else {
+        items = items.filter(
+          (l) =>
+            l.food_items?.category_id === selectedCategory ||
+            l.food_items?.categories?.id === selectedCategory ||
+            l.food_items?.categories?.slug === selectedCategory ||
+            l.food_items?.categories?.name?.toLowerCase() === selectedCategory.toLowerCase(),
+        )
+      }
     }
 
     const query = search.trim().toLowerCase()
@@ -78,7 +229,6 @@ export function DesktopMenuView({
     }
 
     const priceOf = (l: MenuListing) => l.price_override ?? l.food_items?.price ?? 0
-
     if (sort === 'price-asc') items = [...items].sort((a, b) => priceOf(a) - priceOf(b))
     if (sort === 'price-desc') items = [...items].sort((a, b) => priceOf(b) - priceOf(a))
     if (sort === 'name') items = [...items].sort((a, b) => a.food_items.name.localeCompare(b.food_items.name))
@@ -86,13 +236,14 @@ export function DesktopMenuView({
     return items
   }, [listings, selectedCategory, search, sort])
 
-  // Group listings dynamically by category for continuous feed
+  // Grouped sections for the "all" view (Farsan first, then Thalis, matching the target mock)
   const groupedSections = useMemo(() => {
     const sections: {
       category: Tables<'categories'> | null
       key: string
       name: string
-      description: string | null
+      subtitle: string
+      image: string | null
       emoji: string
       items: MenuListing[]
       isThali: boolean
@@ -100,43 +251,75 @@ export function DesktopMenuView({
 
     const handledIds = new Set<string>()
 
-    // Sort categories by display_order
-    const sortedCategories = [...categories].sort(
-      (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
+    // Priority ordering: Farsan first, then Thalis, then others
+    const getSortPriority = (nameOrSlug: string) => {
+      const s = nameOrSlug.toLowerCase()
+      if (s.includes('farsan') || s.includes('snack')) return 1
+      if (s.includes('thali')) return 2
+      if (s.includes('sabji') || s.includes('shabji')) return 3
+      if (s.includes('bread') || s.includes('rotli')) return 4
+      if (s.includes('sweet')) return 5
+      if (s.includes('beverage')) return 6
+      return 10
+    }
+
+    const sortedCategories = [...availableCategories].sort(
+      (a, b) => getSortPriority(a.slug || a.name) - getSortPriority(b.slug || b.name),
     )
 
     for (const cat of sortedCategories) {
       const items = listings.filter(
-        (l) => l.food_items?.category_id === cat.id || l.food_items?.categories?.slug === cat.slug,
+        (l) =>
+          l.food_items?.category_id === cat.id ||
+          l.food_items?.categories?.id === cat.id ||
+          l.food_items?.categories?.slug === cat.slug,
       )
-      if (items.length > 0) {
+      const isThali =
+        cat.category_type === 'thali' ||
+        cat.slug?.includes('thali') ||
+        items.some((i) => i.food_items?.kind === 'thali')
+
+      // Create a section if there are actually items available in this category OR if it's the core Thali category
+      if (items.length > 0 || isThali) {
         items.forEach((item) => handledIds.add(item.id))
-        const visuals = getCategoryVisuals(cat)
-        const isThali =
-          cat.category_type === 'thali' ||
-          cat.slug?.includes('thali') ||
-          items.some((i) => i.food_items?.kind === 'thali')
+
+        let subtitle = cat.description || ''
+        const nameLower = cat.name.toLowerCase()
+        if (nameLower.includes('farsan')) {
+          subtitle = 'Crispy, tasty and perfect for your cravings'
+        } else if (isThali) {
+          subtitle = 'Delicious & Authentic Fixed Gujarati Thalis'
+        } else if (nameLower.includes('sabji') || nameLower.includes('shabji')) {
+          subtitle = 'Homestyle authentic Kathiyawadi & Gujarati curries'
+        } else if (nameLower.includes('rotli') || nameLower.includes('bread')) {
+          subtitle = 'Soft hot phulkas, parathas & desi bhakhri'
+        } else if (nameLower.includes('sweet')) {
+          subtitle = 'Rich, traditional Gujarati sweets and mithais'
+        } else if (nameLower.includes('beverage')) {
+          subtitle = 'Chilled spiced masala chhas and refreshing drinks'
+        }
 
         sections.push({
           category: cat,
           key: cat.id,
           name: cat.name,
-          description: cat.description,
-          emoji: visuals.emoji,
+          subtitle,
+          image: cat.image_url || null,
+          emoji: getCategoryVisuals(cat).emoji,
           items,
           isThali,
         })
       }
     }
 
-    // Capture any items that were not mapped to an active category
     const remainingItems = listings.filter((l) => !handledIds.has(l.id))
     if (remainingItems.length > 0) {
       sections.push({
         category: null,
         key: 'other',
         name: 'Other Dishes',
-        description: 'Fresh daily additions',
+        subtitle: 'Fresh daily additions',
+        image: null,
         emoji: '🍛',
         items: remainingItems,
         isThali: remainingItems.some((i) => i.food_items?.kind === 'thali'),
@@ -144,64 +327,29 @@ export function DesktopMenuView({
     }
 
     return sections
-  }, [listings, categories])
+  }, [listings, availableCategories])
 
   const selectedCategoryObj = useMemo(() => {
     if (selectedCategory === 'all') return null
-    return categories.find((c) => c.id === selectedCategory || c.slug === selectedCategory)
-  }, [categories, selectedCategory])
+    return availableCategories.find((c) => c.id === selectedCategory || c.slug === selectedCategory)
+  }, [availableCategories, selectedCategory])
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      {/* ── TOP HEADER ── */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-neutral-200">
-        <div>
-          <h1 className="font-display text-3xl font-extrabold text-neutral-900 tracking-tight">
-            Explore FoodIQ Menu
-          </h1>
-          <p className="text-neutral-500 text-sm mt-1">
-            Homestyle Gujarati dishes, freshly cooked daily and delivered to your doorstep.
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#FAF8F2]">
+      {/* ── 1. HERO BANNER ── */}
+      <MenuHero
+        searchQuery={search}
+        onSearchChange={setSearch}
+        timing={timing}
+        sort={sort}
+        onSortChange={setSort}
+      />
 
-        {/* Ambient Timing Strip */}
-        <div className="w-full md:w-auto">
-          <AmbientTimingStrip timing={timing} />
-        </div>
-      </div>
-
-      {/* ── SEARCH & CATEGORY SHOWCASE ── */}
-      <div className="mb-8 space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {/* Search */}
-          <div className="relative max-w-md flex-1">
-            <Search className="text-neutral-400 absolute top-1/2 left-3.5 size-4 -translate-y-1/2" aria-hidden />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search dishes, thalis, sabjis, sweets…"
-              className="pl-10 h-10.5 rounded-xl bg-neutral-50/80 border-neutral-200 text-sm"
-            />
-          </div>
-
-          {/* Sort */}
-          <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
-            <SelectTrigger className="w-full sm:w-48 h-10.5 rounded-xl text-xs font-medium">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Sort: Featured</SelectItem>
-              <SelectItem value="price-asc">Price: Low to High</SelectItem>
-              <SelectItem value="price-desc">Price: High to Low</SelectItem>
-              <SelectItem value="name">Name: A to Z</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Category Showcase Bar */}
-        <div className="pt-2">
+      {/* ── 2. CATEGORY PILLS BAR (STICKY) ── */}
+      <div className="sticky top-[57px] z-30 bg-[#FAF8F2]/95 backdrop-blur-md border-b border-[#E9E5DA]/80 py-2.5">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10">
           <CategoryShowcaseBar
-            categories={categories}
+            categories={availableCategories}
             activeCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
             itemCounts={itemCounts}
@@ -210,156 +358,255 @@ export function DesktopMenuView({
         </div>
       </div>
 
-      {/* ── CONTENT GRID ── */}
-      {isPending ? (
-        <div className="space-y-6">
-          {/* Section header skeleton */}
-          <div className="flex items-center justify-between pb-2 border-b">
-            <div className="flex items-center gap-2">
-              <Skeleton className="size-6 rounded-md" />
-              <Skeleton className="h-6 w-28 rounded-md" />
-            </div>
-            <Skeleton className="h-5 w-16 rounded-md" />
-          </div>
+      {/* ── 3. MAIN CONTENT CONTAINER ── */}
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 py-8 sm:py-10">
+        {isPending ? (
+          <ContentSkeleton />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={UtensilsCrossed}
+            title={search ? 'No dishes match your search' : 'No items found in this section'}
+            description="Try selecting a different category or adjusting your search."
+          />
+        ) : selectedCategory === 'all' && !search ? (
+          /* ── DYNAMIC SECTIONS FEED (Target Design Mock: Farsan 4-col Grid, Thalis 2-col Grid) ── */
+          <div className="space-y-12 sm:space-y-14">
+            {groupedSections.map((sec) => {
+              const firstThali = sec.items.find((i) => i.food_items?.kind === 'thali') || sec.items[0]
+              const isItemsCutoffPassed = firstThali
+                ? isCutoffPassed(firstThali)
+                : (timing.activeSlotInfo?.isCutoffPassed ?? false)
+              const cutoffTimeStr =
+                firstThali?.cutoff_time || firstThali?.daily_menus?.cutoff_time || timing.activeSlotInfo?.cutoffTime
+              const formattedCutoff =
+                formatCutoffDisplay(cutoffTimeStr) || timing.activeSlotInfo?.formattedCutoff || ''
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {Array.from({ length: 4 }, (_, i) => (
-              <div
-                key={i}
-                className="p-4 bg-white rounded-2xl border border-neutral-200/80 flex gap-4 shadow-2xs"
-              >
-                <div className="flex-1 space-y-2.5">
-                  <Skeleton className="h-4 w-1/2 rounded-md" />
-                  <Skeleton className="h-4 w-1/4 rounded-md" />
-                  <div className="flex gap-2 pt-1">
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                  </div>
-                  <Skeleton className="h-3 w-4/5 rounded-md" />
-                </div>
-                <div className="flex flex-col items-center justify-between shrink-0">
-                  <Skeleton className="size-20 rounded-xl" />
-                  <Skeleton className="h-7 w-20 rounded-lg" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={UtensilsCrossed}
-          title={search ? 'No dishes match your search' : 'No items found in this section'}
-          description="Try selecting a different category or adjusting your search."
-        />
-      ) : selectedCategory === 'all' && !search ? (
-        /* ── DYNAMIC SECTIONS CONTINUOUS FEED ── */
-        <div className="space-y-10">
-          {groupedSections.map((sec) => (
-            <section key={sec.key}>
-              <div className="flex items-center justify-between mb-4 pb-2 border-b">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xl">{sec.emoji}</span>
-                  <div>
-                    <h2 className="text-xl font-bold text-neutral-900">
-                      {sec.name}
-                    </h2>
-                    {sec.description && (
-                      <p className="text-xs text-neutral-400">
-                        {sec.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {/* Lunch / Dinner switcher in the Thali section */}
-                  {sec.isThali && (
-                    <div className="flex items-center p-1 bg-neutral-100 rounded-xl border text-xs">
-                      <button
-                        type="button"
-                        onClick={() => timing.setActiveSlot('lunch')}
-                        className={cn(
-                          'px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all',
-                          timing.activeSlot === 'lunch'
-                            ? 'bg-white text-neutral-900 shadow-xs'
-                            : 'text-neutral-500 hover:text-neutral-900',
+              return (
+                <section key={sec.key} aria-labelledby={`section-${sec.key}`} className="scroll-mt-32">
+                  {/* ── SECTION HEADER ── */}
+                  <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+                    {/* Left: Category Icon + Title + Subtitle */}
+                    <div className="flex items-center gap-3">
+                      {sec.image ? (
+                        <div className="size-9 rounded-full overflow-hidden border border-[#E9E5DA] shadow-2xs shrink-0">
+                          <img
+                            src={sec.image}
+                            alt={sec.name}
+                            loading="lazy"
+                            className="w-full h-full object-cover object-center"
+                          />
+                        </div>
+                      ) : (
+                        <div className="size-9 rounded-full bg-white border border-[#E9E5DA] shadow-2xs shrink-0 flex items-center justify-center text-lg leading-none">
+                          {sec.emoji}
+                        </div>
+                      )}
+                      <div>
+                        <h2 className="text-xl font-bold text-[#17231D] leading-tight">
+                          {sec.name}
+                        </h2>
+                        {sec.subtitle && (
+                          <p className="text-xs text-[#7A817B] mt-0.5">{sec.subtitle}</p>
                         )}
-                      >
-                        <Sun className="size-3.5 text-amber-500" />
-                        <span>Lunch</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => timing.setActiveSlot('dinner')}
-                        className={cn(
-                          'px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all',
-                          timing.activeSlot === 'dinner'
-                            ? 'bg-white text-neutral-900 shadow-xs'
-                            : 'text-neutral-500 hover:text-neutral-900',
-                        )}
-                      >
-                        <Moon className="size-3.5 text-indigo-500" />
-                        <span>Dinner</span>
-                      </button>
+                      </div>
                     </div>
+
+                    {/* Right: Controls & "View all" Link */}
+                    <div className="flex items-center gap-4 shrink-0">
+                      {sec.isThali && <ThaliSlotSwitcher timing={timing} />}
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-[#7A817B]">
+                          {sec.items.length} {sec.items.length === 1 ? 'item' : 'items'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCategory(sec.category?.id ?? sec.key)}
+                          className="flex items-center gap-1 text-xs text-[#087443] font-semibold hover:underline cursor-pointer"
+                        >
+                          <span>View all</span>
+                          <ArrowRight className="size-3 stroke-[2.5]" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cutoff or pre-order status notice for thali section */}
+                  {sec.isThali && (
+                    <>
+                      {isItemsCutoffPassed ? (
+                        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50/80 border border-amber-200/80 rounded-2xl mb-5 text-xs text-amber-900 font-medium">
+                          <Clock className="size-4 text-amber-600 shrink-0" />
+                          <span>
+                            Ordering for {timing.isToday ? "today's" : ''}{' '}
+                            {timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} is closed
+                            {formattedCutoff ? ` (Cutoff was ${formattedCutoff})` : ''}.
+                          </span>
+                        </div>
+                      ) : !timing.slots[timing.activeSlot]?.isPublished ? (
+                        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl mb-5 text-xs text-amber-900 font-medium">
+                          <Clock className="size-4 text-amber-600 shrink-0" />
+                          <span>
+                            {timing.isTomorrow
+                              ? `Pre-orders are open for Tomorrow's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}. Daily specials will be announced soon.`
+                              : `Today's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} daily specials will be announced soon. Fixed Gujarati Thalis are available.`}
+                          </span>
+                        </div>
+                      ) : null}
+                    </>
                   )}
 
-                  <span className="text-xs text-neutral-400 font-medium">
-                    {sec.items.length} {sec.items.length === 1 ? 'item' : 'items'}
-                  </span>
-                </div>
+                  {/* ── ITEMS DISPLAY ── */}
+                  {sec.items.length === 0 ? (
+                    sec.isThali ? (
+                      <div className="py-10 text-center bg-amber-50/40 rounded-2xl border border-dashed border-amber-200">
+                        <div className="size-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-2 text-2xl">
+                          🍱
+                        </div>
+                        <h3 className="text-base font-bold text-[#17231D]">
+                          {timing.isTomorrow ? "Tomorrow's" : "Today's"} {timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} menu coming soon
+                        </h3>
+                        <p className="text-xs text-[#7A817B] max-w-sm mx-auto mt-1">
+                          Our kitchen is preparing the menu specials for {timing.isTomorrow ? 'tomorrow' : 'today'}. Please check back shortly.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="py-10 text-center bg-white rounded-2xl border border-dashed border-[#E9E5DA]">
+                        <p className="text-sm text-[#7A817B] font-medium">No dishes currently available in this section.</p>
+                      </div>
+                    )
+                  ) : sec.isThali ? (
+                    /* ── THALIS: 2-Column Wide Horizontal Cards (Target Design Mock) ── */
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                      {sec.items.map((item) => (
+                        <DesktopThaliCard key={item.id} listing={item} onCustomize={onCustomize} />
+                      ))}
+                    </div>
+                  ) : (
+                    /* ── FARSAN / REGULAR: 4-Column Vertical Product Cards (Target Design Mock) ── */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                      {sec.items.map((item) => (
+                        <MenuProductCard key={item.id} listing={item} onCustomize={onCustomize} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )
+            })}
+          </div>
+        ) : (
+          /* ── SINGLE CATEGORY OR SEARCH RESULTS VIEW ── */
+          <div>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6 pb-2 border-b border-[#E9E5DA]/80 flex-wrap gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-[#17231D] flex items-center gap-2">
+                  {search ? (
+                    <>Results for &ldquo;{search}&rdquo;</>
+                  ) : selectedCategoryObj ? (
+                    <span>{selectedCategoryObj.name}</span>
+                  ) : (
+                    'Selected Dishes'
+                  )}
+                </h2>
+                <p className="text-xs text-[#7A817B] mt-0.5">
+                  {filtered.length} {filtered.length === 1 ? 'item' : 'items'} available
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {sec.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-4 bg-white rounded-2xl border border-neutral-200/80 shadow-2xs hover:shadow-md hover:border-neutral-300 transition-all duration-200"
-                  >
-                    <MobileMenuItemRow
-                      listing={item}
-                      onCustomize={onCustomize}
-                    />
+              {!search &&
+                (selectedCategoryObj?.category_type === 'thali' ||
+                  selectedCategoryObj?.slug?.includes('thali')) && (
+                  <ThaliSlotSwitcher timing={timing} />
+                )}
+            </div>
+
+            {/* Cutoff notice */}
+            {(() => {
+              const isSingleThali =
+                !search &&
+                (selectedCategoryObj?.category_type === 'thali' ||
+                  selectedCategoryObj?.slug?.includes('thali'))
+              const firstThali = filtered.find((i) => i.food_items?.kind === 'thali') || filtered[0]
+              const isSingleCutoffPassed = firstThali
+                ? isCutoffPassed(firstThali)
+                : (timing.activeSlotInfo?.isCutoffPassed ?? false)
+              const cutoffTimeStr =
+                firstThali?.cutoff_time || firstThali?.daily_menus?.cutoff_time || timing.activeSlotInfo?.cutoffTime
+              const formattedCutoff =
+                formatCutoffDisplay(cutoffTimeStr) || timing.activeSlotInfo?.formattedCutoff || ''
+
+              if (!isSingleThali || filtered.length === 0) return null
+              if (isSingleCutoffPassed) {
+                return (
+                  <div className="flex items-center gap-3 px-4 py-3 bg-amber-50/80 border border-amber-200/80 rounded-2xl mb-6 text-xs text-amber-900 font-medium">
+                    <Clock className="size-4 text-amber-600 shrink-0" />
+                    <span>
+                      Ordering is closed{formattedCutoff ? ` (Cutoff was ${formattedCutoff})` : ''}.
+                    </span>
                   </div>
+                )
+              }
+              if (!timing.slots[timing.activeSlot]?.isPublished) {
+                return (
+                  <div className="flex items-center gap-3 px-4 py-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl mb-6 text-xs text-amber-900 font-medium">
+                    <Clock className="size-4 text-amber-600 shrink-0" />
+                    <span>
+                      {timing.isTomorrow
+                        ? `Pre-orders are open for Tomorrow's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}. Daily specials will be announced soon.`
+                        : `Today's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} menu hasn't been published yet.`}
+                    </span>
+                  </div>
+                )
+              }
+              return null
+            })()}
+
+            {/* Grid display */}
+            {selectedCategoryObj?.category_type === 'thali' ||
+            selectedCategoryObj?.slug?.includes('thali') ||
+            filtered.every((i) => i.food_items?.kind === 'thali') ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {filtered.map((item) => (
+                  <DesktopThaliCard key={item.id} listing={item} onCustomize={onCustomize} />
                 ))}
               </div>
-            </section>
-          ))}
-        </div>
-      ) : (
-        /* ── SINGLE CATEGORY OR SEARCH FILTERED GRID ── */
-        <div>
-          <div className="py-2 mb-4 flex items-center justify-between border-b">
-            <h2 className="text-lg font-bold text-neutral-800 flex items-center gap-2">
-              {search ? (
-                <span>Search: &ldquo;{search}&rdquo;</span>
-              ) : selectedCategoryObj ? (
-                <>
-                  <span>{getCategoryVisuals(selectedCategoryObj).emoji}</span>
-                  <span>{selectedCategoryObj.name}</span>
-                </>
-              ) : (
-                'Selected Items'
-              )}
-            </h2>
-            <span className="text-xs text-neutral-400">
-              {filtered.length} {filtered.length === 1 ? 'item' : 'items'}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {filtered.map((item) => (
-              <div
-                key={item.id}
-                className="p-4 bg-white rounded-2xl border border-neutral-200/80 shadow-2xs hover:shadow-md hover:border-neutral-300 transition-all duration-200"
-              >
-                <MobileMenuItemRow
-                  listing={item}
-                  onCustomize={onCustomize}
-                />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {filtered.map((item) => (
+                  <MenuProductCard key={item.id} listing={item} onCustomize={onCustomize} />
+                ))}
               </div>
-            ))}
+            )}
           </div>
+        )}
+      </main>
+
+      {/* ── 4. FLOATING CART NOTIFICATION BAR ── */}
+      {itemCount > 0 && (
+        <div className="fixed bottom-6 inset-x-4 z-40 max-w-lg mx-auto pointer-events-auto">
+          <Link
+            to={ROUTES.cart}
+            className="flex items-center justify-between bg-[#087443] hover:bg-[#065b34] active:scale-[0.99] text-white px-5 py-3.5 rounded-2xl shadow-[0_10px_30px_rgba(8,116,67,0.35)] transition-all duration-150"
+          >
+            <div className="flex items-center gap-3">
+              <div className="size-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm">
+                {itemCount}
+              </div>
+              <div>
+                <p className="text-xs font-medium text-white/90 leading-none">
+                  {itemCount} {itemCount === 1 ? 'item' : 'items'} in your cart
+                </p>
+                <p className="text-base font-extrabold leading-none mt-1">
+                  {CURRENCY_SYMBOL}{subtotal}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs font-bold bg-white/20 hover:bg-white/30 px-3.5 py-2 rounded-xl transition-colors">
+              <span>View Cart</span>
+              <ArrowRight className="size-3.5 stroke-[2.5]" />
+            </div>
+          </Link>
         </div>
       )}
     </div>

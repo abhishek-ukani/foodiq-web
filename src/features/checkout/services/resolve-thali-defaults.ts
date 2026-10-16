@@ -13,15 +13,34 @@ export async function resolveThaliDefaults(foodItemId: string): Promise<Selected
     const availableOptions = group.options.filter((o) => o.is_available && !o.is_cutoff_closed)
     if (availableOptions.length === 0) continue
 
-    // Prefer explicitly marked default, otherwise fallback to first available option
-    const chosen = availableOptions.find((o) => o.is_default) ?? availableOptions[0]
-    if (chosen) {
+    // A group like Sabji in Premium/Deluxe may require 2 selections
+    const requiredCount = Math.max(1, group.min_select || 1)
+    const chosenList: typeof availableOptions = []
+
+    // 1. First add explicitly marked defaults
+    availableOptions
+      .filter((o) => o.is_default)
+      .forEach((opt) => {
+        if (chosenList.length < requiredCount && !chosenList.some((c) => c.id === opt.id)) {
+          chosenList.push(opt)
+        }
+      })
+
+    // 2. If more are needed to fulfill requiredCount, pick from available options
+    for (const opt of availableOptions) {
+      if (chosenList.length >= requiredCount) break
+      if (!chosenList.some((c) => c.id === opt.id)) {
+        chosenList.push(opt)
+      }
+    }
+
+    chosenList.forEach((chosen) => {
       defaults.push({
         id: chosen.id,
         name: chosen.label,
         price_delta: chosen.price_delta,
       })
-    }
+    })
   }
 
   return defaults

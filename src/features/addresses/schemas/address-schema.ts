@@ -18,6 +18,8 @@ export const addressSchema = z.object({
   longitude: z.number().nullable().optional(),
   sublocality: z.string().trim().min(2, 'Enter Area / Locality'),
   delivery_instructions: z.string().trim().optional().or(z.literal('')),
+  meal_type_tag: z.enum(['lunch', 'dinner', 'both']),
+  preferred_time: z.string().trim().optional().or(z.literal('')),
 })
 
 export type AddressInput = z.infer<typeof addressSchema>

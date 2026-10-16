@@ -85,9 +85,18 @@ export function ProductDetailPage() {
     })
   }, [])
 
-  const handleSelectionChange = useCallback((selMap: Record<string, string[]>, isValid: boolean) => {
+  const [selectedOptionItems, setSelectedOptionItems] = useState<{ id: string; name: string; price_delta: number; group_name?: string }[]>([])
+
+  const handleSelectionChange = useCallback((
+    selMap: Record<string, string[]>,
+    isValid: boolean,
+    selectedItems?: { id: string; name: string; price_delta: number; group_name?: string }[],
+  ) => {
     setOptionSelections(selMap)
     setIsOptionSelectionValid(isValid)
+    if (selectedItems) {
+      setSelectedOptionItems(selectedItems)
+    }
   }, [])
 
   if (isPending) {
@@ -182,8 +191,14 @@ export function ProductDetailPage() {
       name: c.name,
       price_delta: c.price_delta,
     }))
-    Object.values(optionSelections).flat().forEach((optId) => {
-      customizationList.push({ id: optId, name: 'Option Selection', price_delta: 0 })
+    // Add chosen dynamic options (Sabjis, Breads, etc.) with their real names and group details
+    selectedOptionItems.forEach((opt) => {
+      customizationList.push({
+        id: opt.id,
+        name: opt.name,
+        price_delta: opt.price_delta,
+        ...(opt.group_name ? { group_name: opt.group_name } : {}),
+      })
     })
     addToCart.mutate({
       food_item_id: item.id,

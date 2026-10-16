@@ -12,11 +12,22 @@ export function isAddOnGroup(grp: { name: string }) {
   return n.includes('add-on') || n.includes('addon')
 }
 
+export interface SelectedDynamicOptionItem {
+  id: string
+  name: string
+  price_delta: number
+  group_name?: string
+}
+
 interface DynamicThaliOptionPickerProps {
   foodItemId: string
   selectedDate?: string
   mealType?: string
-  onSelectionChange: (selections: Record<string, string[]>, isValid: boolean) => void
+  onSelectionChange: (
+    selections: Record<string, string[]>,
+    isValid: boolean,
+    selectedItems?: SelectedDynamicOptionItem[],
+  ) => void
   onSabjiOptionsLoaded?: (sabjis: { id: string; label: string }[]) => void
   onAddOnOptionsLoaded?: (addOns: { id: string; name: string; price_delta: number }[]) => void
 }
@@ -105,12 +116,28 @@ export function DynamicThaliOptionPicker({
 
   useEffect(() => {
     let valid = true
+    const selectedItems: SelectedDynamicOptionItem[] = []
+
     groups.forEach((grp) => {
       if (!isAddOnGroup(grp) && grp.is_required && (selectedMap[grp.id] || []).length < grp.min_select) {
         valid = false
       }
+
+      const pickedIds = selectedMap[grp.id] || []
+      pickedIds.forEach((id) => {
+        const opt = grp.options.find((o) => o.id === id)
+        if (opt) {
+          selectedItems.push({
+            id: opt.id,
+            name: opt.label,
+            price_delta: Number(opt.price_delta || 0),
+            group_name: grp.name,
+          })
+        }
+      })
     })
-    selectionCallbackRef.current(selectedMap, valid)
+
+    selectionCallbackRef.current(selectedMap, valid, selectedItems)
   }, [selectedMap, groups])
 
   const handleSelect = (groupId: string, option: ResolvedOptionItem, maxSelect: number) => {
@@ -164,16 +191,16 @@ export function DynamicThaliOptionPicker({
             className={idx !== 0 ? 'border-t border-gray-100' : ''}
           >
             {/* Section header */}
-            <div className="flex items-center justify-between py-3">
-              <span className="text-sm font-bold text-gray-800">
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-xs font-bold text-gray-800">
                 {grp.name}
                 {grp.is_required && <span className="text-red-500 ml-0.5">*</span>}
               </span>
-              <span className="text-xs font-medium text-gray-400">{pickLabel}</span>
+              <span className="text-[10px] font-medium text-gray-400">{pickLabel}</span>
             </div>
 
             {/* Options list */}
-            <div className="flex flex-wrap gap-2 pb-3">
+            <div className="flex flex-wrap gap-1.5 pb-2">
               {grp.options.map((opt) => {
                 const isSelected = selectedIds.includes(opt.id)
                 const isDisabled = !opt.is_available || opt.is_cutoff_closed
@@ -185,25 +212,25 @@ export function DynamicThaliOptionPicker({
                     disabled={isDisabled}
                     onClick={() => handleSelect(grp.id, opt, grp.max_select)}
                     className={`
-                      inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium
-                      border-2 transition-all duration-150 cursor-pointer select-none
+                      inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+                      border transition-all duration-150 cursor-pointer select-none
                       ${isDisabled
                         ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200 text-gray-400'
                         : isSelected
-                        ? 'bg-[#2E7D32] border-[#2E7D32] text-white shadow-sm'
+                        ? 'bg-[#2E7D32] border-[#2E7D32] text-white shadow-2xs'
                         : 'bg-white border-gray-300 text-gray-700 hover:border-[#2E7D32] hover:text-[#2E7D32]'
                       }
                     `}
                   >
-                    {isSelected && <Check className="size-3.5 stroke-[2.5] shrink-0" />}
+                    {isSelected && <Check className="size-3 stroke-[2] shrink-0" />}
                     <span>{opt.label}</span>
                     {opt.is_cutoff_closed && (
-                      <span className="inline-flex items-center gap-0.5 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full font-normal">
-                        <Clock className="size-3" /> Closed
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 bg-amber-50 px-1 py-0.5 rounded-full font-normal">
+                        <Clock className="size-2.5" /> Closed
                       </span>
                     )}
                     {opt.price_delta > 0 && (
-                      <span className={`text-xs font-semibold ${isSelected ? 'text-green-200' : 'text-[#2E7D32]'}`}>
+                      <span className={`text-[10px] font-semibold ${isSelected ? 'text-green-200' : 'text-[#2E7D32]'}`}>
                         +{CURRENCY_SYMBOL}{opt.price_delta}
                       </span>
                     )}

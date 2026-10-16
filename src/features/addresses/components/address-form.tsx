@@ -6,13 +6,16 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
   Home,
   Loader2,
   MapPin,
+  Moon,
   Navigation,
   PhoneCall,
   Search,
   Sparkles,
+  Sun,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -92,6 +95,8 @@ const DEFAULT_VALUES: AddressInput = {
   longitude: null,
   sublocality: '',
   delivery_instructions: '',
+  meal_type_tag: 'both',
+  preferred_time: '',
 }
 
 export function AddressForm({
@@ -321,6 +326,8 @@ export function AddressForm({
         longitude: address.longitude ?? null,
         sublocality: address.sublocality ?? '',
         delivery_instructions: '',
+        meal_type_tag: address.meal_type_tag || 'both',
+        preferred_time: address.preferred_time ? address.preferred_time.slice(0, 5) : '',
       })
       setShowAdvancedFields(true)
     } else {
@@ -568,6 +575,8 @@ export function AddressForm({
       latitude: values.latitude ?? null,
       longitude: values.longitude ?? null,
       sublocality: values.sublocality || (resolvedDelivery.isOutOfZone ? null : resolvedDelivery.zoneLabel.split(' ')[0]),
+      meal_type_tag: values.meal_type_tag,
+      preferred_time: values.preferred_time ? `${values.preferred_time}:00` : null,
     }
 
     if (isEditing && address) {
@@ -1100,6 +1109,72 @@ export function AddressForm({
             )}
           </button>
         )}
+        {/* ================================================================= */}
+        {/* 4b. MEAL DELIVERY PREFERENCES                                      */}
+        {/* ================================================================= */}
+        <div className="space-y-4 rounded-xl border bg-card/60 p-4 shadow-sm">
+          <div className="flex items-center gap-2 border-b pb-2">
+            <Clock className="size-4 text-orange-500" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              Delivery Preferences
+            </h4>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-2 block">
+              Use this address for
+            </label>
+            <div className="flex items-center gap-2">
+              {[
+                { id: 'lunch' as const, label: 'Lunch', icon: Sun },
+                { id: 'dinner' as const, label: 'Dinner', icon: Moon },
+                { id: 'both' as const, label: 'Both', icon: Clock },
+              ].map((chip) => {
+                const Icon = chip.icon
+                const isSelected = form.watch('meal_type_tag') === chip.id
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => form.setValue('meal_type_tag', chip.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                      isSelected
+                        ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                        : 'bg-background hover:bg-accent text-foreground border-input'
+                    }`}
+                  >
+                    <Icon className="size-3.5" />
+                    {chip.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <FormField
+            control={form.control}
+            name="preferred_time"
+            render={({ field }) => (
+              <FormItem>
+                <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                  Preferred delivery time (optional)
+                </label>
+                <FormControl>
+                  <Input
+                    type="time"
+                    placeholder="e.g. 12:30"
+                    className="max-w-[160px] text-sm"
+                    {...field}
+                  />
+                </FormControl>
+                <p className="text-[11px] text-muted-foreground">
+                  We'll use this to plan our delivery route. You only need to set it once.
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         {/* ================================================================= */}
         {/* 5. CONTACT DETAILS                                                */}

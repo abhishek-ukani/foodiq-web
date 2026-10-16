@@ -62,6 +62,7 @@
   /* Typography */
   --font-display: 'Fraunces', 'ui-serif', 'Georgia', serif;
   --font-sans: 'Plus Jakarta Sans', 'ui-sans-serif', system-ui, sans-serif;
+  --font-gujarati: 'Hind Vadodara', 'Noto Sans Gujarati', sans-serif;
 }
 
 .dark {
@@ -155,6 +156,7 @@
 
   --font-display: var(--font-display);
   --font-sans: var(--font-sans);
+  --font-gujarati: var(--font-gujarati);
 }
 
 /* ------------------------------------------------------------------ */
@@ -217,10 +219,13 @@
     text-wrap: balance;
   }
 
-  .scrollbar-none {
+  .scrollbar-none,
+  .no-scrollbar {
     scrollbar-width: none;
+    -ms-overflow-style: none;
   }
-  .scrollbar-none::-webkit-scrollbar {
+  .scrollbar-none::-webkit-scrollbar,
+  .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
 
@@ -230,5 +235,31 @@
 
   .pill-tap {
     @apply transition-all duration-200 active:scale-95;
+  }
+
+  /* Gujarati script font utility */
+  .font-gujarati {
+    font-family: var(--font-gujarati);
+  }
+
+  /* Saffron/terracotta gradient text */
+  .text-saffron-gradient {
+    background: linear-gradient(135deg, #D85820 0%, #C9891F 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Authentic Gujarati patola border pattern */
+  .border-patola {
+    border-image: repeating-linear-gradient(
+      90deg,
+      #D85820 0px,
+      #D85820 4px,
+      #C9891F 4px,
+      #C9891F 8px,
+      #185834 8px,
+      #185834 12px
+    ) 2;
   }
 }

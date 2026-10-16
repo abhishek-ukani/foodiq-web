@@ -27,8 +27,14 @@ export function MobileMenuItemRow({
 
   const item = listing.food_items
   const isThali = item.kind === 'thali'
+  const variants = ((item as any).food_item_variants || []) as any[]
+  const hasMultipleVariants = variants.length > 1
   const price = listing.price_override ?? item.price
-  const strikePrice = listing.price_override ? null : item.compare_price ?? null
+  const strikePrice = item.compare_price && item.compare_price > price ? item.compare_price : null
+  const discountPercent =
+    strikePrice && strikePrice > price
+      ? Math.round(((strikePrice - price) / strikePrice) * 100)
+      : 0
   const soldOut = isSoldOut(listing)
   const cutoffPassed = isCutoffPassed(listing)
   const isDisabled = listing.is_available === false || item.is_available === false
@@ -51,66 +57,97 @@ export function MobileMenuItemRow({
       return
     }
 
+    // If multiple pack sizes exist, navigate to detail page to select size
+    if (hasMultipleVariants) {
+      navigate(ROUTES.menuItem(item.slug || item.id))
+      return
+    }
+
     // Direct add to cart
     if (!isAuthenticated) {
       navigate(ROUTES.login, { state: { from: location } })
       return
     }
 
-    addToCart.mutate({ food_item_id: item.id, quantity: 1 })
+    const variantId = variants.length === 1 ? variants[0].id : null
+    addToCart.mutate({ food_item_id: item.id, variant_id: variantId, quantity: 1 })
   }
 
   return (
     <div
       onClick={() => {
         if (isUnavailable) return
-        onCustomize?.(listing)
+        if (isThali) {
+          onCustomize?.(listing)
+        } else {
+          navigate(ROUTES.menuItem(item.slug || item.id))
+        }
       }}
       className={cn(
-        'flex items-start justify-between gap-3 py-4 border-b border-neutral-100 last:border-b-0 transition-colors',
-        isUnavailable ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer group active:bg-neutral-50/50',
+        'flex items-start justify-between gap-3 py-4 border-b border-[#ede4d3] last:border-b-0 transition-colors',
+        isUnavailable ? 'opacity-65 cursor-not-allowed' : 'cursor-pointer group active:bg-[#faf6ee]/80',
       )}
     >
-      {/* ── LEFT: DISH DETAILS & COMPOSITION ── */}
+      {/* ── LEFT: DISH DETAILS ── */}
       <div className="flex-1 min-w-0 pr-1">
-        {/* Badges: Veg dot + Special */}
+        {/* Veg dot + Special badge */}
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="flex size-3.5 items-center justify-center rounded-xs border border-green-600 bg-white p-0.5 shrink-0">
+          <span className="flex size-3.5 items-center justify-center rounded-xs border border-green-600 bg-white shrink-0">
             <span className="size-1.5 rounded-full bg-green-600" />
           </span>
           {listing.is_special && (
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded-full">
+            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-px rounded-full">
               ★ Special
             </span>
           )}
         </div>
 
         {/* Title */}
-        <h3 className="text-sm sm:text-base font-bold text-neutral-900 leading-snug group-hover:text-primary transition-colors">
+        <h3 className="text-sm font-bold text-[#221b14] leading-snug group-hover:text-[#185834] transition-colors">
           {item.name}
         </h3>
 
-        {/* Price & Discount */}
-        <div className="flex items-baseline gap-1.5 mt-0.5">
-          <span className="text-sm sm:text-base font-extrabold text-neutral-900">
-            {CURRENCY_SYMBOL}
-            {price}
+        {/* Price */}
+        <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
+          <span className="text-sm font-extrabold text-[#221b14]">
+            {hasMultipleVariants ? 'From ' : ''}{CURRENCY_SYMBOL}{price}
           </span>
           {strikePrice && (
             <span className="text-xs text-neutral-400 line-through">
-              {CURRENCY_SYMBOL}
-              {strikePrice}
+              {CURRENCY_SYMBOL}{strikePrice}
+            </span>
+          )}
+          {discountPercent > 0 && (
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-px rounded-full">
+              {discountPercent}% OFF
             </span>
           )}
         </div>
 
-        {/* Thali Composition Tags */}
+        {/* Pack variant tags */}
+        {hasMultipleVariants && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            <span className="text-[10px] bg-emerald-50 text-emerald-800 font-semibold px-1.5 py-0.5 rounded-md border border-emerald-200">
+              {variants.length} Sizes
+            </span>
+            {variants.slice(0, 2).map((v) => (
+              <span
+                key={v.id}
+                className="text-[10px] bg-[#faf6ee] text-[#6b5847] px-1.5 py-0.5 rounded-md border border-[#ede4d3]"
+              >
+                {v.label}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Thali composition tags */}
         {isThali && item.ingredients && item.ingredients.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
+          <div className="flex flex-wrap gap-1 mt-1.5">
             {item.ingredients.slice(0, 4).map((ing, i) => (
               <span
                 key={i}
-                className="text-[10px] bg-neutral-100 text-neutral-700 font-medium px-1.5 py-0.5 rounded-md border border-neutral-200/60"
+                className="text-[10px] bg-[#faf6ee] text-[#6b5847] font-medium px-1.5 py-0.5 rounded-md border border-[#ede4d3]"
               >
                 {ing}
               </span>
@@ -123,17 +160,18 @@ export function MobileMenuItemRow({
           </div>
         )}
 
-        {/* Description */}
-        {item.description && (
-          <p className="text-xs text-neutral-500 line-clamp-2 mt-1.5 leading-relaxed">
+        {/* Description (non-thali) */}
+        {!isThali && item.description && (
+          <p className="text-xs text-[#6b5847]/80 line-clamp-2 mt-1 leading-relaxed">
             {item.description}
           </p>
         )}
       </div>
 
-      {/* ── RIGHT: SQUARE IMAGE + OVERLAPPING FLOATING ADD BUTTON ── */}
+      {/* ── RIGHT: IMAGE + FLOATING ADD BUTTON ── */}
       <div className="relative shrink-0 flex flex-col items-center">
-        <div className="relative size-24 sm:size-28 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200/70 shadow-2xs">
+        {/* Image box */}
+        <div className="relative size-24 sm:size-28 rounded-2xl overflow-hidden bg-[#f4ede0] border border-[#ede4d3]/60 shadow-sm">
           {item.image_url ? (
             <img
               src={item.image_url}
@@ -141,32 +179,35 @@ export function MobileMenuItemRow({
               loading="lazy"
               className={cn(
                 'size-full object-cover transition-transform duration-300 group-hover:scale-105',
-                isUnavailable && 'grayscale-[40%] opacity-70',
+                isUnavailable && 'grayscale-[30%] opacity-80',
               )}
             />
           ) : (
-            <div className="size-full flex items-center justify-center text-3xl bg-neutral-100">
+            <div className="size-full flex items-center justify-center text-3xl select-none bg-gradient-to-br from-[#faf6ee] to-[#f4ede0]">
               {isThali ? '🍱' : '🍛'}
             </div>
           )}
 
           {/* Favorite button (top-right of image) */}
-          <div className="absolute top-1.5 right-1.5 z-10">
-            <FavoriteButton foodItemId={item.id} className="size-6 p-1 bg-white/80 backdrop-blur-xs rounded-full shadow-xs" />
+          <div className="absolute top-1.5 right-1.5 z-10" onClick={(e) => e.stopPropagation()}>
+            <FavoriteButton
+              foodItemId={item.id}
+              className="size-6 p-1 bg-white/85 backdrop-blur-xs rounded-full shadow-xs border-0"
+            />
           </div>
         </div>
 
-        {/* Floating Overlapping Button (Swiggy / Zomato Style) */}
-        <div className="relative -mt-4.5 z-10 w-[84px] sm:w-[94px]">
+        {/* Floating action button */}
+        <div className="relative -mt-4 z-10 w-[84px] sm:w-[96px]">
           {isUnavailable ? (
-            <div className="w-full py-1 bg-neutral-200 text-neutral-500 font-bold text-[11px] rounded-lg shadow-xs text-center select-none border border-neutral-300/80">
-              {soldOut ? 'Sold Out' : isDisabled ? 'Disabled' : 'Closed'}
+            <div className="w-full py-1 bg-neutral-100 text-neutral-500 font-bold text-[11px] rounded-xl shadow-sm text-center select-none border border-neutral-200">
+              {soldOut ? 'Sold Out' : isDisabled ? 'Unavailable' : 'Closed'}
             </div>
           ) : cartLine && !isThali ? (
-            /* Active Stepper on image */
+            /* Active Stepper */
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full flex items-center justify-between bg-white border-2 border-emerald-600 rounded-lg p-0.5 shadow-md"
+              className="w-full flex items-center justify-between bg-white border-2 border-[#185834] rounded-xl p-0.5 shadow-md"
             >
               <button
                 type="button"
@@ -175,38 +216,40 @@ export function MobileMenuItemRow({
                   if (cartLine.quantity <= 1) removeItem.mutate(cartLine.id)
                   else updateQuantity.mutate({ id: cartLine.id, quantity: cartLine.quantity - 1 })
                 }}
-                className="size-6 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 rounded"
+                className="size-6 flex items-center justify-center text-[#185834] hover:bg-[#185834]/10 rounded-lg transition-colors"
               >
                 <Minus className="size-3 stroke-[2.5]" />
               </button>
-              <span className="text-xs font-bold text-emerald-800">
+              <span className="text-xs font-bold text-[#185834] tabular-nums">
                 {cartLine.quantity}
               </span>
               <button
                 type="button"
                 disabled={isBusy}
-                onClick={() => {
-                  updateQuantity.mutate({ id: cartLine.id, quantity: cartLine.quantity + 1 })
-                }}
-                className="size-6 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 rounded"
+                onClick={() => updateQuantity.mutate({ id: cartLine.id, quantity: cartLine.quantity + 1 })}
+                className="size-6 flex items-center justify-center text-[#185834] hover:bg-[#185834]/10 rounded-lg transition-colors"
               >
                 <Plus className="size-3 stroke-[2.5]" />
               </button>
             </div>
           ) : (
-            /* Add Button with subtle customisable tag */
+            /* Add button */
             <button
               type="button"
               disabled={isBusy}
               onClick={handleActionClick}
-              className="w-full py-1.5 bg-white hover:bg-emerald-50/80 border-2 border-emerald-600 text-emerald-700 font-extrabold text-xs uppercase tracking-wider rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center"
+              className="w-full py-1.5 bg-white hover:bg-[#185834] hover:text-white border-2 border-[#185834] text-[#185834] font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center"
             >
-              <span>ADD</span>
-              {isThali && (
-                <span className="text-[8px] font-semibold text-neutral-400 -mt-0.5 capitalize tracking-normal">
+              <span>{hasMultipleVariants ? 'OPTIONS' : 'ADD'}</span>
+              {isThali ? (
+                <span className="text-[8px] font-semibold opacity-60 -mt-0.5 capitalize tracking-normal">
                   customise
                 </span>
-              )}
+              ) : hasMultipleVariants ? (
+                <span className="text-[8px] font-semibold opacity-70 -mt-0.5 capitalize tracking-normal">
+                  {variants.length} sizes
+                </span>
+              ) : null}
             </button>
           )}
         </div>

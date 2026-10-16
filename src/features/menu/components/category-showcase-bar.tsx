@@ -3,81 +3,23 @@ import type { Tables } from '@/types/database.types'
 
 export type CategoryKey = string
 
-export interface DynamicCategoryItem {
+export interface CategoryPillItem {
   key: string
   label: string
+  slug?: string | null
+  image: string | null
   emoji: string
-  color: string
-}
-
-const LUCIDE_TO_EMOJI: Record<string, string> = {
-  utensils: '🍱',
-  utensilscrossed: '🍽️',
-  soup: '🍛',
-  coffee: '🥛',
-  cake: '🍯',
-  cookie: '🥟',
-  pluscircle: '➕',
-  tag: '🏷️',
-  package: '📦',
-  pizza: '🍕',
-  salad: '🥗',
-  flame: '🔥',
-}
-
-function getCategoryColor(type: string, slug: string): string {
-  if (type === 'thali' || slug.includes('thali')) return 'bg-amber-100/80 text-amber-900'
-  if (type === 'snack' || slug.includes('snack') || slug.includes('farsan')) return 'bg-orange-100/80 text-orange-900'
-  if (type === 'sabji' || slug.includes('shabji') || slug.includes('sabji')) return 'bg-emerald-100/80 text-emerald-900'
-  if (type === 'sweet' || slug.includes('sweet') || slug.includes('mithai')) return 'bg-yellow-100/80 text-yellow-900'
-  if (type === 'beverage' || slug.includes('beverage') || slug.includes('chaas')) return 'bg-cyan-100/80 text-cyan-900'
-  if (type === 'bread' || slug.includes('bread') || slug.includes('rotli')) return 'bg-amber-50/90 text-amber-900'
-  if (type === 'rice' || slug.includes('rice') || slug.includes('dal')) return 'bg-stone-100 text-stone-800'
-  return 'bg-neutral-100 text-neutral-800'
 }
 
 export function getCategoryVisuals(cat: Partial<Tables<'categories'>> | null): { emoji: string; color: string } {
   if (!cat) return { emoji: '🍽️', color: 'bg-neutral-100 text-neutral-800' }
-
-  const type = (cat.category_type || '').toLowerCase()
   const slug = (cat.slug || '').toLowerCase()
-  const name = (cat.name || '').toLowerCase()
-  const iconRaw = (cat.icon || '').trim()
-  const iconClean = iconRaw.toLowerCase().replace(/[-_\s]/g, '')
-
-  // 1. If cat.icon is a recognized icon identifier
-  if (iconClean && LUCIDE_TO_EMOJI[iconClean]) {
-    return { emoji: LUCIDE_TO_EMOJI[iconClean], color: getCategoryColor(type, slug) }
-  }
-
-  // 2. If cat.icon is an actual emoji character (short string)
-  if (iconRaw && iconRaw.length <= 4 && /\p{Emoji}/u.test(iconRaw)) {
-    return { emoji: iconRaw, color: getCategoryColor(type, slug) }
-  }
-
-  // 3. Fallback based on type, slug, or name
-  if (type === 'thali' || slug.includes('thali') || name.includes('thali')) {
-    return { emoji: '🍱', color: 'bg-amber-100/80 text-amber-900' }
-  }
-  if (type === 'snack' || slug.includes('snack') || slug.includes('farsan') || name.includes('farsan') || name.includes('nasta')) {
-    return { emoji: '🥟', color: 'bg-orange-100/80 text-orange-900' }
-  }
-  if (type === 'sabji' || slug.includes('shabji') || slug.includes('sabji') || name.includes('sabji') || name.includes('shabji')) {
-    return { emoji: '🍛', color: 'bg-emerald-100/80 text-emerald-900' }
-  }
-  if (type === 'sweet' || slug.includes('sweet') || name.includes('sweet') || name.includes('mithai')) {
-    return { emoji: '🍯', color: 'bg-yellow-100/80 text-yellow-900' }
-  }
-  if (type === 'beverage' || slug.includes('beverage') || name.includes('beverage') || name.includes('chaas') || name.includes('chhash')) {
-    return { emoji: '🥛', color: 'bg-cyan-100/80 text-cyan-900' }
-  }
-  if (type === 'bread' || slug.includes('bread') || name.includes('rotli') || name.includes('rotla') || name.includes('bhakhri')) {
-    return { emoji: '🫓', color: 'bg-amber-50/90 text-amber-900' }
-  }
-  if (type === 'rice' || slug.includes('rice') || name.includes('dal') || name.includes('rice') || name.includes('bhat')) {
-    return { emoji: '🍚', color: 'bg-stone-100 text-stone-800' }
-  }
-
+  if (slug.includes('thali')) return { emoji: '🍱', color: 'bg-amber-100/80 text-amber-900' }
+  if (slug.includes('farsan') || slug.includes('snack')) return { emoji: '🥟', color: 'bg-orange-100/80 text-orange-900' }
+  if (slug.includes('sabji') || slug.includes('shabji')) return { emoji: '🍛', color: 'bg-emerald-100/80 text-emerald-900' }
+  if (slug.includes('sweet')) return { emoji: '🍯', color: 'bg-yellow-100/80 text-yellow-900' }
+  if (slug.includes('beverage')) return { emoji: '🥛', color: 'bg-cyan-100/80 text-cyan-900' }
+  if (slug.includes('bread') || slug.includes('rotli')) return { emoji: '🫓', color: 'bg-amber-50/90 text-amber-900' }
   return { emoji: '🍲', color: 'bg-neutral-100 text-neutral-800' }
 }
 
@@ -92,13 +34,14 @@ type CategoryShowcaseBarProps = {
 
 export function CategoryShowcaseBarSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn('w-full overflow-x-auto no-scrollbar py-2 -mx-4 px-4 sm:mx-0 sm:px-0', className)}>
-      <div className="flex items-center gap-3 sm:gap-4 min-w-max">
-        {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="flex flex-col items-center gap-1.5 select-none shrink-0">
-            <div className="size-13 sm:size-14 rounded-full bg-neutral-200/80 animate-pulse border-2 border-transparent" />
-            <div className="h-2.5 w-11 rounded-full bg-neutral-200/80 animate-pulse mt-0.5" />
-          </div>
+    <div className={cn('w-full overflow-x-auto scrollbar-none no-scrollbar', className)}>
+      <div className="flex items-center gap-2.5 min-w-max">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div
+            key={i}
+            className="h-11 rounded-full bg-[#EFE9DC]/80 animate-pulse shrink-0"
+            style={{ width: `${80 + i * 14}px` }}
+          />
         ))}
       </div>
     </div>
@@ -109,7 +52,7 @@ export function CategoryShowcaseBar({
   categories,
   activeCategory,
   onSelectCategory,
-  itemCounts = {},
+  itemCounts,
   isLoading = false,
   className,
 }: CategoryShowcaseBarProps) {
@@ -117,83 +60,89 @@ export function CategoryShowcaseBar({
     return <CategoryShowcaseBarSkeleton className={className} />
   }
 
-  // Only display active categories that actually contain items in the current menu
-  const itemsWithCounts = categories.filter(
-    (cat) => cat.is_active !== false && ((itemCounts[cat.id] ?? 0) > 0 || (itemCounts[cat.slug] ?? 0) > 0),
-  )
-
-  // Built items: "All" followed by categories that have items in the current menu
-  const displayItems: DynamicCategoryItem[] = [
-    {
-      key: 'all',
-      label: 'All',
-      emoji: '🍽️',
-      color: 'bg-neutral-100 text-neutral-800',
-    },
-    ...itemsWithCounts.map((cat) => {
-      const visuals = getCategoryVisuals(cat)
-      return {
-        key: cat.id,
-        label: cat.name,
-        emoji: visuals.emoji,
-        color: visuals.color,
+  // Dynamic from admin panel: only show active categories that have available items
+  // Always keep Thalis/Meals category visible so customers can explore and pre-order thalis anytime
+  const activeCategories = categories
+    .filter((c) => {
+      if (c.is_active === false) return false
+      const isThaliCategory =
+        c.category_type === 'thali' ||
+        c.slug === 'thalis' ||
+        c.name.toLowerCase().includes('thali') ||
+        c.name.toLowerCase().includes('meal')
+      if (isThaliCategory) return true
+      if (itemCounts) {
+        const count = itemCounts[c.id] ?? (c.slug ? itemCounts[c.slug] : 0) ?? 0
+        return count > 0
       }
-    }),
+      return true
+    })
+    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+
+  const displayItems: CategoryPillItem[] = [
+    { key: 'all', label: 'All', slug: 'all', image: null, emoji: '🍽️' },
+    ...activeCategories.map((cat) => ({
+      key: cat.id,
+      label: cat.name,
+      slug: cat.slug,
+      image: cat.image_url || null,
+      emoji: getCategoryVisuals(cat).emoji,
+    })),
   ]
 
+  // If there are uncategorized items with count > 0, include "Other" pill
+  if (itemCounts && (itemCounts['other'] ?? 0) > 0) {
+    displayItems.push({
+      key: 'other',
+      label: 'Other',
+      slug: 'other',
+      image: null,
+      emoji: '🍛',
+    })
+  }
+
   return (
-    <div className={cn('w-full overflow-x-auto no-scrollbar py-2 -mx-4 px-4 sm:mx-0 sm:px-0', className)}>
-      <div className="flex items-center gap-3 sm:gap-4 min-w-max">
+    <div className={cn('w-full overflow-x-auto scrollbar-none no-scrollbar py-1', className)}>
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-max px-0.5">
         {displayItems.map((cat) => {
-          const isActive = activeCategory === cat.key
-          const count = itemCounts[cat.key]
+          const isActive =
+            activeCategory === cat.key ||
+            (activeCategory !== 'all' &&
+              ((Boolean(cat.slug) && cat.slug?.toLowerCase() === activeCategory.toLowerCase()) ||
+               cat.label.toLowerCase() === activeCategory.toLowerCase()))
 
           return (
             <button
               key={cat.key}
               type="button"
               onClick={() => onSelectCategory(cat.key)}
-              className="flex flex-col items-center gap-1.5 group select-none shrink-0"
+              className={cn(
+                'inline-flex items-center gap-2.5 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-150 border shrink-0 min-h-[42px] cursor-pointer select-none',
+                isActive
+                  ? 'bg-[#087443] text-white border-[#087443] shadow-[0_2px_8px_rgba(8,116,67,0.25)] ring-1 ring-[#087443]'
+                  : 'bg-white text-[#17231D] border-[#E9E5DA] hover:border-[#087443]/40 hover:bg-[#FAF8F2] shadow-2xs',
+              )}
             >
-              {/* Circular Icon Container (Zepto / Blinkit / Swiggy style) */}
-              <div className="relative">
+              {/* Category visual: image if uploaded in admin, else category icon */}
+              {cat.image ? (
                 <div
                   className={cn(
-                    'size-13 sm:size-14 rounded-full flex items-center justify-center text-2xl transition-all duration-200 border-2',
-                    cat.color,
-                    isActive
-                      ? 'border-neutral-900 scale-105 shadow-md ring-2 ring-neutral-900/10'
-                      : 'border-transparent group-hover:scale-105 group-hover:border-neutral-300 shadow-2xs',
+                    'size-6 sm:size-7 rounded-full overflow-hidden shrink-0 border transition-transform',
+                    isActive ? 'border-white/30 scale-105' : 'border-[#E9E5DA]/80',
                   )}
                 >
-                  <span>{cat.emoji}</span>
+                  <img
+                    src={cat.image}
+                    alt={cat.label}
+                    loading="lazy"
+                    className="w-full h-full object-cover object-center"
+                  />
                 </div>
-              </div>
+              ) : (
+                <span className="text-base leading-none shrink-0">{cat.emoji}</span>
+              )}
 
-              {/* Label & Count */}
-              <div className="flex flex-col items-center">
-                <span
-                  className={cn(
-                    'text-[11px] sm:text-xs tracking-tight transition-colors whitespace-nowrap',
-                    isActive ? 'font-bold text-neutral-900' : 'font-medium text-neutral-600 group-hover:text-neutral-900',
-                  )}
-                >
-                  {cat.label}
-                </span>
-                {count !== undefined && count > 0 && cat.key !== 'all' && (
-                  <span className="text-[9px] text-neutral-400 font-medium">
-                    {count} {count === 1 ? 'item' : 'items'}
-                  </span>
-                )}
-              </div>
-
-              {/* Active Underline Pill */}
-              <div
-                className={cn(
-                  'h-0.5 w-6 rounded-full transition-all duration-200',
-                  isActive ? 'bg-neutral-900' : 'bg-transparent',
-                )}
-              />
+              <span>{cat.label}</span>
             </button>
           )
         })}

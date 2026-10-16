@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
-import { Sparkles, ArrowRight, Utensils } from 'lucide-react'
+import { Sparkles, ArrowRight } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/common/reveal'
-import { ROUTES, CURRENCY_SYMBOL } from '@/constants'
+import { ROUTES } from '@/constants'
 import { useTodaysSpecial } from '@/features/home/hooks/use-home-queries'
 
 export function TodaysSpecialSection() {
@@ -37,7 +37,6 @@ export function TodaysSpecialSection() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {validSpecials.map((dish, index) => {
           const item = dish.food_items!
-          const price = dish.price_override ?? item.price
 
           return (
             <Reveal key={dish.id} delay={index * 0.08}>
@@ -77,18 +76,7 @@ export function TodaysSpecialSection() {
                     </p>
                   )}
 
-                  {/* Highlight Tag at bottom */}
-                  <div className="mt-auto pt-3 border-t border-border/60 flex items-center justify-between">
-                    <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                      <Utensils className="size-3 text-primary" />
-                      {dish.cutoff_note || "Today's Special"}
-                    </span>
-                    {price > 0 && (
-                      <span className="text-xs font-bold text-primary">
-                        {CURRENCY_SYMBOL}{price}
-                      </span>
-                    )}
-                  </div>
+
                 </div>
               </Card>
             </Reveal>
@@ -103,7 +91,7 @@ export function TodaysSpecialSection() {
           className="h-12 rounded-full bg-primary px-8 text-base font-semibold text-white shadow-md hover:bg-primary/90 transition-all pill-tap"
           asChild
         >
-          <Link to={ROUTES.menu} className="flex items-center gap-2">
+          <Link to={`${ROUTES.menu}?category=thalis`} className="flex items-center gap-2">
             Explore Thalis &amp; Meals
             <ArrowRight className="size-4" />
           </Link>

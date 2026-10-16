@@ -2,7 +2,13 @@ import { useState, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Minus, Plus, X, MessageSquare } from 'lucide-react'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useFoodItemBySlug } from '@/features/menu/hooks/use-menu-queries'
@@ -42,6 +48,7 @@ export function ThaliCustomizerDrawer({
   const [groupAddOns, setGroupAddOns] = useState<{ id: string; name: string; price_delta: number }[]>([])
   const [customAddonMap, setCustomAddonMap] = useState<Map<string, { id: string; name: string; price_delta: number }>>(new Map())
   const [optionSelections, setOptionSelections] = useState<Record<string, string[]>>({})
+  const [selectedOptionItems, setSelectedOptionItems] = useState<{ id: string; name: string; price_delta: number; group_name?: string }[]>([])
   const [isOptionSelectionValid, setIsOptionSelectionValid] = useState(true)
 
   // Reset local state when opened with a different item
@@ -51,6 +58,7 @@ export function ThaliCustomizerDrawer({
     setShowInstructions(false)
     setSelectedIds(new Set())
     setOptionSelections({})
+    setSelectedOptionItems([])
     setIsOptionSelectionValid(true)
   }, [])
 
@@ -68,9 +76,16 @@ export function ThaliCustomizerDrawer({
     })
   }, [])
 
-  const handleSelectionChange = useCallback((selMap: Record<string, string[]>, isValid: boolean) => {
+  const handleSelectionChange = useCallback((
+    selMap: Record<string, string[]>,
+    isValid: boolean,
+    selectedItems?: { id: string; name: string; price_delta: number; group_name?: string }[],
+  ) => {
     setOptionSelections(selMap)
     setIsOptionSelectionValid(isValid)
+    if (selectedItems) {
+      setSelectedOptionItems(selectedItems)
+    }
   }, [])
 
   const basePrice = item?.price ?? 0
@@ -125,8 +140,14 @@ export function ThaliCustomizerDrawer({
       price_delta: c.price_delta,
     }))
 
-    Object.values(optionSelections).flat().forEach((optId) => {
-      customizationList.push({ id: optId, name: 'Option Selection', price_delta: 0 })
+    // Add chosen dynamic options (Sabjis, Breads, etc.) with their real names and group details
+    selectedOptionItems.forEach((opt) => {
+      customizationList.push({
+        id: opt.id,
+        name: opt.name,
+        price_delta: opt.price_delta,
+        ...(opt.group_name ? { group_name: opt.group_name } : {}),
+      })
     })
 
     addToCart.mutate(
@@ -146,38 +167,35 @@ export function ThaliCustomizerDrawer({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="bottom"
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent
         showCloseButton={false}
-        className="inset-x-0 bottom-0 h-[92vh] max-h-[92vh] sm:h-auto sm:max-h-[85vh] rounded-t-3xl sm:rounded-2xl sm:max-w-xl sm:mx-auto sm:bottom-6 sm:inset-x-auto p-0 flex flex-col bg-white overflow-hidden shadow-2xl border-t sm:border"
+        className="p-0 w-[calc(100%-2rem)] max-w-[440px] max-h-[82vh] flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl border gap-0 outline-hidden"
       >
-        {/* Pull Handle (Mobile) */}
-        <div className="w-full flex justify-center pt-2.5 pb-1 sm:hidden">
-          <div className="w-12 h-1.5 bg-neutral-300 rounded-full" />
-        </div>
-
         {/* ── HEADER ── */}
-        <SheetHeader className="px-5 py-3.5 border-b flex-row items-start justify-between space-y-0 shrink-0">
-          <div className="flex-1 pr-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="flex size-4 items-center justify-center rounded-sm border border-green-600 bg-white p-0.5">
-                <span className="size-2 rounded-full bg-green-600" />
+        <DialogHeader className="px-4 py-2.5 border-b flex-row items-start justify-between space-y-0 shrink-0 bg-white">
+          <div className="flex-1 pr-3">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="flex size-3.5 items-center justify-center rounded-xs border border-green-600 bg-white p-0.5">
+                <span className="size-1.5 rounded-full bg-green-600" />
               </span>
-              <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">
+              <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">
                 Ordering for <span className="capitalize font-bold text-neutral-800">{mealType}</span>
               </span>
             </div>
-            <SheetTitle className="text-lg sm:text-xl font-bold text-neutral-900 leading-tight">
+            <DialogTitle className="text-base font-bold text-neutral-900 leading-tight">
               {item?.name || 'Customise Dish'}
-            </SheetTitle>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-base font-bold text-neutral-900">
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Customise bread, sabji, accompaniment, and snacks for this thali
+            </DialogDescription>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-sm font-bold text-neutral-900">
                 {CURRENCY_SYMBOL}
                 {basePrice}
               </span>
               {strikePrice && (
-                <span className="text-xs text-neutral-400 line-through">
+                <span className="text-[11px] text-neutral-400 line-through">
                   {CURRENCY_SYMBOL}
                   {strikePrice}
                 </span>
@@ -188,34 +206,34 @@ export function ThaliCustomizerDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-500 transition-colors"
+            className="p-1 rounded-full hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 transition-colors"
             aria-label="Close"
           >
-            <X className="size-5" />
+            <X className="size-4" />
           </button>
-        </SheetHeader>
+        </DialogHeader>
 
         {/* ── SCROLLABLE BODY ── */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3.5">
           {isPending || !item ? (
-            <div className="space-y-4 py-2">
-              <Skeleton className="h-6 w-1/2 rounded" />
-              <Skeleton className="h-20 w-full rounded-xl" />
-              <Skeleton className="h-20 w-full rounded-xl" />
+            <div className="space-y-3 py-1">
+              <Skeleton className="h-5 w-1/2 rounded" />
+              <Skeleton className="h-16 w-full rounded-lg" />
+              <Skeleton className="h-16 w-full rounded-lg" />
             </div>
           ) : (
             <>
               {/* Thali Composition Tags if present */}
               {item.ingredients && item.ingredients.length > 0 && (
-                <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/70">
-                  <p className="text-xs font-semibold text-amber-900 mb-2">
+                <div className="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200/70">
+                  <p className="text-[11px] font-semibold text-amber-900 mb-1.5">
                     Included in this Thali:
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1">
                     {item.ingredients.map((ing, idx) => (
                       <span
                         key={idx}
-                        className="text-xs bg-white text-amber-900/90 font-medium px-2 py-0.5 rounded-md border border-amber-200/80 shadow-2xs"
+                        className="text-[10px] bg-white text-amber-900/90 font-medium px-2 py-0.5 rounded-md border border-amber-200/80 shadow-2xs"
                       >
                         {ing}
                       </span>
@@ -235,7 +253,7 @@ export function ThaliCustomizerDrawer({
 
               {/* Add-ons & Extras */}
               {(item.item_customizations?.length > 0 || groupAddOns.length > 0) && (
-                <div className="pt-2 border-t">
+                <div className="pt-1.5 border-t">
                   <ItemCustomizationPicker
                     customizations={item.item_customizations || []}
                     groupAddOns={groupAddOns}
@@ -246,21 +264,21 @@ export function ThaliCustomizerDrawer({
               )}
 
               {/* Special Cooking Note / Instructions */}
-              <div className="pt-2 border-t">
+              <div className="pt-1.5 border-t">
                 {!showInstructions ? (
                   <button
                     type="button"
                     onClick={() => setShowInstructions(true)}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-neutral-600 hover:text-neutral-900"
+                    className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-600 hover:text-neutral-900"
                   >
-                    <MessageSquare className="size-3.5 text-neutral-400" />
+                    <MessageSquare className="size-3 text-neutral-400" />
                     + Add cooking instructions (optional)
                   </button>
                 ) : (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-medium text-neutral-700">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-medium text-neutral-700">
                       <span className="flex items-center gap-1">
-                        <MessageSquare className="size-3.5" /> Special note for chef
+                        <MessageSquare className="size-3" /> Special note for chef
                       </span>
                       <button
                         type="button"
@@ -268,7 +286,7 @@ export function ThaliCustomizerDrawer({
                           setShowInstructions(false)
                           setInstructions('')
                         }}
-                        className="text-[11px] text-neutral-400 hover:text-neutral-600"
+                        className="text-[10px] text-neutral-400 hover:text-neutral-600"
                       >
                         Cancel
                       </button>
@@ -278,7 +296,7 @@ export function ThaliCustomizerDrawer({
                       onChange={(e) => setInstructions(e.target.value.slice(0, 140))}
                       placeholder="e.g. Less spicy, send extra green chillies, no onion..."
                       rows={2}
-                      className="w-full text-xs p-2.5 rounded-lg border border-neutral-200 focus:outline-hidden focus:ring-1 focus:ring-neutral-900 resize-none"
+                      className="w-full text-xs p-2 rounded-lg border border-neutral-200 focus:outline-hidden focus:ring-1 focus:ring-neutral-900 resize-none"
                     />
                   </div>
                 )}
@@ -288,34 +306,34 @@ export function ThaliCustomizerDrawer({
         </div>
 
         {/* ── STICKY FOOTER CTA ── */}
-        <div className="p-4 border-t bg-white flex items-center gap-3 shrink-0 shadow-lg">
+        <div className="p-3 border-t bg-white flex items-center gap-2.5 shrink-0 shadow-lg">
           {/* Quantity Stepper */}
-          <div className="flex items-center rounded-xl border border-neutral-200 bg-neutral-50 p-1">
+          <div className="flex items-center rounded-lg border border-neutral-200 bg-neutral-50 p-0.5">
             <button
               type="button"
               disabled={quantity <= 1}
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="size-8 flex items-center justify-center rounded-lg bg-white text-neutral-700 shadow-2xs hover:bg-neutral-100 disabled:opacity-40 disabled:hover:bg-white"
+              className="size-7 flex items-center justify-center rounded-md bg-white text-neutral-700 shadow-2xs hover:bg-neutral-100 disabled:opacity-40 disabled:hover:bg-white"
             >
-              <Minus className="size-3.5" />
+              <Minus className="size-3" />
             </button>
-            <span className="w-8 text-center text-sm font-bold text-neutral-900">
+            <span className="w-6 text-center text-xs font-bold text-neutral-900">
               {quantity}
             </span>
             <button
               type="button"
               disabled={quantity >= 10}
               onClick={() => setQuantity((q) => Math.min(10, q + 1))}
-              className="size-8 flex items-center justify-center rounded-lg bg-white text-neutral-700 shadow-2xs hover:bg-neutral-100 disabled:opacity-40 disabled:hover:bg-white"
+              className="size-7 flex items-center justify-center rounded-md bg-white text-neutral-700 shadow-2xs hover:bg-neutral-100 disabled:opacity-40 disabled:hover:bg-white"
             >
-              <Plus className="size-3.5" />
+              <Plus className="size-3" />
             </button>
           </div>
 
           {/* Add to Cart Button */}
           <Button
-            size="lg"
-            className="flex-1 h-11 text-sm font-semibold rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white shadow-md flex items-center justify-between px-4 disabled:opacity-60"
+            size="sm"
+            className="flex-1 h-9 text-xs font-semibold rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white shadow-md flex items-center justify-between px-3.5 disabled:opacity-60"
             disabled={!item || item.is_available === false || !isOptionSelectionValid || addToCart.isPending}
             onClick={handleAddToCart}
           >
@@ -332,7 +350,7 @@ export function ThaliCustomizerDrawer({
             </span>
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -13,7 +13,8 @@ import {
   type CartItemWithFood,
 } from '@/features/cart/services/cart-service'
 import { useMenuForDate } from '@/features/menu/hooks/use-menu-queries'
-import { isCutoffPassed, isSoldOut } from '@/features/menu/services/menu-service'
+import { isCutoffPassed, isSoldOut, type MealType } from '@/features/menu/services/menu-service'
+import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
 import { useAuth } from '@/hooks/use-auth'
 
 export function useCartItems() {
@@ -25,10 +26,13 @@ export function useCartItems() {
   })
 }
 
-export function useCartSummary() {
+export function useCartSummary(preferredMealType?: MealType) {
   const { data: items, isPending: isCartPending } = useCartItems()
+  const timing = useMealTiming()
   const today = useMemo(() => dayjs().format('YYYY-MM-DD'), [])
   const { data: menuListings, isPending: isMenuPending } = useMenuForDate(today)
+
+  const activeSlot = preferredMealType || timing.activeSlot
 
   return useMemo(() => {
     const itemCount = items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
@@ -63,19 +67,47 @@ export function useCartSummary() {
         return null
       }
 
+      if (isMenuPending) {
+        return null
+      }
+
       if (!menuListings || menuListings.length === 0) {
         return "Today's menu not published"
       }
-      const listing = menuListings.find((l) => l.food_item_id === item.food_item_id)
-      if (!listing) {
+
+      const matchingListings = menuListings.filter((l) => l.food_item_id === item.food_item_id)
+      if (matchingListings.length === 0) {
         return "Not on today's menu"
       }
-      if (isSoldOut(listing)) {
+
+      // Priority 1: Match listing for the active or preferred meal slot (e.g. Dinner)
+      const slotListing = matchingListings.find((l) => l.daily_menus?.meal_type === activeSlot)
+      if (slotListing) {
+        if (isSoldOut(slotListing)) {
+          return 'Sold Out'
+        }
+        if (isCutoffPassed(slotListing)) {
+          return 'Cutoff Passed'
+        }
+        return null
+      }
+
+      // Priority 2: Check if any matching listing for today is currently open and in stock
+      const openListing = matchingListings.find((l) => !isCutoffPassed(l) && !isSoldOut(l))
+      if (openListing) {
+        return null
+      }
+
+      // Priority 3: Check if all matching listings are sold out
+      if (matchingListings.every((l) => isSoldOut(l))) {
         return 'Sold Out'
       }
-      if (isCutoffPassed(listing)) {
+
+      // Priority 4: All matching listings have passed cutoff
+      if (matchingListings.every((l) => isCutoffPassed(l))) {
         return 'Cutoff Passed'
       }
+
       return null
     }
 
@@ -89,7 +121,7 @@ export function useCartSummary() {
       }
     }
 
-    const hasUnavailableItems = unavailableItemsMap.size > 0
+    const hasUnavailableItems = !isMenuPending && !isCartPending && unavailableItemsMap.size > 0
 
     return {
       itemCount,
@@ -99,7 +131,7 @@ export function useCartSummary() {
       unavailableItemsMap,
       isPending: isCartPending || isMenuPending,
     }
-  }, [items, menuListings, isCartPending, isMenuPending])
+  }, [items, menuListings, isCartPending, isMenuPending, activeSlot])
 }
 
 export function useAddToCart() {

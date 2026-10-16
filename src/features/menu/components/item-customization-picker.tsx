@@ -117,13 +117,13 @@ export function ItemCustomizationPicker({
   return (
     <div className="border-t border-gray-100">
       {/* Section header */}
-      <div className="flex items-center justify-between py-3">
-        <span className="text-sm font-bold text-gray-800">Add-ons</span>
-        <span className="text-xs font-medium text-gray-400">Optional</span>
+      <div className="flex items-center justify-between py-1.5">
+        <span className="text-xs font-bold text-gray-800">Add-ons</span>
+        <span className="text-[10px] font-medium text-gray-400">Optional</span>
       </div>
 
       {/* Add-on chips */}
-      <div className="flex flex-wrap gap-2 pb-3">
+      <div className="flex flex-wrap gap-1.5 pb-2">
         {itemsToRender.map((c) => {
           const isSelected = selectedIds.has(c.id)
           return (
@@ -132,17 +132,17 @@ export function ItemCustomizationPicker({
               type="button"
               onClick={() => onToggle(c.id, c.dynamicDetails)}
               className={`
-                inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium
-                border-2 transition-all duration-150 cursor-pointer select-none
+                inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+                border transition-all duration-150 cursor-pointer select-none
                 ${isSelected
-                  ? 'bg-[#2E7D32] border-[#2E7D32] text-white'
+                  ? 'bg-[#2E7D32] border-[#2E7D32] text-white shadow-2xs'
                   : 'bg-white border-gray-300 text-gray-700 hover:border-[#2E7D32] hover:text-[#2E7D32]'
                 }
               `}
             >
-              {isSelected && <Check className="size-3.5 stroke-[2.5] shrink-0" />}
+              {isSelected && <Check className="size-3 stroke-[2] shrink-0" />}
               <span>{c.name}</span>
-              <span className={`text-xs font-semibold ${isSelected ? 'text-green-200' : 'text-[#2E7D32]'}`}>
+              <span className={`text-[10px] font-semibold ${isSelected ? 'text-green-200' : 'text-[#2E7D32]'}`}>
                 +{CURRENCY_SYMBOL}{c.price_delta}
               </span>
             </button>

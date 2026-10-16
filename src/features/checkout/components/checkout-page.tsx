@@ -4,26 +4,36 @@ import dayjs from 'dayjs'
 import toast from 'react-hot-toast'
 import {
   AlertTriangle,
+  CheckCircle2,
   ChevronLeft,
+  Clock,
   Loader2,
   MapPin,
+  Moon,
   Navigation,
   Plus,
   ShoppingBag,
   Sparkles,
+  Sun,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { EmptyState } from '@/components/common/empty-state'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { AddressFlowDialog } from '@/features/addresses/components/address-flow-dialog'
-import { useAddresses } from '@/features/addresses/hooks/use-addresses'
-import { useActiveDeliverySlots, usePlaceOrder } from '@/features/checkout/hooks/use-checkout'
+import { useAddresses, useUpdateAddress } from '@/features/addresses/hooks/use-addresses'
+import { usePlaceOrder } from '@/features/checkout/hooks/use-checkout'
 import {
   useDeliveryAreas,
   useDeliveryFeeRules,
@@ -40,7 +50,15 @@ import type { MealType, PaymentMethod, Tables } from '@/types/database.types'
 
 export function CheckoutPage() {
   const navigate = useNavigate()
-  const { items, subtotal, hasUnavailableItems } = useCartSummary()
+  // Delivery date is fixed to today (cannot be changed by user)
+  const deliveryDate = dayjs().format('YYYY-MM-DD')
+  const timing = useMealTiming(deliveryDate)
+
+  const isToday = true
+
+  // Auto-detect meal type from the active menu tab
+  const mealType: MealType = timing.activeSlot
+  const { items, subtotal, hasUnavailableItems, isPending } = useCartSummary(mealType)
   const { data: addresses, isPending: addressesPending } = useAddresses()
   
   // Zone Data Hooks (Standard delivery_areas + distance fee rules)
@@ -49,109 +67,57 @@ export function CheckoutPage() {
   const { data: kitchenLoc } = useKitchenLocation()
 
   const placeOrder = usePlaceOrder()
-  const { data: dbSlots = [] } = useActiveDeliverySlots()
-
-  const [deliveryDate, setDeliveryDate] = useState(dayjs().format('YYYY-MM-DD'))
-  const timing = useMealTiming(deliveryDate)
-
-  const isToday = deliveryDate === dayjs().format('YYYY-MM-DD')
-
-  // Fallback to standard slots if admin hasn't configured custom slots yet
-  const slots = useMemo(() => {
-    if (dbSlots && dbSlots.length > 0) {
-      return dbSlots
-    }
-    return [
-      {
-        id: 'lunch',
-        branch_id: '',
-        label: 'Lunch (Deliver Before 1:30 PM)',
-        meal_type: 'lunch' as MealType,
-        start_time: '12:00:00',
-        end_time: '13:30:00',
-        cutoff_time: '11:30:00',
-        max_orders: null,
-        display_order: 1,
-        is_active: true,
-        created_at: '',
-        updated_at: '',
-      },
-      {
-        id: 'dinner',
-        branch_id: '',
-        label: 'Dinner (Deliver Before 8:00 PM)',
-        meal_type: 'dinner' as MealType,
-        start_time: '19:00:00',
-        end_time: '20:30:00',
-        cutoff_time: '20:00:00',
-        max_orders: null,
-        display_order: 2,
-        is_active: true,
-        created_at: '',
-        updated_at: '',
-      },
-    ]
-  }, [dbSlots])
-
-  const getSlotCutoffInfo = (slot: { meal_type: MealType; cutoff_time: string | null }) => {
-    const todayStr = dayjs().format('YYYY-MM-DD')
-    if (deliveryDate > todayStr) {
-      return { isPassed: false, formattedCutoff: '' }
-    }
-    if (deliveryDate < todayStr) {
-      return { isPassed: true, formattedCutoff: 'Past date' }
-    }
-    const mealTiming = timing.slots[slot.meal_type]
-    if (mealTiming) {
-      return {
-        isPassed: !mealTiming.isOpen,
-        formattedCutoff: mealTiming.formattedCutoff,
-      }
-    }
-    if (!slot.cutoff_time) return { isPassed: false, formattedCutoff: '' }
-    const parts = slot.cutoff_time.slice(0, 5).split(':').map(Number)
-    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return { isPassed: false, formattedCutoff: '' }
-    const cutoffDateTime = dayjs().hour(parts[0]).minute(parts[1]).second(0)
-    const isPassed = dayjs().isAfter(cutoffDateTime)
-    const d = new Date()
-    d.setHours(parts[0], parts[1], 0, 0)
-    const formattedCutoff = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-    return { isPassed, formattedCutoff }
-  }
+  const updateAddress = useUpdateAddress()
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
-  const [selectedSlotId, setSelectedSlotId] = useState<string>('')
-  const [customDeliveryTime, setCustomDeliveryTime] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
-  const [paymentReference, setPaymentReference] = useState('')
+  const [manageAddressesOpen, setManageAddressesOpen] = useState(false)
+  // Payment method is always Cash on Delivery (COD)
+  const paymentMethod: PaymentMethod = 'cash'
   const [instructions, setInstructions] = useState('')
-
-  // Set default selected slot based on active timing or first available slot
-  useEffect(() => {
-    if (!slots.length) return
-    const isCurrentValid = slots.some((s) => s.id === selectedSlotId) || selectedSlotId === 'custom'
-    if (!selectedSlotId || !isCurrentValid) {
-      const preferred =
-        slots.find((s) => s.meal_type === timing.activeSlot && !getSlotCutoffInfo(s).isPassed) ||
-        slots.find((s) => !getSlotCutoffInfo(s).isPassed) ||
-        slots[0]
-      if (preferred) setSelectedSlotId(preferred.id)
-    }
-  }, [slots, timing.activeSlot, deliveryDate, selectedSlotId])
+  // Prompt for preferred time if address doesn't have one set
+  const [showTimePrompt, setShowTimePrompt] = useState(false)
+  const [promptedTime, setPromptedTime] = useState('')
 
   const selectedAddress = useMemo(
     () => addresses?.find((a) => a.id === selectedAddressId) ?? null,
     [addresses, selectedAddressId],
   )
 
-  // Preselect default address when loaded
+  // Auto-suggest address based on meal type
   useEffect(() => {
-    if (addresses?.length && !selectedAddressId) {
-      const def = addresses.find((a) => a.is_default) ?? addresses[0]
-      setSelectedAddressId(def.id)
+    if (!addresses?.length || selectedAddressId) return
+    
+    // Priority: address tagged for this meal type > tagged 'both' > default > first
+    const mealTagged = addresses.find(
+      (a) => a.meal_type_tag === mealType
+    )
+    const bothTagged = addresses.find((a) => a.meal_type_tag === 'both')
+    const defaultAddr = addresses.find((a) => a.is_default)
+    
+    const best = mealTagged ?? bothTagged ?? defaultAddr ?? addresses[0]
+    setSelectedAddressId(best.id)
+  }, [addresses, mealType, selectedAddressId])
+
+  // When meal type changes and user hasn't manually selected, re-suggest
+  useEffect(() => {
+    if (!addresses?.length) return
+
+    const mealTagged = addresses.find((a) => a.meal_type_tag === mealType)
+    if (mealTagged && mealTagged.id !== selectedAddressId) {
+      setSelectedAddressId(mealTagged.id)
     }
-  }, [addresses, selectedAddressId])
+  }, [mealType]) // intentionally only re-run when mealType changes
+
+  // Check if selected address needs preferred time prompt
+  useEffect(() => {
+    if (selectedAddress && !selectedAddress.preferred_time) {
+      setShowTimePrompt(true)
+    } else {
+      setShowTimePrompt(false)
+      setPromptedTime('')
+    }
+  }, [selectedAddress])
 
   // Resolve delivery charge based on selected address
   const deliveryResolution: DeliveryResolutionResult = useMemo(() => {
@@ -182,15 +148,13 @@ export function CheckoutPage() {
       )
     })
 
+  // Check if the current meal cutoff has passed
   const isTimingCutoffPassed = useMemo(() => {
     if (isOnly24x7Items) return false
     if (!isToday) return false
-    if (selectedSlotId === 'custom') {
-      return slots.every((s) => getSlotCutoffInfo(s).isPassed)
-    }
-    const currentSlot = slots.find((s) => s.id === selectedSlotId)
-    return currentSlot ? getSlotCutoffInfo(currentSlot).isPassed : false
-  }, [isOnly24x7Items, isToday, selectedSlotId, slots, timing.slots])
+    const mealTiming = timing.slots[mealType]
+    return mealTiming ? !mealTiming.isOpen : false
+  }, [isOnly24x7Items, isToday, mealType, timing.slots])
 
   const canSubmit = Boolean(
     selectedAddressId &&
@@ -200,38 +164,42 @@ export function CheckoutPage() {
       !placeOrder.isPending,
   )
 
+  const handleSavePreferredTime = () => {
+    if (!selectedAddressId || !promptedTime) return
+    updateAddress.mutate(
+      { id: selectedAddressId, input: { preferred_time: `${promptedTime}:00` } },
+      {
+        onSuccess: () => {
+          setShowTimePrompt(false)
+          toast.success('Preferred time saved to your address')
+        },
+      },
+    )
+  }
+
   const handlePlaceOrder = () => {
     if (!selectedAddressId) return
 
-    const chosenSlot = slots.find((s) => s.id === selectedSlotId)
-    const isCustom = selectedSlotId === 'custom'
-
-    const preferredTime = isCustom
-      ? customDeliveryTime.trim()
-        ? `Before ${customDeliveryTime.trim()}`
-        : 'As soon as possible'
-      : chosenSlot
-      ? chosenSlot.label
-      : 'Standard delivery'
-
-    const deliverySlotId =
-      !isCustom && chosenSlot && chosenSlot.id !== 'lunch' && chosenSlot.id !== 'dinner'
-        ? chosenSlot.id
-        : null
+    // Snapshot preferred time from address (or from prompt if just entered)
+    const preferredTime = selectedAddress?.preferred_time
+      ? selectedAddress.preferred_time.slice(0, 5)
+      : promptedTime || null
 
     placeOrder.mutate(
       {
         addressId: selectedAddressId,
         deliveryDate,
-        deliverySlotId,
+        deliverySlotId: null, // No more slot picker — kept for backward compat
         paymentMethod,
         specialInstructions: instructions.trim() || null,
-        paymentReference: paymentMethod === 'upi' ? paymentReference.trim() || null : null,
+        paymentReference: null,
         deliveryCharge: deliveryFee,
         zoneType: deliveryResolution.zoneType,
         isOutOfZone: deliveryResolution.isOutOfZone,
         zoneLabel: deliveryResolution.zoneLabel,
-        preferredLunchTime: preferredTime,
+        preferredLunchTime: preferredTime
+          ? `Preferred: ${preferredTime}`
+          : `${mealType.charAt(0).toUpperCase() + mealType.slice(1)} delivery`,
       },
       {
         onSuccess: (order) => navigate(ROUTES.orderSuccess(order.id)),
@@ -240,13 +208,24 @@ export function CheckoutPage() {
     )
   }
 
-  const handleAddressSelect = (addressId: string) => {
-    setSelectedAddressId(addressId)
-  }
-
   const handleAddressSaved = (address: Tables<'addresses'> | null) => {
     if (address) setSelectedAddressId(address.id)
     setAddressDialogOpen(false)
+  }
+
+  if (isPending || addressesPending) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-10 space-y-6">
+        <Skeleton className="h-8 w-48 rounded-lg" />
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <Skeleton className="h-20 w-full rounded-xl" />
+            <Skeleton className="h-48 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      </div>
+    )
   }
 
   if (hasUnavailableItems) {
@@ -255,7 +234,7 @@ export function CheckoutPage() {
         <Alert variant="destructive" className="mb-6">
           <AlertTriangle className="size-4" />
           <AlertDescription>
-            Your cart contains items that are currently out of stock or unavailable. Please return to your cart and remove them before placing an order.
+            Your cart contains items that are currently out of stock or unavailable for {mealType}. Please return to your cart and remove them before placing an order.
           </AlertDescription>
         </Alert>
         <Button asChild>
@@ -282,6 +261,8 @@ export function CheckoutPage() {
     )
   }
 
+  const MealIcon = mealType === 'dinner' ? Moon : Sun
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="font-display mb-8 text-3xl font-semibold">Checkout</h1>
@@ -289,55 +270,151 @@ export function CheckoutPage() {
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           
-          {/* ── Delivery address ── */}
+          {/* ── Meal type indicator (auto-detected) ── */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border bg-card/60 p-4">
+            <div className="flex items-center gap-3">
+              <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
+                mealType === 'dinner' 
+                  ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400'
+                  : 'bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-400'
+              }`}>
+                <MealIcon className="size-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm capitalize">
+                  {mealType === 'dinner' ? '🌙' : '☀️'} {mealType} Order
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {dayjs(deliveryDate).format('ddd, D MMM YYYY')}
+                  {timing.slots[mealType]?.isOpen && timing.slots[mealType]?.minutesRemaining
+                    ? ` · ${timing.slots[mealType]!.minutesRemaining} min left to order`
+                    : ''}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <div className="flex rounded-lg border bg-muted/40 p-0.5 text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => timing.setActiveSlot('lunch')}
+                  disabled={!timing.slots.lunch?.isOpen}
+                  className={`px-3 py-1.5 rounded-md transition-all ${
+                    mealType === 'lunch'
+                      ? 'bg-white dark:bg-zinc-800 shadow-sm text-foreground font-semibold'
+                      : 'text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground'
+                  }`}
+                >
+                  ☀️ Lunch {!timing.slots.lunch?.isOpen ? '(Closed)' : ''}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => timing.setActiveSlot('dinner')}
+                  disabled={!timing.slots.dinner?.isOpen}
+                  className={`px-3 py-1.5 rounded-md transition-all ${
+                    mealType === 'dinner'
+                      ? 'bg-white dark:bg-zinc-800 shadow-sm text-foreground font-semibold'
+                      : 'text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground'
+                  }`}
+                >
+                  🌙 Dinner {!timing.slots.dinner?.isOpen ? '(Closed)' : ''}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {isTimingCutoffPassed && (
+            <Alert variant="destructive">
+              <AlertTriangle className="size-4" />
+              <AlertDescription>
+                Ordering for today's {mealType} is closed.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* ── Delivery address (single selected + manage option) ── */}
           <Card>
             <CardContent className="space-y-4 pt-6">
               <div className="flex items-center justify-between">
                 <p className="flex items-center gap-2 font-medium">
-                  <MapPin className="size-4" aria-hidden />
+                  <MapPin className="size-4 text-emerald-600" aria-hidden />
                   Delivery address
                 </p>
-                <Button variant="ghost" size="sm" onClick={() => setAddressDialogOpen(true)}>
-                  <Plus className="size-3.5" aria-hidden />
-                  Add new address
-                </Button>
+                {addresses && addresses.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-primary font-medium hover:text-primary gap-1"
+                    onClick={() => setManageAddressesOpen(true)}
+                  >
+                    Manage delivery address
+                  </Button>
+                )}
               </div>
 
               {addressesPending ? (
-                <Skeleton className="h-20 w-full rounded-lg" />
+                <Skeleton className="h-24 w-full rounded-xl" />
               ) : !addresses?.length ? (
-                <div className="text-center py-6 border border-dashed rounded-lg space-y-3">
+                <div className="text-center py-6 border border-dashed rounded-xl space-y-3">
                   <p className="text-xs text-muted-foreground">No delivery addresses saved yet.</p>
                   <Button size="sm" onClick={() => setAddressDialogOpen(true)}>
                     <Plus className="size-3.5 mr-1" /> Pin Location on Map & Add Address
                   </Button>
                 </div>
-              ) : (
-                <RadioGroup value={selectedAddressId ?? undefined} onValueChange={handleAddressSelect}>
-                  <div className="space-y-2">
-                    {addresses.map((address) => (
-                      <label
-                        key={address.id}
-                        htmlFor={`addr-${address.id}`}
-                        className="hover:bg-muted/50 flex items-start gap-3 rounded-lg border p-3 text-sm cursor-pointer"
-                      >
-                        <RadioGroupItem value={address.id} id={`addr-${address.id}`} className="mt-0.5" />
-                        <div>
-                          <p className="font-medium capitalize">
-                            {address.label} — {address.contact_name}
-                          </p>
-                          <p className="text-muted-foreground text-xs">
-                            {address.address_line1}
-                            {address.address_line2 ? `, ${address.address_line2}` : ''}
-                            {address.landmark ? `, ${address.landmark}` : ''}, {address.city}{' '}
-                            {address.pincode}
-                          </p>
-                        </div>
-                      </label>
-                    ))}
+              ) : selectedAddress ? (
+                <div className="rounded-xl border border-primary/30 bg-primary/[0.03] p-4 space-y-2 relative transition-all">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="capitalize text-xs font-semibold px-2 py-0.5 border-primary/40 text-primary bg-primary/5">
+                        {selectedAddress.label}
+                      </Badge>
+                      <span className="font-semibold text-sm text-foreground">
+                        {selectedAddress.contact_name}
+                      </span>
+                      {selectedAddress.contact_phone && (
+                        <span className="text-xs text-muted-foreground">· {selectedAddress.contact_phone}</span>
+                      )}
+                      {selectedAddress.is_default && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          Default
+                        </Badge>
+                      )}
+                      {selectedAddress.meal_type_tag !== 'both' && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                          selectedAddress.meal_type_tag === 'lunch'
+                            ? 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
+                            : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                        }`}>
+                          {selectedAddress.meal_type_tag === 'lunch' ? '☀️ Lunch Address' : '🌙 Dinner Address'}
+                        </span>
+                      )}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setManageAddressesOpen(true)}
+                      className="text-xs h-8 shrink-0 hover:bg-primary hover:text-white"
+                    >
+                      Change
+                    </Button>
                   </div>
-                </RadioGroup>
-              )}
+
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    {selectedAddress.address_line1}
+                    {selectedAddress.address_line2 ? `, ${selectedAddress.address_line2}` : ''}
+                    {selectedAddress.landmark ? `, ${selectedAddress.landmark}` : ''}, {selectedAddress.city}{' '}
+                    {selectedAddress.pincode}
+                  </p>
+
+                  {selectedAddress.preferred_time && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1">
+                      <Clock className="size-3 text-muted-foreground" />
+                      <span>Preferred delivery: <strong className="text-foreground">{selectedAddress.preferred_time.slice(0, 5)}</strong></span>
+                    </div>
+                  )}
+                </div>
+              ) : null}
 
               {/* Delivery Resolution Status Banner */}
               {selectedAddress && (
@@ -371,8 +448,137 @@ export function CheckoutPage() {
                   )}
                 </div>
               )}
+
+              {/* Preferred time prompt — shown only if selected address has no preferred_time */}
+              {showTimePrompt && selectedAddress && (
+                <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3.5 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-orange-800 dark:text-orange-300">
+                    <Clock className="size-4 text-orange-500" />
+                    What time do you prefer delivery here?
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    This helps us plan our delivery route. You only need to set it once — it'll be saved to this address.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="time"
+                      value={promptedTime}
+                      onChange={(e) => setPromptedTime(e.target.value)}
+                      className="max-w-[140px] text-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSavePreferredTime}
+                      disabled={!promptedTime || updateAddress.isPending}
+                      className="text-xs"
+                    >
+                      {updateAddress.isPending ? <Loader2 className="size-3.5 animate-spin" /> : 'Save'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowTimePrompt(false)}
+                      className="text-xs text-muted-foreground"
+                    >
+                      Skip
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {/* Manage Addresses Selection Dialog */}
+          <Dialog open={manageAddressesOpen} onOpenChange={setManageAddressesOpen}>
+            <DialogContent className="max-w-md sm:max-w-lg max-h-[85vh] flex flex-col p-5">
+              <DialogHeader>
+                <div className="flex items-center justify-between pr-6">
+                  <DialogTitle className="text-base font-bold">
+                    Select Delivery Address
+                  </DialogTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1 h-8"
+                    onClick={() => {
+                      setManageAddressesOpen(false)
+                      setAddressDialogOpen(true)
+                    }}
+                  >
+                    <Plus className="size-3.5" />
+                    Add new
+                  </Button>
+                </div>
+              </DialogHeader>
+
+              <div className="overflow-y-auto space-y-2.5 py-2 pr-1 flex-1">
+                {addresses?.map((address) => {
+                  const isSelected = address.id === selectedAddressId
+                  return (
+                    <div
+                      key={address.id}
+                      onClick={() => {
+                        setSelectedAddressId(address.id)
+                        setManageAddressesOpen(false)
+                      }}
+                      className={`flex items-start justify-between gap-3 p-3.5 rounded-xl border text-left cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'hover:border-gray-300 hover:bg-muted/40'
+                      }`}
+                    >
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-xs capitalize px-2 py-0.5 rounded-md bg-muted">
+                            {address.label}
+                          </span>
+                          <span className="font-medium text-xs text-foreground">
+                            {address.contact_name}
+                          </span>
+                          {address.is_default && (
+                            <Badge variant="secondary" className="text-[10px] px-1 py-0">Default</Badge>
+                          )}
+                          {address.meal_type_tag !== 'both' && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                              address.meal_type_tag === 'lunch'
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'bg-indigo-100 text-indigo-700'
+                            }`}>
+                              {address.meal_type_tag === 'lunch' ? '☀️ Lunch' : '🌙 Dinner'}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {address.address_line1}
+                          {address.address_line2 ? `, ${address.address_line2}` : ''}
+                          {address.landmark ? `, ${address.landmark}` : ''}, {address.city} {address.pincode}
+                        </p>
+                        {address.preferred_time && (
+                          <p className="text-[11px] text-muted-foreground">
+                            🕐 Preferred: {address.preferred_time.slice(0, 5)}
+                          </p>
+                        )}
+                      </div>
+
+                      <Button
+                        variant={isSelected ? 'default' : 'outline'}
+                        size="sm"
+                        className="text-xs h-7 shrink-0 ml-2"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedAddressId(address.id)
+                          setManageAddressesOpen(false)
+                        }}
+                      >
+                        {isSelected ? 'Selected' : 'Deliver here'}
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* 2-Step Address Flow Dialog (Map Location Picker + Details Form) */}
           <AddressFlowDialog
@@ -381,129 +587,23 @@ export function CheckoutPage() {
             onSaved={handleAddressSaved}
           />
 
-          {/* ── Delivery timing & Preferred Lunch Time ── */}
+          {/* ── Payment method (Always Cash on Delivery) ── */}
           <Card>
-            <CardContent className="space-y-4 pt-6">
-              <div>
-                <p className="font-medium">Preferred Delivery Window</p>
-                <p className="text-muted-foreground text-xs">
-                  Choose when you prefer your meal delivered.
-                </p>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="delivery-date" className="mb-1.5 block text-sm font-medium">
-                    Delivery Date
-                  </Label>
-                  <Input
-                    id="delivery-date"
-                    type="date"
-                    min={dayjs().format('YYYY-MM-DD')}
-                    value={deliveryDate}
-                    onChange={(e) => setDeliveryDate(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Label className="mb-1.5 block text-sm font-medium">
-                    Target Meal Window
-                  </Label>
-                  <RadioGroup
-                    value={selectedSlotId}
-                    onValueChange={setSelectedSlotId}
-                    className="grid grid-cols-1 gap-2"
-                  >
-                    {slots.map((slot) => {
-                      const { isPassed, formattedCutoff } = getSlotCutoffInfo(slot)
-                      const isDisabled = isPassed && !isOnly24x7Items
-                      return (
-                        <label
-                          key={slot.id}
-                          htmlFor={`slot-${slot.id}`}
-                          className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${
-                            isDisabled ? 'opacity-50 bg-muted cursor-not-allowed' : ''
-                          }`}
-                        >
-                          <RadioGroupItem
-                            value={slot.id}
-                            id={`slot-${slot.id}`}
-                            disabled={isDisabled}
-                          />
-                          <span>
-                            {slot.meal_type === 'lunch' ? '🍱' : '🍲'} {slot.label}{' '}
-                            {isPassed && formattedCutoff ? `— Closed (${formattedCutoff})` : isPassed ? '— Closed' : ''}
-                          </span>
-                        </label>
-                      )
-                    })}
-                    <label
-                      htmlFor="slot-custom"
-                      className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium"
-                    >
-                      <RadioGroupItem value="custom" id="slot-custom" />
-                      <span>🕒 Specific Time Request</span>
-                    </label>
-                  </RadioGroup>
-                </div>
-              </div>
-
-              {isTimingCutoffPassed && (
-                <Alert variant="destructive" className="mt-2">
-                  <AlertTriangle className="size-4" />
-                  <AlertDescription>
-                    Cutoff time for the selected delivery window has passed. Please select another slot or a future delivery date.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {selectedSlotId === 'custom' && (
-                <div className="pt-1">
-                  <Label htmlFor="custom-time" className="mb-1 block text-xs text-muted-foreground">
-                    Enter your preferred time (e.g. 1:15 PM or 7:45 PM)
-                  </Label>
-                  <Input
-                    id="custom-time"
-                    placeholder="e.g. 1:15 PM"
-                    value={customDeliveryTime}
-                    onChange={(e) => setCustomDeliveryTime(e.target.value)}
-                    className="max-w-xs text-xs"
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* ── Payment method ── */}
-          <Card>
-            <CardContent className="space-y-4 pt-6">
+            <CardContent className="space-y-3 pt-6">
               <p className="font-medium">Payment method</p>
-              <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label htmlFor="pay-cash" className="hover:bg-muted/50 flex items-center gap-2 rounded-lg border p-3 text-sm cursor-pointer">
-                    <RadioGroupItem value="cash" id="pay-cash" />
-                    Cash on delivery
-                  </label>
-                  <label htmlFor="pay-upi" className="hover:bg-muted/50 flex items-center gap-2 rounded-lg border p-3 text-sm cursor-pointer">
-                    <RadioGroupItem value="upi" id="pay-upi" />
-                    UPI / Online
-                  </label>
+              <div className="flex items-center gap-3.5 rounded-xl border border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20 p-4">
+                <div className="size-9 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="size-5" />
                 </div>
-              </RadioGroup>
-
-              {paymentMethod === 'upi' ? (
-                <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
-                  <p className="text-xs text-muted-foreground">
-                    Pay via UPI on delivery or via payment link sent by kitchen staff.
+                <div>
+                  <p className="font-semibold text-sm text-foreground">
+                    Cash on delivery (COD)
                   </p>
-                  <Input
-                    placeholder="Optional: UPI UTR reference number"
-                    value={paymentReference}
-                    onChange={(e) => setPaymentReference(e.target.value)}
-                    className="text-xs"
-                  />
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Pay in cash to our delivery executive when your meal arrives.
+                  </p>
                 </div>
-              ) : null}
+              </div>
             </CardContent>
           </Card>
 
@@ -552,6 +652,15 @@ export function CheckoutPage() {
               <div className="flex justify-between border-t pt-4 font-semibold">
                 <span>Total</span>
                 <span>{CURRENCY_SYMBOL}{total}</span>
+              </div>
+
+              {/* Meal type badge in summary */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground border-t pt-3">
+                <MealIcon className="size-3.5" />
+                <span className="capitalize">{mealType} delivery · {dayjs(deliveryDate).format('D MMM')}</span>
+                {selectedAddress?.preferred_time && (
+                  <span>· Preferred: {selectedAddress.preferred_time.slice(0, 5)}</span>
+                )}
               </div>
 
               <Button

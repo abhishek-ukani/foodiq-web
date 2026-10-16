@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import {
   Leaf,
   Minus,
@@ -62,9 +63,41 @@ export function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1)
   const [instructions, setInstructions] = useState('')
   const [showInstructions, setShowInstructions] = useState(false)
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [availableSabjis, setAvailableSabjis] = useState<{ id: string; label: string }[]>([])
+  const [groupAddOns, setGroupAddOns] = useState<{ id: string; name: string; price_delta: number }[]>([])
+  const [customAddonMap, setCustomAddonMap] = useState<Map<string, { id: string; name: string; price_delta: number }>>(new Map())
   const [optionSelections, setOptionSelections] = useState<Record<string, string[]>>({})
   const [isOptionSelectionValid, setIsOptionSelectionValid] = useState(true)
+
+  const handleSabjiOptionsLoaded = useCallback((sabjis: { id: string; label: string }[]) => {
+    setAvailableSabjis((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(sabjis)) return prev
+      return sabjis
+    })
+  }, [])
+
+  const handleAddOnOptionsLoaded = useCallback((addOns: { id: string; name: string; price_delta: number }[]) => {
+    setGroupAddOns((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(addOns)) return prev
+      return addOns
+    })
+  }, [])
+
+  const [selectedOptionItems, setSelectedOptionItems] = useState<{ id: string; name: string; price_delta: number; group_name?: string }[]>([])
+
+  const handleSelectionChange = useCallback((
+    selMap: Record<string, string[]>,
+    isValid: boolean,
+    selectedItems?: { id: string; name: string; price_delta: number; group_name?: string }[],
+  ) => {
+    setOptionSelections(selMap)
+    setIsOptionSelectionValid(isValid)
+    if (selectedItems) {
+      setSelectedOptionItems(selectedItems)
+    }
+  }, [])
 
   if (isPending) {
     return (
@@ -104,36 +137,72 @@ export function ProductDetailPage() {
     )
   }
 
-  const basePrice = item.offer_price ?? item.price
-  const strikePrice = item.offer_price ? item.price : null
-  const selectedCustomizations = item.item_customizations.filter((c) => selectedIds.has(c.id))
-  const addOnsTotal = selectedCustomizations.reduce((sum, c) => sum + c.price_delta, 0)
+  const variants = item.food_item_variants || []
+  const hasVariants = variants.length > 0
+  const selectedVariant = hasVariants
+    ? variants.find((v) => v.id === selectedVariantId) || variants[0]
+    : null
+
+  const basePrice = selectedVariant ? selectedVariant.price : item.price
+  const strikePrice = selectedVariant
+    ? (selectedVariant.compare_price ?? null)
+    : (item.compare_price ?? null)
+
+  const resolvedSelectedCustomizations = Array.from(selectedIds).map((id) => {
+    if (customAddonMap.has(id)) {
+      return customAddonMap.get(id)!
+    }
+    const match = item.item_customizations.find((c) => c.id === id)
+    return {
+      id,
+      name: match?.name || 'Add-on',
+      price_delta: Number(match?.price_delta || 0),
+    }
+  })
+  const addOnsTotal = resolvedSelectedCustomizations.reduce((sum, c) => sum + c.price_delta, 0)
   const totalPrice = (basePrice + addOnsTotal) * quantity
 
-  const toggleCustomization = (id: string) => {
+  const toggleCustomization = (id: string, dynamicDetails?: { name: string; price_delta: number }) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+        if (dynamicDetails) {
+          setCustomAddonMap((m) => new Map(m).set(id, { id, name: dynamicDetails.name, price_delta: dynamicDetails.price_delta }))
+        }
+      }
       return next
     })
   }
 
   const handleAddToCart = () => {
+    if (item.is_available === false) {
+      toast.error('This product is currently disabled and unavailable for sale.')
+      return
+    }
     if (!isAuthenticated) {
       navigate(ROUTES.login, { state: { from: location } })
       return
     }
-    const customizationList = selectedCustomizations.map((c) => ({
+    const customizationList = resolvedSelectedCustomizations.map((c) => ({
       id: c.id,
       name: c.name,
       price_delta: c.price_delta,
     }))
-    Object.values(optionSelections).flat().forEach((optId) => {
-      customizationList.push({ id: optId, name: 'Option Selection', price_delta: 0 })
+    // Add chosen dynamic options (Sabjis, Breads, etc.) with their real names and group details
+    selectedOptionItems.forEach((opt) => {
+      customizationList.push({
+        id: opt.id,
+        name: opt.name,
+        price_delta: opt.price_delta,
+        ...(opt.group_name ? { group_name: opt.group_name } : {}),
+      })
     })
     addToCart.mutate({
       food_item_id: item.id,
+      variant_id: selectedVariant?.id ?? null,
       quantity,
       special_instructions: instructions.trim() || null,
       customizations: customizationList,
@@ -230,7 +299,81 @@ export function ProductDetailPage() {
             {item.description && (
               <p className="mt-2.5 text-sm text-gray-500 leading-relaxed">{item.description}</p>
             )}
+
+            {item.is_available === false && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold flex items-center gap-2">
+                <span>⚠️ This product is currently off-sale and not available for order.</span>
+              </div>
+            )}
           </div>
+
+          {/* ── PRODUCT PACK SIZES / VARIANTS ── */}
+          {hasVariants && (
+            <div className="px-4 sm:px-5 py-4 border-b border-gray-100 bg-emerald-50/25">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                    <span>Pack Size / Quantity</span>
+                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                      Select
+                    </span>
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Choose your portion or pack size
+                  </p>
+                </div>
+                {selectedVariant && (
+                  <span className="text-xs font-bold text-[#2E7D32] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                    {selectedVariant.label}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {variants.map((variant) => {
+                  const isSelected = selectedVariant?.id === variant.id
+                  return (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      onClick={() => setSelectedVariantId(variant.id)}
+                      className={`flex flex-col items-start p-3 rounded-xl border text-left transition-all relative min-h-[56px] cursor-pointer ${
+                        isSelected
+                          ? 'border-[#2E7D32] bg-white ring-2 ring-[#2E7D32]/25 shadow-sm'
+                          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/80 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className={`text-sm font-bold ${isSelected ? 'text-[#2E7D32]' : 'text-gray-900'}`}>
+                          {variant.label}
+                        </span>
+                        {isSelected ? (
+                          <span className="size-2 rounded-full bg-[#2E7D32]" />
+                        ) : null}
+                      </div>
+
+                      <div className="mt-1 flex items-baseline gap-1.5">
+                        <span className={`text-xs font-bold ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
+                          {CURRENCY_SYMBOL}{variant.price}
+                        </span>
+                        {variant.compare_price && variant.compare_price > variant.price && (
+                          <span className="text-[10px] text-gray-400 line-through">
+                            {CURRENCY_SYMBOL}{variant.compare_price}
+                          </span>
+                        )}
+                      </div>
+
+                      {variant.quantity && variant.unit_type && (
+                        <span className="text-[10px] text-gray-400 mt-0.5">
+                          {variant.quantity} {variant.unit_type}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ── THALI CUSTOMIZATIONS ── */}
           {item.kind === 'thali' && (
@@ -239,10 +382,9 @@ export function ProductDetailPage() {
                 foodItemId={item.id}
                 selectedDate={state?.date}
                 mealType={state?.mealType}
-                onSelectionChange={(selMap, isValid) => {
-                  setOptionSelections(selMap)
-                  setIsOptionSelectionValid(isValid)
-                }}
+                onSabjiOptionsLoaded={handleSabjiOptionsLoaded}
+                onAddOnOptionsLoaded={handleAddOnOptionsLoaded}
+                onSelectionChange={handleSelectionChange}
               />
             </div>
           )}
@@ -251,6 +393,8 @@ export function ProductDetailPage() {
           <div className="px-4 sm:px-5">
             <ItemCustomizationPicker
               customizations={item.item_customizations}
+              groupAddOns={groupAddOns}
+              availableSabjis={availableSabjis}
               selectedIds={selectedIds}
               onToggle={toggleCustomization}
             />
@@ -337,7 +481,11 @@ export function ProductDetailPage() {
                   <span>
                     {addToCart.isPending
                       ? 'Adding…'
-                      : `Add thali · ${CURRENCY_SYMBOL}${totalPrice}`}
+                      : selectedVariant
+                      ? `Add (${selectedVariant.label}) · ${CURRENCY_SYMBOL}${totalPrice}`
+                      : item.kind === 'thali'
+                      ? `Add thali · ${CURRENCY_SYMBOL}${totalPrice}`
+                      : `Add to cart · ${CURRENCY_SYMBOL}${totalPrice}`}
                   </span>
                 </button>
               </div>

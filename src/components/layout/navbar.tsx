@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { ChefHat, LogOut, Menu as MenuIcon, ShoppingBag, User } from 'lucide-react'
+import { ChefHat, Heart, LogOut, MapPin, Menu as MenuIcon, Package, ShoppingBag, User } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -106,15 +106,33 @@ export function Navbar() {
                   {profile?.full_name?.split(' ')[0] ?? user?.email?.split('@')[0]}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
-                  <Link to={ROUTES.profile}>My Account</Link>
+                  <Link to={ROUTES.profile} className="cursor-pointer">
+                    <User className="mr-2 size-4" />
+                    My Account
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to={ROUTES.orders}>My Orders</Link>
+                  <Link to={ROUTES.orders} className="cursor-pointer">
+                    <Package className="mr-2 size-4" />
+                    Orders
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="size-4" aria-hidden />
+                <DropdownMenuItem asChild>
+                  <Link to={`${ROUTES.profile}?tab=addresses`} className="cursor-pointer">
+                    <MapPin className="mr-2 size-4" />
+                    Saved addresses
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={`${ROUTES.profile}?tab=favorites`} className="cursor-pointer">
+                    <Heart className="mr-2 size-4" />
+                    Favorites
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
+                  <LogOut className="mr-2 size-4" />
                   Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -143,29 +161,45 @@ export function Navbar() {
             <SheetContent side="right" className="w-72">
               <div className="mt-10 flex flex-col gap-6 px-4">
                 <NavLinks onNavigate={() => setMobileOpen(false)} className="text-base" />
+                
                 <div className="flex items-center justify-between border-t pt-4">
                   <span className="text-sm text-muted-foreground">Theme</span>
                   <ThemeToggle />
                 </div>
+
                 {isAuthenticated ? (
-                  <div className="space-y-2">
-                    <Button variant="outline" className="w-full" asChild>
+                  <div className="space-y-2 border-t pt-4">
+                    <Button variant="outline" className="w-full justify-start" asChild>
                       <Link to={ROUTES.profile} onClick={() => setMobileOpen(false)}>
+                        <User className="mr-2 size-4" />
                         My Account
                       </Link>
                     </Button>
-                    <Button variant="outline" className="w-full" asChild>
+                    <Button variant="outline" className="w-full justify-start" asChild>
                       <Link to={ROUTES.orders} onClick={() => setMobileOpen(false)}>
-                        My Orders
+                        <Package className="mr-2 size-4" />
+                        Orders
                       </Link>
                     </Button>
-                    <Button variant="ghost" className="w-full" onClick={handleLogout}>
-                      <LogOut className="size-4" aria-hidden />
+                    <Button variant="outline" className="w-full justify-start" asChild>
+                      <Link to={`${ROUTES.profile}?tab=addresses`} onClick={() => setMobileOpen(false)}>
+                        <MapPin className="mr-2 size-4" />
+                        Saved addresses
+                      </Link>
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start" asChild>
+                      <Link to={`${ROUTES.profile}?tab=favorites`} onClick={() => setMobileOpen(false)}>
+                        <Heart className="mr-2 size-4 text-rose-500" />
+                        Favorites
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" className="w-full justify-start text-destructive" onClick={handleLogout}>
+                      <LogOut className="mr-2 size-4" />
                       Sign out
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2 border-t pt-4">
                     <Button className="w-full" asChild>
                       <Link to={ROUTES.register} onClick={() => setMobileOpen(false)}>
                         Get started

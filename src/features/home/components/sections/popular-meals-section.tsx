@@ -63,7 +63,7 @@ export function PopularMealsSection() {
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-primary text-sm font-semibold">
                         {CURRENCY_SYMBOL}
-                        {item.offer_price ?? item.price}
+                        {item.price}
                       </p>
                       {item.rating_count > 0 ? (
                         <span className="text-muted-foreground flex items-center gap-1 text-xs">

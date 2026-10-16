@@ -4,226 +4,202 @@ import dayjs from 'dayjs'
 import toast from 'react-hot-toast'
 import {
   AlertTriangle,
+  CheckCircle2,
   ChevronLeft,
+  Clock,
   Loader2,
   MapPin,
+  Moon,
+  Navigation,
   Plus,
-  RefreshCw,
   ShoppingBag,
+  Sparkles,
+  Sun,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { EmptyState } from '@/components/common/empty-state'
-import { AddressForm } from '@/features/addresses/components/address-form'
-import { useAddresses } from '@/features/addresses/hooks/use-addresses'
 import {
-  useActiveDeliverySlots,
-  useActiveUpiQr,
-  usePlaceOrder,
-} from '@/features/checkout/hooks/use-checkout'
-import { useResolveDelivery } from '@/features/checkout/hooks/use-resolve-delivery'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { AddressFlowDialog } from '@/features/addresses/components/address-flow-dialog'
+import { useAddresses, useUpdateAddress } from '@/features/addresses/hooks/use-addresses'
+import { usePlaceOrder } from '@/features/checkout/hooks/use-checkout'
+import {
+  useDeliveryAreas,
+  useDeliveryFeeRules,
+  useKitchenLocation,
+} from '@/features/addresses/hooks/use-delivery-zones'
+import {
+  resolveDeliveryCharge,
+  type DeliveryResolutionResult,
+} from '@/features/checkout/services/delivery-charge-resolver'
 import { useCartSummary } from '@/features/cart/hooks/use-cart'
+import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
-import type { PaymentMethod, Tables } from '@/types/database.types'
-import type { DeliveryResult } from '@/features/checkout/services/resolve-delivery-service'
-
-// ---------------------------------------------------------------------------
-// Helper: Delivery Status Banner
-// ---------------------------------------------------------------------------
-
-function DeliveryStatusBanner({
-  isPending,
-  data,
-  isError,
-  onRetry,
-}: {
-  isPending: boolean
-  data?: DeliveryResult
-  isError: boolean
-  onRetry: () => void
-}) {
-  if (isPending) {
-    return (
-      <div className="bg-muted/40 text-muted-foreground flex items-center gap-2 rounded-lg border p-3.5 text-xs font-medium">
-        <Loader2 className="size-4 animate-spin text-primary" aria-hidden />
-        <span>Calculating delivery availability for selected address…</span>
-      </div>
-    )
-  }
-
-  if (isError) {
-    return (
-      <Alert variant="warning">
-        <AlertTriangle className="size-4" />
-        <AlertDescription className="flex items-center justify-between">
-          <span>We couldn't determine your delivery availability right now.</span>
-          <Button variant="ghost" size="sm" onClick={onRetry} className="gap-1 text-xs">
-            <RefreshCw className="size-3.5" />
-            Retry
-          </Button>
-        </AlertDescription>
-      </Alert>
-    )
-  }
-
-  if (!data) return null
-
-  if (!data.deliverable) {
-    const isBlocked = data.zone_type === 'BLOCKED'
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle className="size-4" />
-        <AlertDescription>
-          {isBlocked
-            ? 'We do not deliver to this area at present. Please select another address.'
-            : data.distance_km != null
-            ? `Address is outside our ${data.distance_km} km service radius. Please choose a closer location.`
-            : 'Delivery is unavailable for this location. Please try another address.'}
-        </AlertDescription>
-      </Alert>
-    )
-  }
-
-  return (
-    <div className="bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 flex items-center justify-between rounded-lg border p-3.5 text-xs text-emerald-900 dark:text-emerald-200">
-      <span className="font-medium">
-        {data.zone_type === 'FREE' ? (
-          '🎉 Free Delivery available for this address!'
-        ) : (
-          <>
-            Delivery available! Charge:{' '}
-            <strong className="font-semibold">{CURRENCY_SYMBOL}{data.fee}</strong>
-            {data.distance_km != null ? ` (${data.distance_km} km away)` : ''}
-          </>
-        )}
-      </span>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Main checkout page
-// ---------------------------------------------------------------------------
+import type { MealType, PaymentMethod, Tables } from '@/types/database.types'
 
 export function CheckoutPage() {
   const navigate = useNavigate()
-  const { items, subtotal } = useCartSummary()
+  // Delivery date is fixed to today (cannot be changed by user)
+  const deliveryDate = dayjs().format('YYYY-MM-DD')
+  const timing = useMealTiming(deliveryDate)
+
+  const isToday = true
+
+  // Auto-detect meal type from the active menu tab
+  const mealType: MealType = timing.activeSlot
+  const { items, subtotal, hasUnavailableItems, isPending } = useCartSummary(mealType)
   const { data: addresses, isPending: addressesPending } = useAddresses()
-  const { data: slots, isPending: slotsPending } = useActiveDeliverySlots()
-  const { data: upiQr } = useActiveUpiQr()
+  
+  // Zone Data Hooks (Standard delivery_areas + distance fee rules)
+  const { data: areas = [] } = useDeliveryAreas()
+  const { data: feeRules = [] } = useDeliveryFeeRules()
+  const { data: kitchenLoc } = useKitchenLocation()
+
   const placeOrder = usePlaceOrder()
-  const resolveDelivery = useResolveDelivery()
-
-  const [deliveryDate, setDeliveryDate] = useState(dayjs().format('YYYY-MM-DD'))
-
-  const isToday = deliveryDate === dayjs().format('YYYY-MM-DD')
-  const currentTimeStr = dayjs().format('HH:mm')
-
-  const isLunchCutoffPassed = isToday && currentTimeStr >= '11:30'
-  const isDinnerCutoffPassed = isToday && currentTimeStr >= '23:00'
-
-  // Dynamic default: Lunch if ordering before 11:30 AM, else Dinner
-  const initialMealOption = useMemo<'lunch' | 'dinner'>(() => {
-    const currentHM = dayjs().format('HH:mm')
-    return currentHM < '11:30' ? 'lunch' : 'dinner'
-  }, [])
+  const updateAddress = useUpdateAddress()
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
-  const [showAddressForm, setShowAddressForm] = useState(false)
-  const [deliveryTimeOption, setDeliveryTimeOption] = useState<'lunch' | 'dinner' | 'custom'>(initialMealOption)
-  const [customDeliveryTime, setCustomDeliveryTime] = useState('')
-  const [slotId, setSlotId] = useState<string | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
-  const [paymentReference, setPaymentReference] = useState('')
+  const [addressDialogOpen, setAddressDialogOpen] = useState(false)
+  const [manageAddressesOpen, setManageAddressesOpen] = useState(false)
+  // Payment method is always Cash on Delivery (COD)
+  const paymentMethod: PaymentMethod = 'cash'
   const [instructions, setInstructions] = useState('')
+  // Prompt for preferred time if address doesn't have one set
+  const [showTimePrompt, setShowTimePrompt] = useState(false)
+  const [promptedTime, setPromptedTime] = useState('')
 
   const selectedAddress = useMemo(
     () => addresses?.find((a) => a.id === selectedAddressId) ?? null,
     [addresses, selectedAddressId],
   )
 
-  // Preselect default address when loaded
+  // Auto-suggest address based on meal type
   useEffect(() => {
-    if (addresses?.length && !selectedAddressId) {
-      const def = addresses.find((a) => a.is_default) ?? addresses[0]
-      setSelectedAddressId(def.id)
+    if (!addresses?.length || selectedAddressId) return
+    
+    // Priority: address tagged for this meal type > tagged 'both' > default > first
+    const mealTagged = addresses.find(
+      (a) => a.meal_type_tag === mealType
+    )
+    const bothTagged = addresses.find((a) => a.meal_type_tag === 'both')
+    const defaultAddr = addresses.find((a) => a.is_default)
+    
+    const best = mealTagged ?? bothTagged ?? defaultAddr ?? addresses[0]
+    setSelectedAddressId(best.id)
+  }, [addresses, mealType, selectedAddressId])
+
+  // When meal type changes and user hasn't manually selected, re-suggest
+  useEffect(() => {
+    if (!addresses?.length) return
+
+    const mealTagged = addresses.find((a) => a.meal_type_tag === mealType)
+    if (mealTagged && mealTagged.id !== selectedAddressId) {
+      setSelectedAddressId(mealTagged.id)
     }
-  }, [addresses, selectedAddressId])
+  }, [mealType]) // intentionally only re-run when mealType changes
 
-  // When the selected address changes, reset any previous delivery resolution
+  // Check if selected address needs preferred time prompt
   useEffect(() => {
-    resolveDelivery.reset()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAddressId])
-
-  // Auto-trigger delivery check when an address is selected
-  useEffect(() => {
-    if (!selectedAddress) return
-    resolveDelivery.mutate({
-      locality: selectedAddress.address_line1 || selectedAddress.city || undefined,
-      pincode: selectedAddress.pincode || undefined,
-      lat: selectedAddress.latitude ?? undefined,
-      lng: selectedAddress.longitude ?? undefined,
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (selectedAddress && !selectedAddress.preferred_time) {
+      setShowTimePrompt(true)
+    } else {
+      setShowTimePrompt(false)
+      setPromptedTime('')
+    }
   }, [selectedAddress])
 
-  // Derived delivery state
-  const deliveryResolved = resolveDelivery.data
-  const deliveryFee = deliveryResolved?.deliverable ? (deliveryResolved.fee ?? 0) : null
-  const total = deliveryFee !== null ? subtotal + deliveryFee : subtotal
+  // Resolve delivery charge based on selected address
+  const deliveryResolution: DeliveryResolutionResult = useMemo(() => {
+    return resolveDeliveryCharge(
+      selectedAddress,
+      areas,
+      feeRules,
+      kitchenLoc,
+    )
+  }, [selectedAddress, areas, feeRules, kitchenLoc])
 
-  const isTimingCutoffPassed =
-    isToday &&
-    ((deliveryTimeOption === 'lunch' && isLunchCutoffPassed) ||
-      (deliveryTimeOption === 'dinner' && isDinnerCutoffPassed))
+  const deliveryFee = deliveryResolution.fee
+  const total = subtotal + deliveryFee
 
-  // Order can proceed if an address is selected, deliverable, and cutoff hasn't passed
+  const isOnly24x7Items =
+    items.length > 0 &&
+    items.every((ci) => {
+      const catType = (ci.food_items as any)?.categories?.category_type
+      const catSlug = (ci.food_items as any)?.categories?.slug || ''
+      return (
+        ci.food_items.kind === 'single' &&
+        (catType === 'snack' ||
+          catType === 'beverage' ||
+          catType === 'sweet' ||
+          catSlug.includes('snack') ||
+          catSlug.includes('farsan') ||
+          catSlug.includes('nasta'))
+      )
+    })
+
+  // Check if the current meal cutoff has passed
+  const isTimingCutoffPassed = useMemo(() => {
+    if (isOnly24x7Items) return false
+    if (!isToday) return false
+    const mealTiming = timing.slots[mealType]
+    return mealTiming ? !mealTiming.isOpen : false
+  }, [isOnly24x7Items, isToday, mealType, timing.slots])
+
   const canSubmit = Boolean(
     selectedAddressId &&
       items.length &&
-      deliveryResolved?.deliverable === true &&
-      !resolveDelivery.isPending &&
-      !isTimingCutoffPassed,
+      !hasUnavailableItems &&
+      !isTimingCutoffPassed &&
+      !placeOrder.isPending,
   )
 
+  const handleSavePreferredTime = () => {
+    if (!selectedAddressId || !promptedTime) return
+    updateAddress.mutate(
+      { id: selectedAddressId, input: { preferred_time: `${promptedTime}:00` } },
+      {
+        onSuccess: () => {
+          setShowTimePrompt(false)
+          toast.success('Preferred time saved to your address')
+        },
+      },
+    )
+  }
+
   const handlePlaceOrder = () => {
-    if (!selectedAddressId || !deliveryResolved?.deliverable) return
+    if (!selectedAddressId) return
 
-    const timeLabel =
-      deliveryTimeOption === 'lunch'
-        ? 'Deliver before 1:30 PM (Lunch)'
-        : deliveryTimeOption === 'dinner'
-        ? 'Deliver before 8:00 PM (Dinner)'
-        : customDeliveryTime
-        ? `Deliver before ${customDeliveryTime}`
-        : 'Deliver before requested time'
-
-    const fullInstructions = [
-      `[Target Delivery: ${timeLabel}]`,
-      instructions.trim(),
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-    const effectiveSlotId = slotId || slots?.[0]?.id || undefined
+    // Snapshot preferred time from address (or from prompt if just entered)
+    const preferredTime = selectedAddress?.preferred_time
+      ? selectedAddress.preferred_time.slice(0, 5)
+      : promptedTime || null
 
     placeOrder.mutate(
       {
         addressId: selectedAddressId,
         deliveryDate,
-        deliverySlotId: effectiveSlotId as any,
+        deliverySlotId: null, // No more slot picker — kept for backward compat
         paymentMethod,
-        specialInstructions: fullInstructions,
-        paymentReference: paymentMethod === 'upi' ? paymentReference.trim() || null : null,
-        deliveryCharge: deliveryResolved.fee,
-        zoneType: deliveryResolved.zone_type,
+        specialInstructions: instructions.trim() || null,
+        paymentReference: null,
+        deliveryCharge: deliveryFee,
+        zoneType: deliveryResolution.zoneType,
+        isOutOfZone: deliveryResolution.isOutOfZone,
+        zoneLabel: deliveryResolution.zoneLabel,
+        preferredLunchTime: preferredTime
+          ? `Preferred: ${preferredTime}`
+          : `${mealType.charAt(0).toUpperCase() + mealType.slice(1)} delivery`,
       },
       {
         onSuccess: (order) => navigate(ROUTES.orderSuccess(order.id)),
@@ -232,13 +208,40 @@ export function CheckoutPage() {
     )
   }
 
-  const handleAddressSelect = (addressId: string) => {
-    setSelectedAddressId(addressId)
-  }
-
   const handleAddressSaved = (address: Tables<'addresses'> | null) => {
     if (address) setSelectedAddressId(address.id)
-    setShowAddressForm(false)
+    setAddressDialogOpen(false)
+  }
+
+  if (isPending || addressesPending) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-10 space-y-6">
+        <Skeleton className="h-8 w-48 rounded-lg" />
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <Skeleton className="h-20 w-full rounded-xl" />
+            <Skeleton className="h-48 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      </div>
+    )
+  }
+
+  if (hasUnavailableItems) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16">
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="size-4" />
+          <AlertDescription>
+            Your cart contains items that are currently out of stock or unavailable for {mealType}. Please return to your cart and remove them before placing an order.
+          </AlertDescription>
+        </Alert>
+        <Button asChild>
+          <Link to={ROUTES.cart}>Return to cart</Link>
+        </Button>
+      </div>
+    )
   }
 
   if (!items.length) {
@@ -258,219 +261,349 @@ export function CheckoutPage() {
     )
   }
 
+  const MealIcon = mealType === 'dinner' ? Moon : Sun
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="font-display mb-8 text-3xl font-semibold">Checkout</h1>
 
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          {/* ── Delivery address ── */}
+          
+          {/* ── Meal type indicator (auto-detected) ── */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border bg-card/60 p-4">
+            <div className="flex items-center gap-3">
+              <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
+                mealType === 'dinner' 
+                  ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400'
+                  : 'bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-400'
+              }`}>
+                <MealIcon className="size-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm capitalize">
+                  {mealType === 'dinner' ? '🌙' : '☀️'} {mealType} Order
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {dayjs(deliveryDate).format('ddd, D MMM YYYY')}
+                  {timing.slots[mealType]?.isOpen && timing.slots[mealType]?.minutesRemaining
+                    ? ` · ${timing.slots[mealType]!.minutesRemaining} min left to order`
+                    : ''}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <div className="flex rounded-lg border bg-muted/40 p-0.5 text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => timing.setActiveSlot('lunch')}
+                  disabled={!timing.slots.lunch?.isOpen}
+                  className={`px-3 py-1.5 rounded-md transition-all ${
+                    mealType === 'lunch'
+                      ? 'bg-white dark:bg-zinc-800 shadow-sm text-foreground font-semibold'
+                      : 'text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground'
+                  }`}
+                >
+                  ☀️ Lunch {!timing.slots.lunch?.isOpen ? '(Closed)' : ''}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => timing.setActiveSlot('dinner')}
+                  disabled={!timing.slots.dinner?.isOpen}
+                  className={`px-3 py-1.5 rounded-md transition-all ${
+                    mealType === 'dinner'
+                      ? 'bg-white dark:bg-zinc-800 shadow-sm text-foreground font-semibold'
+                      : 'text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground'
+                  }`}
+                >
+                  🌙 Dinner {!timing.slots.dinner?.isOpen ? '(Closed)' : ''}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {isTimingCutoffPassed && (
+            <Alert variant="destructive">
+              <AlertTriangle className="size-4" />
+              <AlertDescription>
+                Ordering for today's {mealType} is closed.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* ── Delivery address (single selected + manage option) ── */}
           <Card>
             <CardContent className="space-y-4 pt-6">
               <div className="flex items-center justify-between">
                 <p className="flex items-center gap-2 font-medium">
-                  <MapPin className="size-4" aria-hidden />
+                  <MapPin className="size-4 text-emerald-600" aria-hidden />
                   Delivery address
                 </p>
-                {addresses?.length && !showAddressForm ? (
-                  <Button variant="ghost" size="sm" onClick={() => setShowAddressForm(true)}>
-                    <Plus className="size-3.5" aria-hidden />
-                    Add new
+                {addresses && addresses.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-primary font-medium hover:text-primary gap-1"
+                    onClick={() => setManageAddressesOpen(true)}
+                  >
+                    Manage delivery address
                   </Button>
-                ) : null}
+                )}
               </div>
 
               {addressesPending ? (
-                <Skeleton className="h-20 w-full rounded-lg" />
-              ) : showAddressForm || !addresses?.length ? (
-                <AddressForm
-                  onSaved={handleAddressSaved}
-                  onCancel={addresses?.length ? () => setShowAddressForm(false) : undefined}
-                />
-              ) : (
-                <RadioGroup value={selectedAddressId ?? undefined} onValueChange={handleAddressSelect}>
-                  <div className="space-y-2">
-                    {addresses.map((address) => (
-                      <label
-                        key={address.id}
-                        htmlFor={`addr-${address.id}`}
-                        className="hover:bg-muted/50 flex items-start gap-3 rounded-lg border p-3 text-sm cursor-pointer"
-                      >
-                        <RadioGroupItem value={address.id} id={`addr-${address.id}`} className="mt-0.5" />
-                        <div>
-                          <p className="font-medium capitalize">
-                            {address.label} — {address.contact_name}
-                          </p>
-                          <p className="text-muted-foreground">
-                            {address.address_line1}
-                            {address.landmark ? `, ${address.landmark}` : ''}, {address.city},{' '}
-                            {address.state} {address.pincode}
-                          </p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </RadioGroup>
-              )}
-
-              {/* Delivery resolution status banner */}
-              {selectedAddress && (
-                <DeliveryStatusBanner
-                  isPending={resolveDelivery.isPending}
-                  data={resolveDelivery.data}
-                  isError={resolveDelivery.isError}
-                  onRetry={() =>
-                    resolveDelivery.mutate({
-                      locality: selectedAddress.address_line1 || selectedAddress.city || undefined,
-                      pincode: selectedAddress.pincode || undefined,
-                      lat: selectedAddress.latitude ?? undefined,
-                      lng: selectedAddress.longitude ?? undefined,
-                    })
-                  }
-                />
-              )}
-            </CardContent>
-          </Card>
-
-          {/* ── Delivery timing & Deliver-Before Preference ── */}
-          <Card>
-            <CardContent className="space-y-4 pt-6">
-              <div>
-                <p className="font-medium">Delivery Timing Preference</p>
-                <p className="text-muted-foreground text-xs">
-                  Choose when you need your meal delivered (e.g., before lunch or dinner).
-                </p>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="delivery-date" className="mb-1.5 block text-sm font-medium">
-                    Delivery Date
-                  </Label>
-                  <Input
-                    id="delivery-date"
-                    type="date"
-                    min={dayjs().format('YYYY-MM-DD')}
-                    value={deliveryDate}
-                    onChange={(e) => setDeliveryDate(e.target.value)}
-                  />
+                <Skeleton className="h-24 w-full rounded-xl" />
+              ) : !addresses?.length ? (
+                <div className="text-center py-6 border border-dashed rounded-xl space-y-3">
+                  <p className="text-xs text-muted-foreground">No delivery addresses saved yet.</p>
+                  <Button size="sm" onClick={() => setAddressDialogOpen(true)}>
+                    <Plus className="size-3.5 mr-1" /> Pin Location on Map & Add Address
+                  </Button>
                 </div>
-
-                <div>
-                  <Label className="mb-1.5 block text-sm font-medium">
-                    Deliver Before Time
-                  </Label>
-                  <RadioGroup
-                    value={deliveryTimeOption}
-                    onValueChange={(v) => setDeliveryTimeOption(v as 'lunch' | 'dinner' | 'custom')}
-                    className="grid grid-cols-1 sm:grid-cols-3 gap-2"
-                  >
-                    <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isLunchCutoffPassed ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
-                      <RadioGroupItem value="lunch" id="time-lunch" disabled={isLunchCutoffPassed} />
-                      <span>🍱 Lunch {isLunchCutoffPassed ? '(Closed)' : '(Before 1:30 PM)'}</span>
-                    </label>
-                    <label className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${isDinnerCutoffPassed ? 'opacity-50 bg-muted cursor-not-allowed' : ''}`}>
-                      <RadioGroupItem value="dinner" id="time-dinner" disabled={isDinnerCutoffPassed} />
-                      <span>🍲 Dinner {isDinnerCutoffPassed ? '(Closed)' : '(Before 8:00 PM)'}</span>
-                    </label>
-                    <label className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-xs font-medium">
-                      <RadioGroupItem value="custom" id="time-custom" />
-                      <span>🕒 Custom Time</span>
-                    </label>
-                  </RadioGroup>
-                </div>
-              </div>
-
-              {isTimingCutoffPassed && (
-                <Alert variant="destructive" className="mt-2">
-                  <AlertTriangle className="size-4" />
-                  <AlertDescription>
-                    Ordering for today's {deliveryTimeOption === 'lunch' ? 'Lunch (Cutoff 11:30 AM)' : 'Dinner'} is closed. Please select Dinner or choose a future delivery date.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {deliveryTimeOption === 'custom' && (
-                <div className="pt-1">
-                  <Label htmlFor="custom-time" className="mb-1 block text-xs text-muted-foreground">
-                    Enter your preferred time (e.g. 1:00 PM or 7:30 PM)
-                  </Label>
-                  <Input
-                    id="custom-time"
-                    placeholder="e.g. 1:00 PM"
-                    value={customDeliveryTime}
-                    onChange={(e) => setCustomDeliveryTime(e.target.value)}
-                    className="max-w-xs"
-                  />
-                </div>
-              )}
-
-              {slots && slots.length > 0 && (
-                <div className="pt-2">
-                  <Label className="mb-1.5 block text-xs text-muted-foreground">
-                    Optional: Select specific kitchen window
-                  </Label>
-                  <RadioGroup value={slotId ?? undefined} onValueChange={setSlotId}>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {slots.map((slot) => (
-                        <label
-                          key={slot.id}
-                          htmlFor={`slot-${slot.id}`}
-                          className="hover:bg-muted/50 flex items-center gap-2 rounded-lg border p-2.5 text-xs cursor-pointer"
-                        >
-                          <RadioGroupItem value={slot.id} id={`slot-${slot.id}`} />
-                          {slot.label}
-                        </label>
-                      ))}
+              ) : selectedAddress ? (
+                <div className="rounded-xl border border-primary/30 bg-primary/[0.03] p-4 space-y-2 relative transition-all">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="capitalize text-xs font-semibold px-2 py-0.5 border-primary/40 text-primary bg-primary/5">
+                        {selectedAddress.label}
+                      </Badge>
+                      <span className="font-semibold text-sm text-foreground">
+                        {selectedAddress.contact_name}
+                      </span>
+                      {selectedAddress.contact_phone && (
+                        <span className="text-xs text-muted-foreground">· {selectedAddress.contact_phone}</span>
+                      )}
+                      {selectedAddress.is_default && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          Default
+                        </Badge>
+                      )}
+                      {selectedAddress.meal_type_tag !== 'both' && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                          selectedAddress.meal_type_tag === 'lunch'
+                            ? 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
+                            : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                        }`}>
+                          {selectedAddress.meal_type_tag === 'lunch' ? '☀️ Lunch Address' : '🌙 Dinner Address'}
+                        </span>
+                      )}
                     </div>
-                  </RadioGroup>
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
-          {/* ── Payment method ── */}
-          <Card>
-            <CardContent className="space-y-4 pt-6">
-              <p className="font-medium">Payment method</p>
-              <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label htmlFor="pay-cash" className="hover:bg-muted/50 flex items-center gap-2 rounded-lg border p-3 text-sm cursor-pointer">
-                    <RadioGroupItem value="cash" id="pay-cash" />
-                    Cash on delivery
-                  </label>
-                  <label htmlFor="pay-upi" className="hover:bg-muted/50 flex items-center gap-2 rounded-lg border p-3 text-sm cursor-pointer">
-                    <RadioGroupItem value="upi" id="pay-upi" />
-                    UPI
-                  </label>
-                </div>
-              </RadioGroup>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setManageAddressesOpen(true)}
+                      className="text-xs h-8 shrink-0 hover:bg-primary hover:text-white"
+                    >
+                      Change
+                    </Button>
+                  </div>
 
-              {paymentMethod === 'upi' ? (
-                <div className="space-y-3 rounded-lg border p-4">
-                  {upiQr?.qr_image_url ? (
-                    <img
-                      src={upiQr.qr_image_url}
-                      alt="UPI QR code"
-                      className="mx-auto size-48 rounded-lg"
-                    />
-                  ) : (
-                    <p className="text-muted-foreground text-center text-sm">
-                      QR code not available right now — you can still place the order and pay via UPI ID.
-                    </p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    {selectedAddress.address_line1}
+                    {selectedAddress.address_line2 ? `, ${selectedAddress.address_line2}` : ''}
+                    {selectedAddress.landmark ? `, ${selectedAddress.landmark}` : ''}, {selectedAddress.city}{' '}
+                    {selectedAddress.pincode}
+                  </p>
+
+                  {selectedAddress.preferred_time && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1">
+                      <Clock className="size-3 text-muted-foreground" />
+                      <span>Preferred delivery: <strong className="text-foreground">{selectedAddress.preferred_time.slice(0, 5)}</strong></span>
+                    </div>
                   )}
-                  {upiQr?.upi_id ? (
-                    <p className="text-center text-sm font-medium">
-                      UPI ID: <span className="font-mono">{upiQr.upi_id}</span>
-                    </p>
-                  ) : null}
-                  <Input
-                    placeholder="Enter UPI reference / Transaction ID"
-                    value={paymentReference}
-                    onChange={(e) => setPaymentReference(e.target.value)}
-                  />
                 </div>
               ) : null}
+
+              {/* Delivery Resolution Status Banner */}
+              {selectedAddress && (
+                <div className="pt-2">
+                  {!deliveryResolution.isOutOfZone ? (
+                    <div className="bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300 flex items-center justify-between rounded-lg border p-3.5 text-xs font-medium">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="size-4 text-emerald-600 shrink-0" />
+                        <span>
+                          {deliveryResolution.fee === 0 ? (
+                            '🎉 Free Delivery for this address!'
+                          ) : (
+                            <>
+                              Verified Delivery Zone ({deliveryResolution.zoneLabel}): Delivery Fee{' '}
+                              <strong className="font-semibold">{CURRENCY_SYMBOL}{deliveryResolution.fee}</strong>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-300 rounded-lg border p-3.5 text-xs space-y-1">
+                      <div className="flex items-center gap-2 font-semibold">
+                        <Navigation className="size-4 text-amber-600 shrink-0" />
+                        <span>Request Delivery to Your Location</span>
+                      </div>
+                      <p className="text-muted-foreground text-[11px] leading-relaxed">
+                        We don't have a fixed delivery charge for this area yet, but we will reach out to you as soon as your order is placed to confirm delivery details!
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Preferred time prompt — shown only if selected address has no preferred_time */}
+              {showTimePrompt && selectedAddress && (
+                <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3.5 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-orange-800 dark:text-orange-300">
+                    <Clock className="size-4 text-orange-500" />
+                    What time do you prefer delivery here?
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    This helps us plan our delivery route. You only need to set it once — it'll be saved to this address.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="time"
+                      value={promptedTime}
+                      onChange={(e) => setPromptedTime(e.target.value)}
+                      className="max-w-[140px] text-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSavePreferredTime}
+                      disabled={!promptedTime || updateAddress.isPending}
+                      className="text-xs"
+                    >
+                      {updateAddress.isPending ? <Loader2 className="size-3.5 animate-spin" /> : 'Save'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowTimePrompt(false)}
+                      className="text-xs text-muted-foreground"
+                    >
+                      Skip
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Manage Addresses Selection Dialog */}
+          <Dialog open={manageAddressesOpen} onOpenChange={setManageAddressesOpen}>
+            <DialogContent className="max-w-md sm:max-w-lg max-h-[85vh] flex flex-col p-5">
+              <DialogHeader>
+                <div className="flex items-center justify-between pr-6">
+                  <DialogTitle className="text-base font-bold">
+                    Select Delivery Address
+                  </DialogTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1 h-8"
+                    onClick={() => {
+                      setManageAddressesOpen(false)
+                      setAddressDialogOpen(true)
+                    }}
+                  >
+                    <Plus className="size-3.5" />
+                    Add new
+                  </Button>
+                </div>
+              </DialogHeader>
+
+              <div className="overflow-y-auto space-y-2.5 py-2 pr-1 flex-1">
+                {addresses?.map((address) => {
+                  const isSelected = address.id === selectedAddressId
+                  return (
+                    <div
+                      key={address.id}
+                      onClick={() => {
+                        setSelectedAddressId(address.id)
+                        setManageAddressesOpen(false)
+                      }}
+                      className={`flex items-start justify-between gap-3 p-3.5 rounded-xl border text-left cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'hover:border-gray-300 hover:bg-muted/40'
+                      }`}
+                    >
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-xs capitalize px-2 py-0.5 rounded-md bg-muted">
+                            {address.label}
+                          </span>
+                          <span className="font-medium text-xs text-foreground">
+                            {address.contact_name}
+                          </span>
+                          {address.is_default && (
+                            <Badge variant="secondary" className="text-[10px] px-1 py-0">Default</Badge>
+                          )}
+                          {address.meal_type_tag !== 'both' && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                              address.meal_type_tag === 'lunch'
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'bg-indigo-100 text-indigo-700'
+                            }`}>
+                              {address.meal_type_tag === 'lunch' ? '☀️ Lunch' : '🌙 Dinner'}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {address.address_line1}
+                          {address.address_line2 ? `, ${address.address_line2}` : ''}
+                          {address.landmark ? `, ${address.landmark}` : ''}, {address.city} {address.pincode}
+                        </p>
+                        {address.preferred_time && (
+                          <p className="text-[11px] text-muted-foreground">
+                            🕐 Preferred: {address.preferred_time.slice(0, 5)}
+                          </p>
+                        )}
+                      </div>
+
+                      <Button
+                        variant={isSelected ? 'default' : 'outline'}
+                        size="sm"
+                        className="text-xs h-7 shrink-0 ml-2"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedAddressId(address.id)
+                          setManageAddressesOpen(false)
+                        }}
+                      >
+                        {isSelected ? 'Selected' : 'Deliver here'}
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* 2-Step Address Flow Dialog (Map Location Picker + Details Form) */}
+          <AddressFlowDialog
+            open={addressDialogOpen}
+            onOpenChange={setAddressDialogOpen}
+            onSaved={handleAddressSaved}
+          />
+
+          {/* ── Payment method (Always Cash on Delivery) ── */}
+          <Card>
+            <CardContent className="space-y-3 pt-6">
+              <p className="font-medium">Payment method</p>
+              <div className="flex items-center gap-3.5 rounded-xl border border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20 p-4">
+                <div className="size-9 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="size-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm text-foreground">
+                    Cash on delivery (COD)
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Pay in cash to our delivery executive when your meal arrives.
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -482,7 +615,7 @@ export function CheckoutPage() {
               </Label>
               <Textarea
                 id="instructions"
-                placeholder="e.g. Make it extra spicy, ring the bell twice, or leave at door..."
+                placeholder="e.g. Less spicy, ring the bell, leave at security desk..."
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 rows={3}
@@ -505,16 +638,12 @@ export function CheckoutPage() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Delivery charge</span>
                   <span>
-                    {resolveDelivery.isPending ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : deliveryResolved?.deliverable ? (
-                      deliveryResolved.fee === 0 ? (
-                        <span className="font-medium text-emerald-600">Free</span>
-                      ) : (
-                        `${CURRENCY_SYMBOL}${deliveryResolved.fee}`
-                      )
+                    {deliveryResolution.isOutOfZone ? (
+                      <span className="text-amber-600 font-medium text-xs">To be confirmed</span>
+                    ) : deliveryFee === 0 ? (
+                      <span className="font-medium text-emerald-600">Free</span>
                     ) : (
-                      '—'
+                      `${CURRENCY_SYMBOL}${deliveryFee}`
                     )}
                   </span>
                 </div>
@@ -525,11 +654,14 @@ export function CheckoutPage() {
                 <span>{CURRENCY_SYMBOL}{total}</span>
               </div>
 
-              {!deliveryResolved?.deliverable && selectedAddress ? (
-                <p className="text-destructive text-xs font-medium">
-                  Confirm your delivery area to continue.
-                </p>
-              ) : null}
+              {/* Meal type badge in summary */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground border-t pt-3">
+                <MealIcon className="size-3.5" />
+                <span className="capitalize">{mealType} delivery · {dayjs(deliveryDate).format('D MMM')}</span>
+                {selectedAddress?.preferred_time && (
+                  <span>· Preferred: {selectedAddress.preferred_time.slice(0, 5)}</span>
+                )}
+              </div>
 
               <Button
                 className="w-full"
@@ -542,6 +674,8 @@ export function CheckoutPage() {
                     <Loader2 className="mr-2 size-4 animate-spin" />
                     Placing order…
                   </>
+                ) : deliveryResolution.isOutOfZone ? (
+                  'Request Delivery & Place Order'
                 ) : (
                   'Place order'
                 )}

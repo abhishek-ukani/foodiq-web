@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
-import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
+import { AlertTriangle, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { EmptyState } from '@/components/common/empty-state'
 import {
   useCartItems,
@@ -14,10 +16,17 @@ import { customizationsTotal, type SelectedCustomization } from '@/features/cart
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
 
 export function CartPage() {
-  const { isPending } = useCartItems()
-  const { items, itemCount, subtotal } = useCartSummary()
+  const { isPending: isCartPending } = useCartItems()
+  const { items, itemCount, subtotal, hasUnavailableItems, unavailableItemsMap, isPending } =
+    useCartSummary()
   const updateQuantity = useUpdateCartItemQuantity()
   const removeItem = useRemoveCartItem()
+
+  const handleRemoveUnavailable = () => {
+    for (const [itemId] of unavailableItemsMap) {
+      removeItem.mutate(itemId)
+    }
+  }
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
@@ -26,7 +35,7 @@ export function CartPage() {
         {itemCount > 0 ? `${itemCount} item${itemCount > 1 ? 's' : ''} in your cart` : 'Review your order'}
       </p>
 
-      {isPending ? (
+      {isPending || isCartPending ? (
         <div className="mt-8 space-y-4">
           {Array.from({ length: 2 }, (_, i) => (
             <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -45,113 +54,161 @@ export function CartPage() {
           }
         />
       ) : (
-        <div className="mt-8 grid gap-6 lg:grid-cols-3">
-          <div className="space-y-4 lg:col-span-2">
-            {items.map((item) => {
-              const basePrice = item.food_items.offer_price ?? item.food_items.price
-              const addOns = (item.customizations as SelectedCustomization[] | null) ?? []
-              const price = basePrice + customizationsTotal(addOns)
-              return (
-                <Card key={item.id}>
-                  <CardContent className="flex gap-4 pt-6">
-                    <div className="bg-muted size-20 shrink-0 overflow-hidden rounded-lg">
-                      {item.food_items.image_url ? (
-                        <img
-                          src={item.food_items.image_url}
-                          alt={item.food_items.name}
-                          className="size-full object-cover"
-                        />
-                      ) : null}
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-medium">{item.food_items.name}</p>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 shrink-0"
-                          onClick={() => removeItem.mutate(item.id)}
-                          aria-label="Remove item"
-                        >
-                          <Trash2 className="text-destructive size-4" aria-hidden />
-                        </Button>
+        <div className="mt-8">
+          {hasUnavailableItems && (
+            <Alert variant="destructive" className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="size-4 shrink-0" />
+                <AlertDescription>
+                  Some items in your cart are currently unavailable or not part of today&apos;s published menu.
+                </AlertDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 border-destructive text-destructive hover:bg-destructive hover:text-white"
+                onClick={handleRemoveUnavailable}
+              >
+                Remove unavailable items
+              </Button>
+            </Alert>
+          )}
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="space-y-4 lg:col-span-2">
+              {items.map((item) => {
+                const unavailabilityReason = unavailableItemsMap.get(item.id)
+                const isAvailable = !unavailabilityReason
+                const basePrice = item.food_item_variants ? item.food_item_variants.price : item.food_items.price
+                const addOns = (item.customizations as SelectedCustomization[] | null) ?? []
+                const price = basePrice + customizationsTotal(addOns)
+                return (
+                  <Card key={item.id} className={!isAvailable ? 'border-destructive/40 bg-destructive/5' : ''}>
+                    <CardContent className="flex gap-4 pt-6">
+                      <div className="bg-muted relative size-20 shrink-0 overflow-hidden rounded-lg">
+                        {item.food_items.image_url ? (
+                          <img
+                            src={item.food_items.image_url}
+                            alt={item.food_items.name}
+                            className={`size-full object-cover ${!isAvailable ? 'grayscale opacity-60' : ''}`}
+                          />
+                        ) : null}
                       </div>
-                      {addOns.length ? (
-                        <p className="text-muted-foreground text-xs">
-                          + {addOns.map((c) => c.name).join(', ')}
-                        </p>
-                      ) : null}
-                      {item.special_instructions ? (
-                        <p className="text-muted-foreground text-xs">
-                          &ldquo;{item.special_instructions}&rdquo;
-                        </p>
-                      ) : null}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 rounded-lg border px-1.5 py-0.5">
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-medium">{item.food_items.name}</p>
+                              {item.food_item_variants && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-800 bg-emerald-50">
+                                  {item.food_item_variants.label}
+                                </Badge>
+                              )}
+                              {!isAvailable && (
+                                <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+                                  {unavailabilityReason}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-6"
-                            disabled={item.quantity <= 1}
-                            onClick={() =>
-                              updateQuantity.mutate({ id: item.id, quantity: item.quantity - 1 })
-                            }
-                            aria-label="Decrease quantity"
+                            className="size-7 shrink-0"
+                            onClick={() => removeItem.mutate(item.id)}
+                            aria-label="Remove item"
                           >
-                            <Minus className="size-3" aria-hidden />
-                          </Button>
-                          <span className="w-5 text-center text-sm tabular-nums">{item.quantity}</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-6"
-                            disabled={item.quantity >= 10}
-                            onClick={() =>
-                              updateQuantity.mutate({ id: item.id, quantity: item.quantity + 1 })
-                            }
-                            aria-label="Increase quantity"
-                          >
-                            <Plus className="size-3" aria-hidden />
+                            <Trash2 className="text-destructive size-4" aria-hidden />
                           </Button>
                         </div>
-                        <p className="font-semibold">
-                          {CURRENCY_SYMBOL}
-                          {price * item.quantity}
-                        </p>
+                        {addOns.length ? (
+                          <p className="text-muted-foreground text-xs">
+                            + {addOns.map((c) => c.name).join(', ')}
+                          </p>
+                        ) : null}
+                        {item.special_instructions ? (
+                          <p className="text-muted-foreground text-xs">
+                            &ldquo;{item.special_instructions}&rdquo;
+                          </p>
+                        ) : null}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 rounded-lg border px-1.5 py-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-6"
+                              disabled={!isAvailable || item.quantity <= 1}
+                              onClick={() =>
+                                updateQuantity.mutate({ id: item.id, quantity: item.quantity - 1 })
+                              }
+                              aria-label="Decrease quantity"
+                            >
+                              <Minus className="size-3" aria-hidden />
+                            </Button>
+                            <span className="w-5 text-center text-sm tabular-nums">{item.quantity}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-6"
+                              disabled={!isAvailable || item.quantity >= 10}
+                              onClick={() =>
+                                updateQuantity.mutate({ id: item.id, quantity: item.quantity + 1 })
+                              }
+                              aria-label="Increase quantity"
+                            >
+                              <Plus className="size-3" aria-hidden />
+                            </Button>
+                          </div>
+                          <p className="font-semibold">
+                            {CURRENCY_SYMBOL}
+                            {price * item.quantity}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
 
-          <div>
-            <Card>
-              <CardContent className="space-y-4 pt-6">
-                <p className="font-medium">Order Summary</p>
-                <div className="text-muted-foreground flex justify-between text-sm">
-                  <span>Subtotal</span>
-                  <span>
-                    {CURRENCY_SYMBOL}
-                    {subtotal}
-                  </span>
-                </div>
-                <p className="text-muted-foreground text-xs">
-                  Delivery charges are calculated at checkout based on your address.
-                </p>
-                <div className="flex justify-between border-t pt-3 font-semibold">
-                  <span>Total</span>
-                  <span>
-                    {CURRENCY_SYMBOL}
-                    {subtotal}
-                  </span>
-                </div>
-                <Button asChild size="lg" className="w-full">
-                  <Link to={ROUTES.checkout}>Proceed to checkout</Link>
-                </Button>
-              </CardContent>
-            </Card>
+            <div>
+              <Card>
+                <CardContent className="space-y-4 pt-6">
+                  <p className="font-medium">Order Summary</p>
+                  <div className="text-muted-foreground flex justify-between text-sm">
+                    <span>Subtotal</span>
+                    <span>
+                      {CURRENCY_SYMBOL}
+                      {subtotal}
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    Delivery charges are calculated at checkout based on your address.
+                  </p>
+                  <div className="flex justify-between border-t pt-3 font-semibold">
+                    <span>Total</span>
+                    <span>
+                      {CURRENCY_SYMBOL}
+                      {subtotal}
+                    </span>
+                  </div>
+                  {hasUnavailableItems ? (
+                    <Button
+                      variant="destructive"
+                      size="lg"
+                      className="w-full"
+                      onClick={handleRemoveUnavailable}
+                    >
+                      Remove unavailable items
+                    </Button>
+                  ) : (
+                    <Button asChild size="lg" className="w-full">
+                      <Link to={ROUTES.checkout}>Proceed to checkout</Link>
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       )}

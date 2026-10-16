@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { Tables } from '@/types/database.types'
+import type { Tables, MealType } from '@/types/database.types'
 
 export type ResolvedOptionItem = {
   id: string
@@ -29,7 +29,7 @@ export async function fetchThaliOptionGroups(
   // 1. Fetch Option Groups for this Thali
   const { data: groups, error: groupErr } = await supabase
     .from('thali_option_groups')
-    .select('*, thali_option_items(*, food_items:linked_food_item_id(id, name, is_available, price, offer_price))')
+    .select('*, thali_option_items(*, food_items:linked_food_item_id(id, name, is_available, price, compare_price))')
     .eq('food_item_id', foodItemId)
     .eq('is_active', true)
     .order('display_order')
@@ -40,7 +40,7 @@ export async function fetchThaliOptionGroups(
   // These merge into static_choice groups of the matching category_type
   await supabase
     .from('thali_components')
-    .select('*, food_items(id, name, price, offer_price)')
+    .select('*, food_items(id, name, price, compare_price)')
     .order('display_order')
 
   // Local YYYY-MM-DD date (e.g. 2026-08-07)
@@ -75,7 +75,7 @@ export async function fetchThaliOptionGroups(
     .from('daily_menu_items')
     .select('*, food_items(*, categories(id, name, category_type)), daily_menus!inner(menu_date, is_published, meal_type)')
     .eq('daily_menus.menu_date', targetDate)
-    .eq('daily_menus.meal_type', effectiveMealType)
+    .eq('daily_menus.meal_type', effectiveMealType as MealType)
     .eq('daily_menus.is_published', true)
     .eq('is_available', true)
     .neq('is_thali_option', false)

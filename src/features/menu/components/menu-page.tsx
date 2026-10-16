@@ -1,221 +1,197 @@
-import { useEffect, useMemo, useState } from 'react'
-import dayjs from 'dayjs'
-import { AlertTriangle, Search, UtensilsCrossed } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { EmptyState } from '@/components/common/empty-state'
+import { useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useMenuForDate, useActiveCategories } from '@/features/menu/hooks/use-menu-queries'
+import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
+import { MobileMenuView } from '@/features/menu/components/mobile-menu-view'
+import { DesktopMenuView } from '@/features/menu/components/desktop-menu-view'
+import { ThaliCustomizerDrawer } from '@/features/menu/components/thali-customizer-drawer'
 import { ErrorState } from '@/components/common/error-state'
-import { MenuItemCard } from '@/features/menu/components/menu-item-card'
-import { useMenuForDate } from '@/features/menu/hooks/use-menu-queries'
-import { isCutoffPassed } from '@/features/menu/services/menu-service'
-import type { MealType } from '@/types/database.types'
+import type { MenuListing } from '@/features/menu/services/menu-service'
+import type { MealType, Tables } from '@/types/database.types'
 
-type SortOption = 'default' | 'price-asc' | 'price-desc' | 'name'
+export function resolveCategoryKey(
+  param: string | null | undefined,
+  categoriesList: Tables<'categories'>[],
+): string {
+  if (!param || param === 'all') return 'all'
+  const p = param.trim().toLowerCase()
 
-const MEAL_TABS: { value: MealType; label: string }[] = [
-  { value: 'breakfast', label: 'Breakfast' },
-  { value: 'lunch', label: 'Lunch' },
-  { value: 'dinner', label: 'Dinner' },
-]
+  // 1. Direct ID match
+  const byId = categoriesList.find((c) => c.id === param)
+  if (byId) return byId.id
+
+  // 2. Slug exact match
+  const bySlug = categoriesList.find((c) => (c.slug || '').toLowerCase() === p)
+  if (bySlug) return bySlug.id
+
+  // 3. Name exact match
+  const byName = categoriesList.find((c) => c.name.toLowerCase() === p)
+  if (byName) return byName.id
+
+  // 4. "meals" / "meal" / "thalis" / "thali" keyword match
+  if (p === 'meals' || p === 'meal' || p === 'thali' || p === 'thalis') {
+    const thaliCat = categoriesList.find(
+      (c) =>
+        c.category_type === 'thali' ||
+        (c.slug || '').toLowerCase().includes('thali') ||
+        c.name.toLowerCase().includes('thali') ||
+        c.name.toLowerCase().includes('meal'),
+    )
+    if (thaliCat) return thaliCat.id
+  }
+
+  // 5. Partial slug or name match
+  const partial = categoriesList.find(
+    (c) =>
+      (c.slug || '').toLowerCase().includes(p) ||
+      c.name.toLowerCase().includes(p),
+  )
+  if (partial) return partial.id
+
+  return 'all'
+}
 
 export function MenuPage() {
-  const [date] = useState(dayjs().format('YYYY-MM-DD'))
-  const [meal, setMeal] = useState<MealType>('lunch')
-  const [hasAutoSelectedMeal, setHasAutoSelectedMeal] = useState(false)
-  const [category, setCategory] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [sort, setSort] = useState<SortOption>('default')
+  const timing = useMealTiming()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const { data: listings, isPending, isError, refetch } = useMenuForDate(date)
+  const categoryParam = searchParams.get('category')
+  const mealParam = searchParams.get('meal') as MealType | null
+  const dateParam = searchParams.get('date')
 
-  // Auto-select the first meal tab that is currently published and open for order
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+
   useEffect(() => {
-    if (!listings || listings.length === 0 || hasAutoSelectedMeal) return
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [])
 
-    const currentHour = dayjs().hour()
-    const preferredOrder: MealType[] =
-      currentHour < 11
-        ? ['breakfast', 'lunch', 'dinner']
-        : currentHour < 15
-        ? ['lunch', 'dinner', 'breakfast']
-        : ['dinner', 'lunch', 'breakfast']
-
-    for (const m of preferredOrder) {
-      const mealListings = listings.filter((l) => l.daily_menus.meal_type === m)
-      if (mealListings.length > 0) {
-        const isCutoff = mealListings.some((l) => isCutoffPassed(l))
-        if (!isCutoff) {
-          setMeal(m)
-          setHasAutoSelectedMeal(true)
-          return
-        }
-      }
+  // Sync date if specified in URL
+  useEffect(() => {
+    if (dateParam && dateParam !== timing.date) {
+      timing.setDate(dateParam)
     }
+  }, [dateParam, timing])
 
-    // Fallback if all meals are cutoff: pick the first meal that has listings
-    for (const m of preferredOrder) {
-      const mealListings = listings.filter((l) => l.daily_menus.meal_type === m)
-      if (mealListings.length > 0) {
-        setMeal(m)
-        setHasAutoSelectedMeal(true)
-        return
-      }
+  // Sync meal slot (lunch / dinner) if specified in URL
+  useEffect(() => {
+    if ((mealParam === 'lunch' || mealParam === 'dinner') && timing.activeSlot !== mealParam) {
+      timing.setActiveSlot(mealParam)
     }
-  }, [listings, hasAutoSelectedMeal])
+  }, [mealParam, timing])
 
-  const categories = useMemo(() => {
-    if (!listings) return []
-    const map = new Map<string, string>()
-    for (const listing of listings) {
-      const cat = listing.food_items.categories
-      if (cat) map.set(cat.id, cat.name)
+  // Fetch menu filtered by active meal slot ('lunch' | 'dinner') and date (today/tomorrow)
+  const {
+    data: listings = [],
+    isPending: isMenuPending,
+    isError: isMenuError,
+    refetch: refetchMenu,
+  } = useMenuForDate(timing.date, timing.activeSlot)
+
+  // Fetch active categories from admin database
+  const {
+    data: categories = [],
+    isPending: isCategoriesPending,
+    isError: isCategoriesError,
+    refetch: refetchCategories,
+  } = useActiveCategories()
+
+  // Resolve categoryParam when categories load or URL changes
+  useEffect(() => {
+    if (categoryParam && categories.length > 0) {
+      const resolved = resolveCategoryKey(categoryParam, categories)
+      setSelectedCategory(resolved)
+    } else if (!categoryParam) {
+      setSelectedCategory('all')
     }
-    return Array.from(map, ([id, name]) => ({ id, name }))
-  }, [listings])
+  }, [categoryParam, categories])
 
-  const filtered = useMemo(() => {
-    if (!listings) return []
-    let result = listings
+  const handleSelectCategory = useCallback(
+    (catKey: string) => {
+      setSelectedCategory(catKey)
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (catKey === 'all') {
+            next.delete('category')
+          } else {
+            const catObj = categories.find((c) => c.id === catKey)
+            next.set('category', catObj?.slug || catKey)
+          }
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [categories, setSearchParams],
+  )
 
-    if (meal) {
-      result = result.filter((l) => l.daily_menus.meal_type === meal)
-    }
-    if (category) {
-      result = result.filter((l) => l.food_items.category_id === category)
-    }
-    const query = search.trim().toLowerCase()
-    if (query) {
-      result = result.filter((l) => l.food_items.name.toLowerCase().includes(query))
-    }
+  // Inline Customizer Drawer state
+  const [customizingSlug, setCustomizingSlug] = useState<string | null>(null)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
-    const priceOf = (l: (typeof result)[number]) =>
-      l.price_override ?? l.food_items.offer_price ?? l.food_items.price
+  const handleCustomize = useCallback((listing: MenuListing) => {
+    setCustomizingSlug(listing.food_items.slug)
+    setIsDrawerOpen(true)
+  }, [])
 
-    if (sort === 'price-asc') result = [...result].sort((a, b) => priceOf(a) - priceOf(b))
-    if (sort === 'price-desc') result = [...result].sort((a, b) => priceOf(b) - priceOf(a))
-    if (sort === 'name') result = [...result].sort((a, b) => a.food_items.name.localeCompare(b.food_items.name))
+  const handleCloseDrawer = useCallback(() => {
+    setIsDrawerOpen(false)
+  }, [])
 
-    return result
-  }, [listings, meal, category, search, sort])
+  if (isMenuError || isCategoriesError) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16">
+        <ErrorState
+          title="Could not load menu"
+          description="We had trouble fetching today's menu. Please try again."
+          onRetry={() => {
+            refetchMenu()
+            refetchCategories()
+            timing.refetchTiming()
+          }}
+        />
+      </div>
+    )
+  }
+
+  const isPending = isMenuPending || isCategoriesPending
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-8">
-        <h1 className="font-display text-3xl font-semibold">Today&apos;s Menu</h1>
-        <p className="text-muted-foreground mt-1">{dayjs(date).format('dddd, D MMMM YYYY')}</p>
-      </div>
-
-      <div className="mb-6 flex flex-col gap-4">
-        <Tabs value={meal} onValueChange={(v) => setMeal(v as MealType)}>
-          <TabsList>
-            {MEAL_TABS.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative max-w-sm flex-1">
-            <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" aria-hidden />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search dishes…"
-              className="pl-9"
-            />
-          </div>
-          <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Sort: Featured</SelectItem>
-              <SelectItem value="price-asc">Price: Low to High</SelectItem>
-              <SelectItem value="price-desc">Price: High to Low</SelectItem>
-              <SelectItem value="name">Name: A to Z</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {categories.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <Badge
-                key={cat.id}
-                variant={category === cat.id ? 'default' : 'outline'}
-                className="cursor-pointer px-3 py-1"
-                onClick={() => setCategory(category === cat.id ? null : cat.id)}
-              >
-                {cat.name}
-              </Badge>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      {(() => {
-        const mealListings = listings?.filter((l) => l.daily_menus.meal_type === meal) || []
-        if (!mealListings.length) {
-          return (
-            <Alert variant="warning" className="mb-6">
-              <AlertTriangle className="size-4" />
-              <AlertDescription>
-                {meal === 'dinner' ? '🍲 Dinner' : meal === 'lunch' ? '🍱 Lunch' : 'Breakfast'} menu for today has not been published yet by our kitchen. Please check back soon!
-              </AlertDescription>
-            </Alert>
-          )
-        }
-        const isMealCutoff = mealListings.some((l) => isCutoffPassed(l))
-        if (isMealCutoff) {
-          return (
-            <Alert variant="destructive" className="mb-6">
-              <AlertTriangle className="size-4" />
-              <AlertDescription>
-                Ordering for today's {meal.toUpperCase()} is closed because the cutoff time has passed.
-              </AlertDescription>
-            </Alert>
-          )
-        }
-        return null
-      })()}
-
-      {isPending ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {Array.from({ length: 10 }, (_, i) => (
-            <Skeleton key={i} className="h-56 rounded-xl" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => refetch()} />
-      ) : !filtered.length ? (
-        <EmptyState
-          icon={UtensilsCrossed}
-          title={listings?.length ? 'No dishes match your filters' : "Today's menu isn't ready yet"}
-          description={
-            listings?.length
-              ? 'Try a different search term or category.'
-              : "Our kitchen hasn't published today's menu yet — check back soon."
-          }
+    <>
+      {/* ── MOBILE VIEW (< md) — Swiggy/Zomato Style Row Layout ── */}
+      <div className="block md:hidden">
+        <MobileMenuView
+          listings={listings}
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onSelectCategory={handleSelectCategory}
+          timing={timing}
+          isPending={isPending}
+          onCustomize={handleCustomize}
         />
-      ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {filtered.map((listing, index) => (
-            <MenuItemCard key={listing.id} listing={listing} delay={index * 0.02} />
-          ))}
-        </div>
-      )}
-    </div>
+      </div>
+
+      {/* ── DESKTOP VIEW (>= md) — Multi-column Grid Layout ── */}
+      <div className="hidden md:block">
+        <DesktopMenuView
+          listings={listings}
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onSelectCategory={handleSelectCategory}
+          timing={timing}
+          isPending={isPending}
+          onCustomize={handleCustomize}
+        />
+      </div>
+
+      {/* ── SHARED INLINE THALI CUSTOMIZER DRAWER (Bottom Sheet / Modal) ── */}
+      <ThaliCustomizerDrawer
+        slug={customizingSlug}
+        isOpen={isDrawerOpen}
+        onClose={handleCloseDrawer}
+        date={timing.date}
+        mealType={timing.activeSlot}
+      />
+    </>
   )
 }

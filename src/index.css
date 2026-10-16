@@ -11,91 +11,94 @@
 /* Premium homemade Indian tiffin aesthetic: warm, traditional, fresh  */
 /* ------------------------------------------------------------------ */
 :root {
-  /* Raw brand palette */
-  --brand-dark-green: #355e3b;
-  --brand-olive: #607744;
-  --brand-cream: #f9f5ec;
-  --brand-brown: #6d4c41;
-  --brand-golden: #c79a3b;
+  /* Raw brand palette — Rasoi Ghar Jaisa Swad */
+  --brand-forest-green: #185834;
+  --brand-sage-medium: #2a7349;
+  --brand-cream-base: #faf6ee;
+  --brand-earth-brown: #6b5847;
+  --brand-golden: #c9891f;
   --brand-white: #ffffff;
-  --brand-light-green: #8fae7b;
-  --brand-warm-beige: #ede0c8;
-  --brand-soft-orange: #e08d4b;
+  --brand-pale-cream: #f4ede0;
+  --brand-terracotta: #d85820;
+  --brand-warm-peach: #fbebd8;
 
   /* Semantic tokens — light mode */
-  --background: var(--brand-cream);
-  --foreground: #2a2118;
+  --background: var(--brand-cream-base);
+  --foreground: #221b14;
   --card: #ffffff;
-  --card-foreground: #2a2118;
+  --card-foreground: #221b14;
   --popover: #ffffff;
-  --popover-foreground: #2a2118;
-  --primary: var(--brand-dark-green);
-  --primary-foreground: var(--brand-cream);
-  --secondary: var(--brand-olive);
+  --popover-foreground: #221b14;
+  --primary: var(--brand-forest-green);
+  --primary-foreground: #ffffff;
+  --secondary: var(--brand-sage-medium);
   --secondary-foreground: #ffffff;
-  --muted: var(--brand-warm-beige);
-  --muted-foreground: var(--brand-brown);
-  /* `accent` is shadcn's subtle hover/selected surface — NOT the brand gold.
-     Use `--gold` (or the raw `--brand-golden`) for deliberate gold highlights. */
-  --accent: #efe5d2;
-  --accent-foreground: #2a2118;
+  --muted: var(--brand-pale-cream);
+  --muted-foreground: var(--brand-earth-brown);
+  --accent: var(--brand-warm-peach);
+  --accent-foreground: #221b14;
+  --terracotta: var(--brand-terracotta);
+  --terracotta-foreground: #ffffff;
   --gold: var(--brand-golden);
-  --gold-foreground: #2a2118;
+  --gold-foreground: #221b14;
   --destructive: #b3432b;
   --destructive-foreground: #ffffff;
-  --success: #3f7d4e;
+  --success: #185834;
   --success-foreground: #ffffff;
-  --warning: var(--brand-soft-orange);
-  --warning-foreground: #2a2118;
-  --border: #e4d9c4;
-  --input: #e4d9c4;
-  --ring: var(--brand-golden);
+  --warning: var(--brand-terracotta);
+  --warning-foreground: #ffffff;
+  --border: #ede4d3;
+  --input: #ede4d3;
+  --ring: var(--brand-forest-green);
   --radius: 1rem;
 
   /* Chart palette (Recharts) */
-  --chart-1: var(--brand-dark-green);
+  --chart-1: var(--brand-forest-green);
   --chart-2: var(--brand-golden);
-  --chart-3: var(--brand-olive);
-  --chart-4: var(--brand-soft-orange);
-  --chart-5: var(--brand-brown);
+  --chart-3: var(--brand-sage-medium);
+  --chart-4: var(--brand-terracotta);
+  --chart-5: var(--brand-earth-brown);
 
   /* Typography */
   --font-display: 'Fraunces', 'ui-serif', 'Georgia', serif;
   --font-sans: 'Plus Jakarta Sans', 'ui-sans-serif', system-ui, sans-serif;
+  --font-gujarati: 'Hind Vadodara', 'Noto Sans Gujarati', sans-serif;
 }
 
 .dark {
-  --background: #131c15;
-  --foreground: #f3eee3;
-  --card: #1b2620;
-  --card-foreground: #f3eee3;
-  --popover: #1b2620;
-  --popover-foreground: #f3eee3;
-  --primary: #7fb083;
-  --primary-foreground: #0f1a11;
-  --secondary: #8ba368;
-  --secondary-foreground: #0f1a11;
-  --muted: #263229;
-  --muted-foreground: #cabfa4;
-  --accent: #2f3d33;
-  --accent-foreground: #f3eee3;
+  --background: #111a14;
+  --foreground: #f4f8f4;
+  --card: #18241c;
+  --card-foreground: #f4f8f4;
+  --popover: #18241c;
+  --popover-foreground: #f4f8f4;
+  --primary: #6da278;
+  --primary-foreground: #0d1610;
+  --secondary: #7fa886;
+  --secondary-foreground: #0d1610;
+  --muted: #1e2e23;
+  --muted-foreground: #b8c9bc;
+  --accent: #26382b;
+  --accent-foreground: #f4f8f4;
+  --terracotta: #ea8a4c;
+  --terracotta-foreground: #1c0e05;
   --gold: #dcb15c;
   --gold-foreground: #1b1508;
   --destructive: #e2735c;
   --destructive-foreground: #200b06;
   --success: #6cbb7d;
   --success-foreground: #0c1a0f;
-  --warning: #e6a06a;
+  --warning: #ea8a4c;
   --warning-foreground: #201206;
-  --border: #2b3a2e;
-  --input: #2b3a2e;
-  --ring: #dcb15c;
+  --border: #23362a;
+  --input: #23362a;
+  --ring: #6da278;
 
-  --chart-1: #7fb083;
+  --chart-1: #6da278;
   --chart-2: #dcb15c;
-  --chart-3: #8ba368;
-  --chart-4: #e6a06a;
-  --chart-5: #c99b7c;
+  --chart-3: #7fa886;
+  --chart-4: #ea8a4c;
+  --chart-5: #b8c9bc;
 }
 
 /* ------------------------------------------------------------------ */
@@ -117,6 +120,8 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-terracotta: var(--terracotta);
+  --color-terracotta-foreground: var(--terracotta-foreground);
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
   --color-destructive: var(--destructive);
@@ -129,20 +134,20 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --color-brand-dark-green: var(--brand-dark-green);
-  --color-brand-olive: var(--brand-olive);
-  --color-brand-cream: var(--brand-cream);
-  --color-brand-brown: var(--brand-brown);
+  --color-brand-forest-green: var(--brand-forest-green);
+  --color-brand-sage-medium: var(--brand-sage-medium);
+  --color-brand-mint-white: var(--brand-mint-white);
+  --color-brand-earth-brown: var(--brand-earth-brown);
   --color-brand-golden: var(--brand-golden);
-  --color-brand-light-green: var(--brand-light-green);
-  --color-brand-warm-beige: var(--brand-warm-beige);
-  --color-brand-soft-orange: var(--brand-soft-orange);
+  --color-brand-pale-sage: var(--brand-pale-sage);
+  --color-brand-terracotta: var(--brand-terracotta);
+  --color-brand-warm-peach: var(--brand-warm-peach);
 
   --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
+  --chart-2: var(--chart-2);
+  --chart-3: var(--chart-3);
+  --chart-4: var(--chart-4);
+  --chart-5: var(--chart-5);
 
   --radius-sm: calc(var(--radius) - 0.5rem);
   --radius-md: calc(var(--radius) - 0.25rem);
@@ -151,6 +156,7 @@
 
   --font-display: var(--font-display);
   --font-sans: var(--font-sans);
+  --font-gujarati: var(--font-gujarati);
 }
 
 /* ------------------------------------------------------------------ */
@@ -202,21 +208,58 @@
 /* ------------------------------------------------------------------ */
 @layer utilities {
   .glass {
-    @apply border border-border/60 bg-card/60 backdrop-blur-xl;
+    @apply border border-border/60 bg-card/75 backdrop-blur-xl;
   }
 
   .glass-dark {
-    @apply dark:border-border/40 dark:bg-card/40 dark:backdrop-blur-xl;
+    @apply dark:border-border/40 dark:bg-card/50 dark:backdrop-blur-xl;
   }
 
   .text-balance {
     text-wrap: balance;
   }
 
-  .scrollbar-none {
+  .scrollbar-none,
+  .no-scrollbar {
     scrollbar-width: none;
+    -ms-overflow-style: none;
   }
-  .scrollbar-none::-webkit-scrollbar {
+  .scrollbar-none::-webkit-scrollbar,
+  .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  .card-lift {
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5;
+  }
+
+  .pill-tap {
+    @apply transition-all duration-200 active:scale-95;
+  }
+
+  /* Gujarati script font utility */
+  .font-gujarati {
+    font-family: var(--font-gujarati);
+  }
+
+  /* Saffron/terracotta gradient text */
+  .text-saffron-gradient {
+    background: linear-gradient(135deg, #D85820 0%, #C9891F 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Authentic Gujarati patola border pattern */
+  .border-patola {
+    border-image: repeating-linear-gradient(
+      90deg,
+      #D85820 0px,
+      #D85820 4px,
+      #C9891F 4px,
+      #C9891F 8px,
+      #185834 8px,
+      #185834 12px
+    ) 2;
   }
 }

@@ -1,53 +1,52 @@
-import { ChefHat, Clock, Leaf, ShieldCheck } from 'lucide-react'
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Leaf, Home, ShieldCheck, Users } from 'lucide-react'
 import { Reveal } from '@/components/common/reveal'
 
-const REASONS = [
-  {
-    icon: ChefHat,
-    title: 'Cooked fresh, daily',
-    description: 'Every thali is prepared the same morning it ships — never pre-cooked.',
-  },
+const PILLARS = [
   {
     icon: Leaf,
-    title: 'Pure homemade taste',
-    description: 'Traditional recipes, hand-ground spices, no preservatives or shortcuts.',
+    title: 'Fresh Ingredients',
+    subtitle: 'No Preservatives',
   },
   {
-    icon: Clock,
-    title: 'Reliable delivery slots',
-    description: 'Choose lunch or dinner windows that fit your day, every single time.',
+    icon: Home,
+    title: 'Home Made',
+    subtitle: 'With Love',
   },
   {
     icon: ShieldCheck,
-    title: 'Trusted by families',
-    description: 'Hygienic preparation and consistent quality customers order again for.',
+    title: 'Hygienic & Safe',
+    subtitle: 'Always',
+  },
+  {
+    icon: Users,
+    title: 'For Every Generation',
+    subtitle: 'From Kids to Grandparents',
   },
 ]
 
 export function WhyChooseUsSection() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16">
-      <div className="mb-10 text-center">
-        <p className="text-primary text-sm font-semibold tracking-wide uppercase">Why Choose Us</p>
-        <h2 className="font-display mt-3 text-3xl font-semibold sm:text-4xl">
-          Homemade, without compromise
-        </h2>
-      </div>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {REASONS.map((reason, index) => (
-          <Reveal key={reason.title} delay={index * 0.06}>
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <div className="bg-primary/10 text-primary mb-2 flex size-11 items-center justify-center rounded-xl">
-                  <reason.icon className="size-5" aria-hidden />
+    <section className="relative mx-auto max-w-6xl px-4 py-8 sm:py-12">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        {PILLARS.map((pillar, index) => {
+          const Icon = pillar.icon
+          return (
+            <Reveal key={pillar.title} delay={index * 0.05}>
+              <div className="flex flex-col items-center justify-center text-center p-4 sm:p-5 rounded-3xl border border-border/80 bg-card shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                {/* Circular Icon Container */}
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3">
+                  <Icon className="size-6" />
                 </div>
-                <CardTitle className="text-base">{reason.title}</CardTitle>
-                <CardDescription>{reason.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          </Reveal>
-        ))}
+                <h3 className="font-display text-sm sm:text-base font-bold text-foreground">
+                  {pillar.title}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {pillar.subtitle}
+                </p>
+              </div>
+            </Reveal>
+          )
+        })}
       </div>
     </section>
   )

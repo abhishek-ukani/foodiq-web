@@ -1,27 +1,39 @@
 import { HeroSection } from '@/features/home/components/sections/hero-section'
-import { BrandStorySection } from '@/features/home/components/sections/brand-story-section'
-import { WhyChooseUsSection } from '@/features/home/components/sections/why-choose-us-section'
+import { CategoryStrip } from '@/features/home/components/sections/category-strip'
 import { TodaysSpecialSection } from '@/features/home/components/sections/todays-special-section'
-import { PopularMealsSection } from '@/features/home/components/sections/popular-meals-section'
-import { TestimonialsSection } from '@/features/home/components/sections/testimonials-section'
-import { DeliveryAreasSection } from '@/features/home/components/sections/delivery-areas-section'
-import { HowItWorksSection } from '@/features/home/components/sections/how-it-works-section'
-import { FaqTeaserSection } from '@/features/home/components/sections/faq-teaser-section'
+import { FarmStorySection } from '@/features/home/components/sections/farm-story-section'
+import { OccasionsSection } from '@/features/home/components/sections/occasions-section'
+import { AnnadaanSection } from '@/features/home/components/sections/annadaan-section'
+import { DeliveryTimingsSection } from '@/features/home/components/sections/delivery-timings-section'
+import { BrandStorySection } from '@/features/home/components/sections/brand-story-section'
 import { CtaSection } from '@/features/home/components/sections/cta-section'
 
 export function HomePage() {
   return (
-    <>
+    <div className="flex flex-col min-h-screen">
+      {/* 1. Hero Section: "Fresh Meals, Made with Love", brass thali, stats */}
       <HeroSection />
-      <BrandStorySection />
-      <WhyChooseUsSection />
+
+      {/* 2. 6 Category Tiles: Lunch, Dinner, Nasta, Farsan, Bulk, Party */}
+      <CategoryStrip />
+
+      {/* 3. Today's Special Dish Showcase (Sabji, Rotlo, Salad, Kadhi) + Menu CTA */}
       <TodaysSpecialSection />
-      {/* <PopularMealsSection /> */}
-      <HowItWorksSection />
-      <TestimonialsSection />
-      <DeliveryAreasSection />
-      <FaqTeaserSection />
+
+      {/* 4. Farm Roots & Unified 5-Ingredient Shelf (Zero Repetition) */}
+      <FarmStorySection />
+
+      {/* 5. Occasions & Bulk Catering (Pooja, Family, Office, Travel packs + Estimator) */}
+      <OccasionsSection />
+
+      {/* 6. Annadaan Community Meal Giving (અન્નદાન સેવા • ₹51/Thali) */}
+      <AnnadaanSection />
+
+      {/* 7. Daily Delivery Timings & Kitchen Cutoffs (Lunch 12–2 PM, Dinner 7:30–9:30 PM) */}
+      <DeliveryTimingsSection />
+
+      {/* 8. Green CTA Banner: "Good Food Brings People Together" + Order Now */}
       <CtaSection />
-    </>
+    </div>
   )
 }

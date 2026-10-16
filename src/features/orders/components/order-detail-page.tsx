@@ -70,7 +70,10 @@ export function OrderDetailPage() {
                 {order.address_line2 ? `, ${order.address_line2}` : ''}, {order.city}
               </p>
               <p className="text-muted-foreground pt-2">
-                {dayjs(order.delivery_date).format('D MMM')} · {order.delivery_slot_label}
+                {dayjs(order.delivery_date).format('D MMM')} ·{' '}
+                {order.meal_type
+                  ? `${order.meal_type === 'dinner' ? '🌙' : '☀️'} ${order.meal_type.charAt(0).toUpperCase() + order.meal_type.slice(1)}`
+                  : order.delivery_slot_label}
               </p>
             </CardContent>
           </Card>
@@ -88,9 +91,23 @@ export function OrderDetailPage() {
             return (
               <div key={item.id} className="text-sm">
                 <div className="flex items-center justify-between">
-                  <span>
-                    {item.item_name} × {item.quantity}
-                  </span>
+                  <div>
+                    <span>
+                      {item.item_name} × {item.quantity}
+                    </span>
+                    {(() => {
+                      const vs = item.variant_snapshot as { label?: string } | null
+                      const label = vs?.label || (item.variant_code ? item.variant_code.split('_').slice(-1)[0] : null)
+                      if (!label) return null
+                      return (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[11px] font-medium text-primary bg-primary/10 px-1.5 py-0.2 rounded">
+                            {label}
+                          </span>
+                        </div>
+                      )
+                    })()}
+                  </div>
                   <div className="flex items-center gap-3">
                     {order.status === 'delivered' && item.food_item_id ? (
                       reviewedFoodItemIds.has(item.food_item_id) ? (

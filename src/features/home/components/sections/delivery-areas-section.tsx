@@ -3,7 +3,6 @@ import { MapPin, Clock, Search, Sparkles, Truck, CheckCircle2 } from 'lucide-rea
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { useDeliveryAreas } from '@/features/home/hooks/use-home-queries'
 import { CURRENCY_SYMBOL } from '@/constants'
@@ -19,7 +18,7 @@ export function DeliveryAreasSection() {
     return areas.filter(
       (a) =>
         a.name.toLowerCase().includes(q) ||
-        a.pincode.toLowerCase().includes(q) ||
+        a.pincode?.toLowerCase().includes(q) ||
         a.city?.toLowerCase().includes(q),
     )
   }, [areas, search])
@@ -128,18 +127,18 @@ export function DeliveryAreasSection() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs dark:border-slate-800/60">
                     <div className="text-muted-foreground flex items-center gap-1.5 font-medium">
                       <Clock className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>{area.estimated_minutes ? `~${area.estimated_minutes} mins` : '30-40 mins'}</span>
+                      <span>{(area as any).estimated_minutes ? `~${(area as any).estimated_minutes} mins` : '30-40 mins'}</span>
                     </div>
 
                     <div className="flex items-center gap-1 font-medium">
                       <Truck className="size-3.5 text-slate-400" />
-                      {area.free_delivery_above && area.free_delivery_above > 0 ? (
+                      {(area as any).free_delivery_above && (area as any).free_delivery_above > 0 ? (
                         <span className="text-emerald-600 font-semibold dark:text-emerald-400">
-                          Free over {CURRENCY_SYMBOL}{area.free_delivery_above}
+                          Free over {CURRENCY_SYMBOL}{(area as any).free_delivery_above}
                         </span>
                       ) : (
                         <span className="text-foreground">
-                          {CURRENCY_SYMBOL}{area.delivery_charge} delivery
+                          {CURRENCY_SYMBOL}{(area as any).delivery_charge ?? 0} delivery
                         </span>
                       )}
                     </div>

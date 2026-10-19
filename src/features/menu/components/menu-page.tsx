@@ -129,6 +129,15 @@ export function MenuPage() {
   const [customizingSlug, setCustomizingSlug] = useState<string | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
+  // Auto-open drawer if item slug is provided via query param ?item=slug
+  const itemParam = searchParams.get('item')
+  useEffect(() => {
+    if (itemParam) {
+      setCustomizingSlug(itemParam)
+      setIsDrawerOpen(true)
+    }
+  }, [itemParam])
+
   const handleCustomize = useCallback((listing: MenuListing) => {
     setCustomizingSlug(listing.food_items.slug)
     setIsDrawerOpen(true)
@@ -136,7 +145,19 @@ export function MenuPage() {
 
   const handleCloseDrawer = useCallback(() => {
     setIsDrawerOpen(false)
-  }, [])
+    setCustomizingSlug(null)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (next.has('item')) {
+          next.delete('item')
+          return next
+        }
+        return prev
+      },
+      { replace: true },
+    )
+  }, [setSearchParams])
 
   if (isMenuError || isCategoriesError) {
     return (

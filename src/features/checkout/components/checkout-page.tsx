@@ -9,12 +9,15 @@ import {
   Clock,
   Loader2,
   MapPin,
+  Minus,
   Moon,
   Navigation,
   Plus,
   ShoppingBag,
   Sparkles,
   Sun,
+  Trash2,
+  Utensils,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -43,7 +46,12 @@ import {
   resolveDeliveryCharge,
   type DeliveryResolutionResult,
 } from '@/features/checkout/services/delivery-charge-resolver'
-import { useCartSummary } from '@/features/cart/hooks/use-cart'
+import {
+  useCartSummary,
+  useRemoveCartItem,
+  useUpdateCartItemQuantity,
+} from '@/features/cart/hooks/use-cart'
+import { customizationsTotal, type SelectedCustomization } from '@/features/cart/services/cart-service'
 import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
 import type { MealType, PaymentMethod, Tables } from '@/types/database.types'
@@ -58,7 +66,16 @@ export function CheckoutPage() {
 
   // Auto-detect meal type from the active menu tab
   const mealType: MealType = timing.activeSlot
-  const { items, subtotal, hasUnavailableItems, isPending } = useCartSummary(mealType)
+  const { items, itemCount, subtotal, hasUnavailableItems, unavailableItemsMap, isPending } =
+    useCartSummary(mealType)
+  const updateQuantity = useUpdateCartItemQuantity()
+  const removeItem = useRemoveCartItem()
+
+  const handleRemoveUnavailable = () => {
+    for (const [itemId] of unavailableItemsMap) {
+      removeItem.mutate(itemId)
+    }
+  }
   const { data: addresses, isPending: addressesPending } = useAddresses()
   
   // Zone Data Hooks (Standard delivery_areas + distance fee rules)
@@ -228,32 +245,16 @@ export function CheckoutPage() {
     )
   }
 
-  if (hasUnavailableItems) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-16">
-        <Alert variant="destructive" className="mb-6">
-          <AlertTriangle className="size-4" />
-          <AlertDescription>
-            Your cart contains items that are currently out of stock or unavailable for {mealType}. Please return to your cart and remove them before placing an order.
-          </AlertDescription>
-        </Alert>
-        <Button asChild>
-          <Link to={ROUTES.cart}>Return to cart</Link>
-        </Button>
-      </div>
-    )
-  }
-
   if (!items.length) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16">
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
         <EmptyState
           icon={ShoppingBag}
           title="Your cart is empty"
-          description="Add a few dishes before checking out."
+          description="Looks like you haven't added any dishes yet. Explore today's freshly prepared menu and add meals to place an order."
           action={
-            <Button asChild>
-              <Link to={ROUTES.menu}>Browse menu</Link>
+            <Button asChild size="lg" className="rounded-xl px-6">
+              <Link to={ROUTES.menu}>Browse Today&apos;s Menu</Link>
             </Button>
           }
         />
@@ -264,10 +265,8 @@ export function CheckoutPage() {
   const MealIcon = mealType === 'dinner' ? Moon : Sun
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
-      <h1 className="font-display mb-8 text-3xl font-semibold">Checkout</h1>
-
-      <div className="grid gap-8 lg:grid-cols-3">
+    <div className="mx-auto max-w-5xl px-3 sm:px-4 py-5 sm:py-6 pb-28 lg:pb-12">
+      <div className="grid gap-6 lg:gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           
           {/* ── Meal type indicator (auto-detected) ── */}
@@ -331,6 +330,200 @@ export function CheckoutPage() {
               </AlertDescription>
             </Alert>
           )}
+
+          {/* ── Order Items Section (Unified Cart) ── */}
+          <Card className="overflow-hidden border-border/80 shadow-sm">
+            <div className="flex items-center justify-between border-b px-4 sm:px-5 py-3.5 bg-muted/20">
+              <div className="flex items-center gap-2.5">
+                <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-semibold">
+                  <ShoppingBag className="size-4" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-sm sm:text-base text-foreground leading-tight">Order Items</h2>
+                  <p className="text-[11px] sm:text-xs text-muted-foreground">
+                    {itemCount} {itemCount === 1 ? 'item' : 'items'} in your order
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="text-xs text-primary font-semibold hover:text-primary gap-1 h-8 px-2.5"
+              >
+                <Link to={ROUTES.menu}>
+                  <Plus className="size-3.5" />
+                  Add dishes
+                </Link>
+              </Button>
+            </div>
+
+            <CardContent className="p-4 sm:p-5 space-y-4">
+              {hasUnavailableItems && (
+                <Alert
+                  variant="destructive"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="size-4 shrink-0" />
+                    <AlertDescription className="text-xs">
+                      Some items are unavailable or not part of today&apos;s {mealType} menu.
+                    </AlertDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 text-xs border-destructive text-destructive hover:bg-destructive hover:text-white h-8"
+                    onClick={handleRemoveUnavailable}
+                  >
+                    Remove unavailable items
+                  </Button>
+                </Alert>
+              )}
+
+              <div className="divide-y divide-border/60">
+                {items.map((item) => {
+                  const unavailabilityReason = unavailableItemsMap.get(item.id)
+                  const isAvailable = !unavailabilityReason
+                  const basePrice = item.food_item_variants
+                    ? item.food_item_variants.price
+                    : item.food_items.price
+                  const addOns = (item.customizations as SelectedCustomization[] | null) ?? []
+                  const unitPrice = basePrice + customizationsTotal(addOns)
+                  const itemTotal = unitPrice * item.quantity
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 ${
+                        !isAvailable ? 'opacity-65' : ''
+                      }`}
+                    >
+                      <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                        {/* Food Image */}
+                        <div className="bg-muted relative size-16 sm:size-20 shrink-0 overflow-hidden rounded-xl border border-border/70">
+                          {item.food_items.image_url ? (
+                            <img
+                              src={item.food_items.image_url}
+                              alt={item.food_items.name}
+                              className={`size-full object-cover ${!isAvailable ? 'grayscale opacity-60' : ''}`}
+                            />
+                          ) : (
+                            <div className="size-full flex items-center justify-center text-muted-foreground/60 bg-muted/40">
+                              <Utensils className="size-5" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Dish Details */}
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-semibold text-sm sm:text-base text-foreground">
+                              {item.food_items.name}
+                            </span>
+                            {item.food_item_variants && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-300"
+                              >
+                                {item.food_item_variants.label}
+                              </Badge>
+                            )}
+                            {!isAvailable && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                                {unavailabilityReason}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Customizations summary */}
+                          {addOns.length > 0 && (
+                            <p className="text-muted-foreground text-xs leading-relaxed">
+                              + {addOns.map((c) => c.name).join(', ')}
+                            </p>
+                          )}
+
+                          {/* Special instructions */}
+                          {item.special_instructions && (
+                            <p className="text-xs text-muted-foreground/80 italic">
+                              &ldquo;{item.special_instructions}&rdquo;
+                            </p>
+                          )}
+
+                          {/* Unit price indicator */}
+                          <p className="text-xs font-medium text-muted-foreground">
+                            {CURRENCY_SYMBOL}{unitPrice} each
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Stepper + Total Price + Delete button */}
+                      <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                        {/* Stepper Controls */}
+                        <div className="flex items-center gap-1 rounded-xl border bg-muted/30 p-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            disabled={!isAvailable}
+                            onClick={() => {
+                              if (item.quantity <= 1) {
+                                removeItem.mutate(item.id)
+                              } else {
+                                updateQuantity.mutate({ id: item.id, quantity: item.quantity - 1 })
+                              }
+                            }}
+                            aria-label={item.quantity <= 1 ? 'Remove item' : 'Decrease quantity'}
+                          >
+                            {item.quantity <= 1 ? (
+                              <Trash2 className="size-3.5 text-destructive" />
+                            ) : (
+                              <Minus className="size-3.5" />
+                            )}
+                          </Button>
+
+                          <span className="w-7 text-center font-bold text-xs sm:text-sm tabular-nums">
+                            {item.quantity}
+                          </span>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                            disabled={!isAvailable || item.quantity >= 10}
+                            onClick={() =>
+                              updateQuantity.mutate({ id: item.id, quantity: item.quantity + 1 })
+                            }
+                            aria-label="Increase quantity"
+                          >
+                            <Plus className="size-3.5" />
+                          </Button>
+                        </div>
+
+                        {/* Item line price */}
+                        <div className="text-right min-w-[70px]">
+                          <span className="font-bold text-sm sm:text-base text-foreground">
+                            {CURRENCY_SYMBOL}{itemTotal}
+                          </span>
+                        </div>
+
+                        {/* Direct remove icon (desktop) */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10 rounded-lg shrink-0 hidden sm:flex"
+                          onClick={() => removeItem.mutate(item.id)}
+                          aria-label="Remove item"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* ── Delivery address (single selected + manage option) ── */}
           <Card>
@@ -664,7 +857,7 @@ export function CheckoutPage() {
               </div>
 
               <Button
-                className="w-full"
+                className="w-full font-bold h-11 rounded-xl text-sm"
                 size="lg"
                 disabled={!canSubmit || placeOrder.isPending}
                 onClick={handlePlaceOrder}
@@ -677,17 +870,49 @@ export function CheckoutPage() {
                 ) : deliveryResolution.isOutOfZone ? (
                   'Request Delivery & Place Order'
                 ) : (
-                  'Place order'
+                  `Place order · ${CURRENCY_SYMBOL}${total}`
                 )}
               </Button>
 
-              <Button variant="ghost" className="w-full" size="sm" asChild>
-                <Link to={ROUTES.cart}>
-                  <ChevronLeft className="mr-1 size-3.5" /> Back to cart
+              <Button variant="ghost" className="w-full text-xs text-muted-foreground hover:text-foreground" size="sm" asChild>
+                <Link to={ROUTES.menu}>
+                  <Plus className="mr-1 size-3.5" /> Add more items from menu
                 </Link>
               </Button>
             </CardContent>
           </Card>
+        </div>
+      </div>
+
+      {/* ── Mobile Sticky Checkout Bar ── */}
+      <div className="fixed bottom-0 inset-x-0 z-30 bg-background/95 backdrop-blur-md border-t p-3 sm:p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] block lg:hidden">
+        <div className="max-w-md mx-auto flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+              To Pay
+            </p>
+            <p className="text-lg font-extrabold text-foreground leading-tight">
+              {CURRENCY_SYMBOL}{total}
+            </p>
+          </div>
+
+          <Button
+            size="lg"
+            className="flex-1 max-w-[220px] font-bold rounded-xl h-11 text-sm shadow-md"
+            disabled={!canSubmit || placeOrder.isPending}
+            onClick={handlePlaceOrder}
+          >
+            {placeOrder.isPending ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Placing…
+              </>
+            ) : deliveryResolution.isOutOfZone ? (
+              'Request Delivery'
+            ) : (
+              'Place order'
+            )}
+          </Button>
         </div>
       </div>
     </div>

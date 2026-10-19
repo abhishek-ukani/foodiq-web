@@ -512,7 +512,7 @@ export function MobileMenuView({
       {itemCount > 0 && (
         <div className="fixed bottom-4 inset-x-4 z-40 max-w-md mx-auto">
           <Link
-            to={ROUTES.cart}
+            to={ROUTES.checkout}
             className="flex items-center justify-between bg-[#185834] hover:bg-[#0f4024] active:scale-[0.99] text-white px-4 py-3.5 rounded-2xl shadow-xl transition-all duration-150"
           >
             <div className="flex items-center gap-2.5">
@@ -529,7 +529,7 @@ export function MobileMenuView({
               </div>
             </div>
             <div className="flex items-center gap-1 text-xs font-bold bg-white/15 px-3 py-1.5 rounded-xl">
-              <span>View Cart</span>
+              <span>Checkout</span>
               <ArrowRight className="size-3.5" />
             </div>
           </Link>

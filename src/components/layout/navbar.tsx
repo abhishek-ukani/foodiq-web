@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { ChefHat, Heart, LogOut, MapPin, Menu as MenuIcon, Package, ShoppingBag, User } from 'lucide-react'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { ChefHat, ChevronLeft, Heart, LogOut, MapPin, Menu as MenuIcon, Package, ShoppingBag, User } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -22,7 +22,7 @@ function CartLink({ onNavigate }: { onNavigate?: () => void }) {
   const { itemCount } = useCartSummary()
   return (
     <Button variant="ghost" size="icon" className="relative" asChild onClick={onNavigate}>
-      <Link to={ROUTES.cart} aria-label="Cart">
+      <Link to={ROUTES.checkout} aria-label="Checkout">
         <ShoppingBag className="size-5" aria-hidden />
         {itemCount > 0 ? (
           <span className="absolute -top-1 -right-1 flex size-4.5 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
@@ -67,6 +67,9 @@ function NavLinks({ onNavigate, className }: { onNavigate?: () => void; classNam
 
 export function Navbar() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const isCheckout = location.pathname === ROUTES.checkout
+  const { itemCount } = useCartSummary()
   const { isAuthenticated, profile, user } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -78,6 +81,92 @@ export function Navbar() {
     } catch (error) {
       toast.error(toFriendlyAuthMessage(error))
     }
+  }
+
+  if (isCheckout) {
+    return (
+      <header className="glass sticky top-0 z-50 border-b">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-3 sm:px-4 py-3">
+          {/* Left: Back to menu button + Logo */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="gap-1 sm:gap-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground h-9 px-2 sm:px-3 -ml-1 sm:ml-0 rounded-lg"
+            >
+              <Link to={ROUTES.menu}>
+                <ChevronLeft className="size-4.5 sm:size-4" />
+                <span className="hidden xs:inline sm:inline">Back to menu</span>
+                <span className="inline xs:hidden sm:hidden">Menu</span>
+              </Link>
+            </Button>
+
+            <div className="h-4 w-px bg-border hidden sm:block" />
+
+            <Link to={ROUTES.home} className="hidden sm:flex items-center gap-2 opacity-85 hover:opacity-100 transition-opacity">
+              <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <ChefHat className="size-3.5" aria-hidden />
+              </div>
+              <span className="font-display text-sm font-semibold">FoodIQ</span>
+            </Link>
+          </div>
+
+          {/* Center: Checkout title and item count */}
+          <div className="flex items-center gap-2">
+            <h1 className="font-display text-base sm:text-lg font-semibold text-foreground">
+              Checkout
+            </h1>
+            {itemCount > 0 && (
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                {itemCount} {itemCount === 1 ? 'item' : 'items'}
+              </span>
+            )}
+          </div>
+
+          {/* Right: ThemeToggle + Profile */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <ThemeToggle />
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm">
+                    <User className="size-4 sm:mr-1.5" aria-hidden />
+                    <span className="hidden sm:inline">
+                      {profile?.full_name?.split(' ')[0] ?? user?.email?.split('@')[0]}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to={ROUTES.profile} className="cursor-pointer">
+                      <User className="mr-2 size-4" />
+                      My Account
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to={ROUTES.orders} className="cursor-pointer">
+                      <Package className="mr-2 size-4" />
+                      Orders
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to={`${ROUTES.profile}?tab=addresses`} className="cursor-pointer">
+                      <MapPin className="mr-2 size-4" />
+                      Saved addresses
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
+                    <LogOut className="mr-2 size-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
+        </div>
+      </header>
+    )
   }
 
   return (

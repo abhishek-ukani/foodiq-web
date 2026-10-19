@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom'
 import { PageLoader } from '@/components/common/page-loader'
 import { ProtectedRoute } from '@/components/common/protected-route'
 import { GuestRoute } from '@/components/common/guest-route'
@@ -44,6 +44,11 @@ const ProductDetailPage = lazy(() =>
     default: m.ProductDetailPage,
   })),
 )
+
+function MenuItemRedirect() {
+  const { slug } = useParams()
+  return <Navigate to={`/menu?item=${slug || ''}`} replace />
+}
 const CartPage = lazy(() =>
   import('@/features/cart/components/cart-page').then((m) => ({ default: m.CartPage })),
 )
@@ -114,7 +119,7 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
-      { path: ROUTES.menuItem(':slug'), element: withSuspense(<ProductDetailPage />) },
+      { path: ROUTES.menuItem(':slug'), element: <MenuItemRedirect /> },
       {
         path: ROUTES.cart,
         element: withSuspense(

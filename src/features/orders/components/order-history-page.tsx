@@ -43,7 +43,7 @@ function useReorder() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart })
       if (added > 0) {
         toast.success(`${added} item${added > 1 ? 's' : ''} added to your cart`)
-        navigate(ROUTES.cart)
+        navigate(ROUTES.checkout)
       } else {
         toast.error('Those items are no longer available.')
       }

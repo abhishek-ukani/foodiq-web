@@ -586,7 +586,7 @@ export function DesktopMenuView({
       {itemCount > 0 && (
         <div className="fixed bottom-6 inset-x-4 z-40 max-w-lg mx-auto pointer-events-auto">
           <Link
-            to={ROUTES.cart}
+            to={ROUTES.checkout}
             className="flex items-center justify-between bg-[#087443] hover:bg-[#065b34] active:scale-[0.99] text-white px-5 py-3.5 rounded-2xl shadow-[0_10px_30px_rgba(8,116,67,0.35)] transition-all duration-150"
           >
             <div className="flex items-center gap-3">
@@ -603,7 +603,7 @@ export function DesktopMenuView({
               </div>
             </div>
             <div className="flex items-center gap-1.5 text-xs font-bold bg-white/20 hover:bg-white/30 px-3.5 py-2 rounded-xl transition-colors">
-              <span>View Cart</span>
+              <span>Proceed to Checkout</span>
               <ArrowRight className="size-3.5 stroke-[2.5]" />
             </div>
           </Link>

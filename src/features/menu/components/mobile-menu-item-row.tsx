@@ -1,4 +1,5 @@
-import { Plus, Minus } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Minus, ChevronDown } from 'lucide-react'
 import { CURRENCY_SYMBOL } from '@/constants'
 import { FavoriteButton } from '@/features/favorites/components/favorite-button'
 import { useCartItems, useAddToCart, useRemoveCartItem, useUpdateCartItemQuantity } from '@/features/cart/hooks/use-cart'
@@ -29,8 +30,15 @@ export function MobileMenuItemRow({
   const isThali = item.kind === 'thali'
   const variants = ((item as any).food_item_variants || []) as any[]
   const hasMultipleVariants = variants.length > 1
-  const price = listing.price_override ?? item.price
-  const strikePrice = item.compare_price && item.compare_price > price ? item.compare_price : null
+
+  const [selectedVariantId, setSelectedVariantId] = useState<string>(() => variants[0]?.id || '')
+  const selectedVariant = variants.find((v) => v.id === selectedVariantId) || variants[0] || null
+
+  const price = selectedVariant ? selectedVariant.price : (listing.price_override ?? item.price)
+  const strikePrice =
+    selectedVariant?.compare_price && selectedVariant.compare_price > price
+      ? selectedVariant.compare_price
+      : (item.compare_price && item.compare_price > price ? item.compare_price : null)
   const discountPercent =
     strikePrice && strikePrice > price
       ? Math.round(((strikePrice - price) / strikePrice) * 100)
@@ -40,9 +48,13 @@ export function MobileMenuItemRow({
   const isDisabled = listing.is_available === false || item.is_available === false
   const isUnavailable = soldOut || cutoffPassed || isDisabled
 
-  // Check if item is already in cart without customizations (for direct +/- stepper)
+  // Check if chosen variant is already in cart without customizations (for direct +/- stepper)
+  const targetVariantId = selectedVariant?.id ?? (variants.length === 1 ? variants[0].id : null)
   const cartLine = cartItems?.find(
-    (ci) => ci.food_item_id === item.id && (!Array.isArray(ci.customizations) || ci.customizations.length === 0),
+    (ci) =>
+      ci.food_item_id === item.id &&
+      (hasMultipleVariants ? ci.variant_id === targetVariantId : true) &&
+      (!Array.isArray(ci.customizations) || ci.customizations.length === 0),
   )
 
   const isBusy = addToCart.isPending || updateQuantity.isPending || removeItem.isPending
@@ -57,31 +69,20 @@ export function MobileMenuItemRow({
       return
     }
 
-    // If multiple pack sizes exist, navigate to detail page to select size
-    if (hasMultipleVariants) {
-      navigate(ROUTES.menuItem(item.slug || item.id))
-      return
-    }
-
     // Direct add to cart
     if (!isAuthenticated) {
       navigate(ROUTES.login, { state: { from: location } })
       return
     }
 
-    const variantId = variants.length === 1 ? variants[0].id : null
-    addToCart.mutate({ food_item_id: item.id, variant_id: variantId, quantity: 1 })
+    addToCart.mutate({ food_item_id: item.id, variant_id: targetVariantId, quantity: 1 })
   }
 
   return (
     <div
       onClick={() => {
         if (isUnavailable) return
-        if (isThali) {
-          onCustomize?.(listing)
-        } else {
-          navigate(ROUTES.menuItem(item.slug || item.id))
-        }
+        onCustomize?.(listing)
       }}
       className={cn(
         'flex items-start justify-between gap-3 py-4 border-b border-[#ede4d3] last:border-b-0 transition-colors',
@@ -124,20 +125,24 @@ export function MobileMenuItemRow({
           )}
         </div>
 
-        {/* Pack variant tags */}
+        {/* Pack Size / Variant Dropdown for Mobile */}
         {hasMultipleVariants && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            <span className="text-[10px] bg-emerald-50 text-emerald-800 font-semibold px-1.5 py-0.5 rounded-md border border-emerald-200">
-              {variants.length} Sizes
-            </span>
-            {variants.slice(0, 2).map((v) => (
-              <span
-                key={v.id}
-                className="text-[10px] bg-[#faf6ee] text-[#6b5847] px-1.5 py-0.5 rounded-md border border-[#ede4d3]"
+          <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+            <div className="relative inline-flex items-center w-full max-w-[200px]">
+              <select
+                value={selectedVariant?.id || ''}
+                onChange={(e) => setSelectedVariantId(e.target.value)}
+                className="w-full text-xs font-semibold py-1.5 pl-2.5 pr-7 rounded-lg border border-emerald-300/90 bg-emerald-50/80 text-emerald-950 focus:outline-none focus:ring-1 focus:ring-emerald-600 appearance-none cursor-pointer"
+                aria-label="Select size"
               >
-                {v.label}
-              </span>
-            ))}
+                {variants.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label} · {CURRENCY_SYMBOL}{v.price}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="size-3.5 text-emerald-700 absolute right-2 pointer-events-none" />
+            </div>
           </div>
         )}
 
@@ -238,16 +243,12 @@ export function MobileMenuItemRow({
               type="button"
               disabled={isBusy}
               onClick={handleActionClick}
-              className="w-full py-1.5 bg-white hover:bg-[#185834] hover:text-white border-2 border-[#185834] text-[#185834] font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center"
+              className="w-full py-1.5 bg-white hover:bg-[#185834] hover:text-white border-2 border-[#185834] text-[#185834] font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center cursor-pointer"
             >
-              <span>{hasMultipleVariants ? 'OPTIONS' : 'ADD'}</span>
+              <span>ADD</span>
               {isThali ? (
                 <span className="text-[8px] font-semibold opacity-60 -mt-0.5 capitalize tracking-normal">
                   customise
-                </span>
-              ) : hasMultipleVariants ? (
-                <span className="text-[8px] font-semibold opacity-70 -mt-0.5 capitalize tracking-normal">
-                  {variants.length} sizes
                 </span>
               ) : null}
             </button>

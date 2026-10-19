@@ -70,12 +70,8 @@ export function MenuProductCard({ listing, onCustomize }: MenuProductCardProps) 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (isUnavailable) return
-    if (isThali) {
+    if (isThali || hasMultipleVariants || (item as any).item_customizations?.length > 0) {
       onCustomize?.(listing)
-      return
-    }
-    if (hasMultipleVariants) {
-      navigate(ROUTES.menuItem(item.slug || item.id))
       return
     }
     if (!isAuthenticated) {
@@ -88,11 +84,7 @@ export function MenuProductCard({ listing, onCustomize }: MenuProductCardProps) 
 
   const handleCardClick = () => {
     if (isUnavailable) return
-    if (isThali) {
-      onCustomize?.(listing)
-    } else {
-      navigate(ROUTES.menuItem(item.slug || item.id))
-    }
+    onCustomize?.(listing)
   }
 
   // Dynamic tags from admin item fields

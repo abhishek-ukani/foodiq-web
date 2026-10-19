@@ -75,7 +75,7 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
 
   let dailyQuery = supabase
     .from('daily_menu_items')
-    .select('*, food_items(*, categories(*)), daily_menus!inner(menu_date, is_published, meal_type, cutoff_time)')
+    .select('*, food_items(*, categories(*), food_item_variants(*)), daily_menus!inner(menu_date, is_published, meal_type, cutoff_time)')
     .eq('daily_menus.menu_date', date)
     .eq('daily_menus.is_published', true)
     .eq('is_available', true)
@@ -96,7 +96,7 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
   // Fetch active Thalis for the requested meals (always available catalog items)
   const { data: thaliFoods } = await supabase
     .from('food_items')
-    .select('*, categories(*)')
+    .select('*, categories(*), food_item_variants(*)')
     .eq('kind', 'thali')
     .eq('is_available', true)
 

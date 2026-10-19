@@ -100,16 +100,6 @@ export function resolveDeliveryCharge(
         ? Number(feeRules[feeRules.length - 1].fee) // highest tier if beyond max rule
         : 30
 
-    console.log('[DISTANCE RESOLVER DEBUG]', {
-      addressLabel: address.label,
-      addressLine1: address.address_line1,
-      kitchenLocation,
-      customerLocation: { lat: address.latitude, lng: address.longitude },
-      calculatedDistanceKm: distanceKm,
-      matchedRule,
-      finalDeliveryFee: fee,
-    })
-
     return {
       fee,
       isOutOfZone: false,

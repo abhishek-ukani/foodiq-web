@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Sun,
@@ -15,25 +15,20 @@ import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/common/reveal'
 import { ROUTES } from '@/constants'
 import { cn } from '@/lib/utils'
+import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
 
 export function DeliveryTimingsSection() {
-  const [currentSlotState, setCurrentSlotState] = useState<'lunch' | 'dinner' | 'tomorrow'>('lunch')
+  const timing = useMealTiming()
 
-  // Calculate live kitchen status based on India local time (approx)
-  useEffect(() => {
-    const now = new Date()
-    const hours = now.getHours()
-    const minutes = now.getMinutes()
-    const currentTimeDecimal = hours + minutes / 60
+  const lunchCutoff = timing.slots.lunch?.formattedCutoff || '11:30 AM'
+  const dinnerCutoff = timing.slots.dinner?.formattedCutoff || '8:00 PM'
 
-    if (currentTimeDecimal < 10.5) {
-      setCurrentSlotState('lunch')
-    } else if (currentTimeDecimal < 17.5) {
-      setCurrentSlotState('dinner')
-    } else {
-      setCurrentSlotState('tomorrow')
-    }
-  }, [])
+  // Calculate live kitchen status based on real database cutoffs
+  const currentSlotState = useMemo<'lunch' | 'dinner' | 'tomorrow'>(() => {
+    if (timing.isLunchOpen) return 'lunch'
+    if (timing.isDinnerOpen) return 'dinner'
+    return 'tomorrow'
+  }, [timing.isLunchOpen, timing.isDinnerOpen])
 
   return (
     <section id="delivery-timings" className="relative overflow-hidden bg-[#FAF6EE] py-16 sm:py-20 lg:py-24 border-t border-[#EDE4D3]">
@@ -82,8 +77,8 @@ export function DeliveryTimingsSection() {
               <span className="relative inline-flex rounded-full size-2 bg-emerald-600" />
             </span>
             <span>
-              {currentSlotState === 'lunch' && 'Kitchen is accepting orders for Today’s Lunch (Cutoff 10:30 AM)'}
-              {currentSlotState === 'dinner' && 'Kitchen is accepting orders for Tonight’s Dinner (Cutoff 5:30 PM)'}
+              {currentSlotState === 'lunch' && `Kitchen is accepting orders for Today’s Lunch (Cutoff ${lunchCutoff})`}
+              {currentSlotState === 'dinner' && `Kitchen is accepting orders for Tonight’s Dinner (Cutoff ${dinnerCutoff})`}
               {currentSlotState === 'tomorrow' && 'Evening orders closed • Accepting Pre-orders for Tomorrow’s Lunch'}
             </span>
           </div>
@@ -117,7 +112,7 @@ export function DeliveryTimingsSection() {
                 </div>
 
                 <span className="rounded-full bg-amber-50 border border-amber-600/25 px-2.5 py-1 text-[11px] font-bold text-amber-900">
-                  Cutoff: 10:30 AM
+                  Cutoff: {lunchCutoff}
                 </span>
               </div>
 
@@ -128,7 +123,7 @@ export function DeliveryTimingsSection() {
                     <Clock className="size-3.5 text-primary" />
                     Order Locked By
                   </span>
-                  <span className="font-bold text-foreground">10:30 AM</span>
+                  <span className="font-bold text-foreground">{lunchCutoff}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
@@ -194,7 +189,7 @@ export function DeliveryTimingsSection() {
                 </div>
 
                 <span className="rounded-full bg-emerald-50 border border-emerald-600/25 px-2.5 py-1 text-[11px] font-bold text-emerald-900">
-                  Cutoff: 5:30 PM
+                  Cutoff: {dinnerCutoff}
                 </span>
               </div>
 
@@ -205,7 +200,7 @@ export function DeliveryTimingsSection() {
                     <Clock className="size-3.5 text-primary" />
                     Order Locked By
                   </span>
-                  <span className="font-bold text-foreground">5:30 PM</span>
+                  <span className="font-bold text-foreground">{dinnerCutoff}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground flex items-center gap-1.5 font-medium">

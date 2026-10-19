@@ -9,11 +9,7 @@ export const ROUTES = {
   orderSuccess: (id: string) => `/orders/${id}/success`,
   orders: '/orders',
   orderDetail: (id: string) => `/orders/${id}`,
-  favorites: '/favorites',
-  notifications: '/notifications',
   profile: '/profile',
-  addresses: '/profile/addresses',
-  settings: '/profile/settings',
   login: '/login',
   register: '/register',
   forgotPassword: '/forgot-password',
@@ -90,7 +86,6 @@ export const ORDER_TIMELINE: OrderStatus[] = [
 ]
 
 export const QUERY_KEYS = {
-  session: ['session'] as const,
   profile: (userId: string) => ['profile', userId] as const,
   categories: ['categories'] as const,
   foodItem: (slug: string) => ['food-item', slug] as const,
@@ -99,24 +94,17 @@ export const QUERY_KEYS = {
   addresses: ['addresses'] as const,
   deliverySlots: ['delivery-slots'] as const,
   deliveryAreas: ['delivery-areas'] as const,
-  deliveryBuildings: ['delivery-buildings'] as const,
-  deliveryRoads: ['delivery-roads'] as const,
   deliveryFeeRules: ['delivery-fee-rules'] as const,
   kitchenLocation: ['kitchen-location'] as const,
   orders: (filters?: Record<string, unknown>) => ['orders', filters ?? {}] as const,
   order: (id: string) => ['order', id] as const,
-  favorites: ['favorites'] as const,
-  notifications: ['notifications'] as const,
   banners: (placement: string) => ['banners', placement] as const,
   testimonials: ['testimonials'] as const,
   todaysSpecial: ['todays-special'] as const,
   allActiveItems: ['all-active-items'] as const,
-  alwaysAvailableItems: ['always-available-items'] as const,
   popularItems: (limit: number) => ['popular-items', limit] as const,
   faqs: ['faqs'] as const,
   policy: (slug: string) => ['policy', slug] as const,
-  systemConfig: ['system-config'] as const,
-  upiQr: ['upi-qr'] as const,
 } as const
 
 export const CURRENCY_SYMBOL = '₹'

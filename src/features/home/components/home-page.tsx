@@ -5,7 +5,6 @@ import { FarmStorySection } from '@/features/home/components/sections/farm-story
 import { OccasionsSection } from '@/features/home/components/sections/occasions-section'
 import { AnnadaanSection } from '@/features/home/components/sections/annadaan-section'
 import { DeliveryTimingsSection } from '@/features/home/components/sections/delivery-timings-section'
-import { BrandStorySection } from '@/features/home/components/sections/brand-story-section'
 import { CtaSection } from '@/features/home/components/sections/cta-section'
 
 export function HomePage() {

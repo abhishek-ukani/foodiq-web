@@ -30,18 +30,13 @@ export async function fetchKitchenLocation(): Promise<KitchenLocation> {
     .eq('key', 'kitchen_location')
     .maybeSingle()
 
-  console.log('[WEB DEBUG] DB Response for kitchen_location:', { data, error })
-
   if (error || !data?.value) {
-    console.warn('[WEB DEBUG] Using fallback kitchen location:', { lat: 23.0392, lng: 72.5085 })
     return { lat: 23.0392, lng: 72.5085 }
   }
 
   const val = data.value as any
-  const loc = {
+  return {
     lat: Number(val.lat ?? 23.0392),
     lng: Number(val.lng ?? 72.5085),
   }
-  console.log('[WEB DEBUG] Fetched Kitchen Location:', loc)
-  return loc
 }

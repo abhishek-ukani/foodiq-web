@@ -47,7 +47,6 @@ export function ThaliCustomizerDrawer({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [groupAddOns, setGroupAddOns] = useState<{ id: string; name: string; price_delta: number }[]>([])
   const [customAddonMap, setCustomAddonMap] = useState<Map<string, { id: string; name: string; price_delta: number }>>(new Map())
-  const [optionSelections, setOptionSelections] = useState<Record<string, string[]>>({})
   const [selectedOptionItems, setSelectedOptionItems] = useState<{ id: string; name: string; price_delta: number; group_name?: string }[]>([])
   const [isOptionSelectionValid, setIsOptionSelectionValid] = useState(true)
 
@@ -70,7 +69,6 @@ export function ThaliCustomizerDrawer({
     setShowInstructions(false)
     setSelectedIds(new Set())
     setSelectedVariantId(null)
-    setOptionSelections({})
     setSelectedOptionItems([])
     setIsOptionSelectionValid(true)
   }, [])
@@ -90,11 +88,10 @@ export function ThaliCustomizerDrawer({
   }, [])
 
   const handleSelectionChange = useCallback((
-    selMap: Record<string, string[]>,
+    _selMap: Record<string, string[]>,
     isValid: boolean,
     selectedItems?: { id: string; name: string; price_delta: number; group_name?: string }[],
   ) => {
-    setOptionSelections(selMap)
     setIsOptionSelectionValid(isValid)
     if (selectedItems) {
       setSelectedOptionItems(selectedItems)

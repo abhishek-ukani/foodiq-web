@@ -4,11 +4,11 @@ import {
   fetchAllActiveItems,
   fetchBanners,
   fetchCategories,
-  fetchDeliveryAreas,
   fetchPopularItems,
   fetchTestimonials,
   fetchTodaysSpecial,
 } from '@/features/home/services/home-service'
+import { fetchDeliveryAreas } from '@/features/addresses/services/delivery-zone-service'
 
 export function useBanners(placement: 'hero' | 'promo_strip' | 'menu_top' | 'popup') {
   return useQuery({

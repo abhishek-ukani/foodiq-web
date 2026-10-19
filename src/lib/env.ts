@@ -11,6 +11,4 @@ export const env = {
   supabaseAnonKey: requireEnv('VITE_SUPABASE_ANON_KEY'),
   appName: import.meta.env.VITE_APP_NAME || 'FoodIQ',
   appUrl: import.meta.env.VITE_APP_URL || 'http://localhost:5173',
-  orderCutoffHour: Number(import.meta.env.VITE_ORDER_CUTOFF_HOUR ?? 20),
-  defaultCurrency: import.meta.env.VITE_DEFAULT_CURRENCY || 'INR',
 } as const

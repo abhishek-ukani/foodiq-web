@@ -73,13 +73,3 @@ export async function fetchPopularItems(limit = 6): Promise<Tables<'food_items'>
   if (error) throw error
   return data
 }
-
-export async function fetchDeliveryAreas(): Promise<Tables<'delivery_areas'>[]> {
-  const { data, error } = await supabase
-    .from('delivery_areas')
-    .select('*')
-    .eq('is_active', true)
-    .order('name')
-  if (error) throw error
-  return data
-}

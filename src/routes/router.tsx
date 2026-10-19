@@ -39,11 +39,6 @@ const AccountPage = lazy(() =>
 const MenuPage = lazy(() =>
   import('@/features/menu/components/menu-page').then((m) => ({ default: m.MenuPage })),
 )
-const ProductDetailPage = lazy(() =>
-  import('@/features/menu/components/product-detail-page').then((m) => ({
-    default: m.ProductDetailPage,
-  })),
-)
 
 function MenuItemRedirect() {
   const { slug } = useParams()

@@ -278,97 +278,9 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
         existingItemIds.add(targetFoodItemId)
       }
     }
-  } else if (!storeProductsList) {
-    // Fallback: If store_products_catalog has not been initialized yet, scan retail categories
-    const { data: storeFoods } = await supabase
-      .from('food_items')
-      .select('*, categories(*)')
-      .eq('kind', 'single')
-      .eq('is_available', true)
-      .order('display_order', { ascending: true })
-
-    if (storeFoods && storeFoods.length > 0) {
-      const existingItemIds = new Set(listings.map((l) => l.food_item_id))
-
-      for (const storeItem of storeFoods as unknown as AlwaysAvailableItem[]) {
-        const catType = (storeItem.categories?.category_type || '').toLowerCase()
-        const catSlug = (storeItem.categories?.slug || '').toLowerCase()
-        const isStoreCategory =
-          catType === 'snack' ||
-          catType === 'beverage' ||
-          catType === 'sweet' ||
-          catSlug.includes('snack') ||
-          catSlug.includes('farsan') ||
-          catSlug.includes('nasta') ||
-          catSlug.includes('beverage') ||
-          catSlug.includes('sweet') ||
-          catSlug.includes('add-on')
-
-        if (isStoreCategory && !existingItemIds.has(storeItem.id) && storeItem.is_available) {
-          const syntheticListing: MenuListing = {
-            id: `store-prod-${storeItem.id}`,
-            daily_menu_id: dateMenus?.[0]?.id || `store-${date}`,
-            food_item_id: storeItem.id,
-            price_override: null,
-            available_quantity: storeItem.track_stock ? storeItem.stock_quantity : null,
-            sold_quantity: 0,
-            is_available: storeItem.is_available,
-            is_special: storeItem.is_featured ?? false,
-            is_standalone_sale: true,
-            is_thali_option: false,
-            cutoff_time: null,
-            cutoff_note: null,
-            display_order: storeItem.display_order ?? 0,
-            created_at: storeItem.created_at,
-            updated_at: storeItem.updated_at,
-            food_items: storeItem as any,
-            daily_menus: {
-              menu_date: date,
-              is_published: true,
-              meal_type: (mealType || 'lunch') as MealType,
-              cutoff_time: null,
-            },
-          }
-          listings.push(syntheticListing)
-          existingItemIds.add(storeItem.id)
-        }
-      }
-    }
   }
 
   return listings
-}
-
-export type AlwaysAvailableItem = Tables<'food_items'> & {
-  categories: Tables<'categories'> | null
-}
-
-/** Non-meal items (farsan, snacks, nasta, sweets, beverages) available anytime (24x7). */
-export async function fetchAlwaysAvailableItems(): Promise<AlwaysAvailableItem[]> {
-  const { data, error } = await supabase
-    .from('food_items')
-    .select('*, categories(*)')
-    .eq('is_available', true)
-    .eq('kind', 'single')
-    .order('display_order', { ascending: true })
-
-  if (error) throw error
-  if (!data) return []
-
-  return (data as unknown as AlwaysAvailableItem[]).filter((item) => {
-    const catType = item.categories?.category_type
-    const catSlug = item.categories?.slug || ''
-    return (
-      catType === 'snack' ||
-      catType === 'beverage' ||
-      catType === 'sweet' ||
-      catSlug.includes('snack') ||
-      catSlug.includes('farsan') ||
-      catSlug.includes('nasta') ||
-      catSlug.includes('beverage') ||
-      catSlug.includes('sweet')
-    )
-  })
 }
 
 export async function fetchDailyMenuSlots(date: string) {

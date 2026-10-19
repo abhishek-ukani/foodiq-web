@@ -101,28 +101,10 @@ export async function resolveDelivery(input: DeliveryRequest): Promise<DeliveryR
     }
   }
 
-  // 3. Fallback to default distance fee rule or first active rule
-  const { data: defaultRule } = await supabase
-    .from('delivery_fee_rules')
-    .select('*')
-    .eq('is_active', true)
-    .order('min_distance_km', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  if (defaultRule) {
-    const fee = Number(defaultRule.fee)
-    return {
-      deliverable: true,
-      fee: fee,
-      zone_type: fee === 0 ? 'FREE' : 'PAID',
-    }
-  }
-
-  // Default fallback if no rules exist
+  // 3. If no delivery zone or area matches, address is outside service area
   return {
-    deliverable: true,
-    fee: 25,
-    zone_type: 'PAID',
+    deliverable: false,
+    fee: 0,
+    zone_type: 'OUT_OF_RANGE',
   }
 }

@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Minus, Plus, X, MessageSquare } from 'lucide-react'
+import { Minus, Plus, X, MessageSquare, AlertCircle, CalendarOff, Sparkles } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useFoodItemBySlug } from '@/features/menu/hooks/use-menu-queries'
+import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
 import { DynamicThaliOptionPicker } from '@/features/menu/components/dynamic-thali-option-picker'
 import { ItemCustomizationPicker } from '@/features/menu/components/item-customization-picker'
 import { useAddToCart } from '@/features/cart/hooks/use-cart'
@@ -40,6 +42,8 @@ export function ThaliCustomizerDrawer({
   const addToCart = useAddToCart()
 
   const { data: item, isPending } = useFoodItemBySlug(slug || '')
+  const timing = useMealTiming(date)
+  const isSlotOpen = timing.slots[mealType]?.isOpen ?? true
 
   const [quantity, setQuantity] = useState(1)
   const [instructions, setInstructions] = useState('')
@@ -140,6 +144,25 @@ export function ThaliCustomizerDrawer({
     if (!item) return
     if (item.is_available === false) {
       toast.error('This item is currently disabled and unavailable.')
+      return
+    }
+    if (!isSlotOpen) {
+      if (timing.slots[mealType]?.isHolidayClosed) {
+        toast.error(
+          timing.activeHoliday?.message ||
+            `We are closed for ${timing.activeHoliday?.title || 'Holiday'}. We can't serve meals during this period.`,
+        )
+      } else if (!timing.slots[mealType]?.isPublished) {
+        toast.error(
+          `Today's ${mealType === 'lunch' ? 'Lunch' : 'Dinner'} menu is coming soon. Orders will open once published.`,
+        )
+      } else {
+        toast.error(
+          mealType === 'lunch'
+            ? "Ordering for Lunch is closed."
+            : "Ordering for Dinner is closed.",
+        )
+      }
       return
     }
     if (!isAuthenticated) {
@@ -248,6 +271,37 @@ export function ThaliCustomizerDrawer({
             </div>
           ) : (
             <>
+              {/* Slot Closed / Unpublished / Holiday Notice */}
+              {!isSlotOpen && (
+                <div
+                  className={cn(
+                    'p-3 rounded-xl flex items-center gap-2.5 text-xs font-medium',
+                    timing.slots[mealType]?.isHolidayClosed
+                      ? 'bg-red-50 border border-red-200 text-red-950'
+                      : !timing.slots[mealType]?.isPublished
+                      ? 'bg-emerald-50 border border-emerald-200 text-emerald-950'
+                      : 'bg-amber-50 border border-amber-200 text-amber-950',
+                  )}
+                >
+                  {timing.slots[mealType]?.isHolidayClosed ? (
+                    <CalendarOff className="size-4 text-red-600 shrink-0" />
+                  ) : !timing.slots[mealType]?.isPublished ? (
+                    <Sparkles className="size-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="size-4 text-amber-600 shrink-0" />
+                  )}
+                  <span>
+                    {timing.slots[mealType]?.isHolidayClosed
+                      ? (timing.activeHoliday?.message || `We are closed for ${timing.activeHoliday?.title || 'Holiday'}.`)
+                      : !timing.slots[mealType]?.isPublished
+                      ? `Today's ${mealType === 'lunch' ? 'Lunch' : 'Dinner'} menu is coming soon. Orders will open shortly.`
+                      : mealType === 'lunch'
+                      ? "Ordering for Lunch is closed."
+                      : "Ordering for Dinner is closed."}
+                  </span>
+                </div>
+              )}
+
               {/* Thali Composition Tags if present */}
               {item.ingredients && item.ingredients.length > 0 && (
                 <div className="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200/70">
@@ -411,12 +465,18 @@ export function ThaliCustomizerDrawer({
           <Button
             size="sm"
             className="flex-1 h-9 text-xs font-semibold rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white shadow-md flex items-center justify-between px-3.5 disabled:opacity-60"
-            disabled={!item || item.is_available === false || !isOptionSelectionValid || addToCart.isPending}
+            disabled={!item || item.is_available === false || !isOptionSelectionValid || addToCart.isPending || !isSlotOpen}
             onClick={handleAddToCart}
           >
             <span>
               {item?.is_available === false
                 ? 'Currently Unavailable'
+                : !isSlotOpen
+                ? timing.slots[mealType]?.isHolidayClosed
+                  ? 'Closed for Holiday'
+                  : !timing.slots[mealType]?.isPublished
+                  ? 'Menu Coming Soon'
+                  : 'Ordering Closed'
                 : !isOptionSelectionValid
                 ? 'Select required choices'
                 : 'Add to Order'}

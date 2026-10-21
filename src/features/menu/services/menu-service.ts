@@ -128,7 +128,7 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
             is_standalone_sale: true,
             is_thali_option: true,
             cutoff_time: cutoffTime,
-            cutoff_note: isSlotPublished ? null : 'Daily specials announced soon',
+            cutoff_note: isSlotPublished ? null : 'Menu coming soon',
             display_order: thali.display_order ?? 0,
             created_at: thali.created_at,
             updated_at: thali.updated_at,

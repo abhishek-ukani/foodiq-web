@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { ArrowRight, UtensilsCrossed, Clock } from 'lucide-react'
+import { ArrowRight, UtensilsCrossed, Clock, CalendarOff, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/common/empty-state'
@@ -10,8 +10,8 @@ import {
 import { MenuProductCard } from '@/features/menu/components/menu-product-card'
 import { DesktopThaliCard } from '@/features/menu/components/desktop-thali-card'
 import { MenuHero } from '@/features/menu/components/menu-hero'
-import { isCutoffPassed, type MenuListing } from '@/features/menu/services/menu-service'
-import { formatCutoffDisplay, type MealTimingState } from '@/features/menu/hooks/use-meal-timing'
+import { type MenuListing } from '@/features/menu/services/menu-service'
+import { getClosureNotice, type MealTimingState } from '@/features/menu/hooks/use-meal-timing'
 import { useCartSummary } from '@/features/cart/hooks/use-cart'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
 import type { Tables } from '@/types/database.types'
@@ -31,6 +31,11 @@ type DesktopMenuViewProps = {
 
 // ── Timing & Slot Switcher for Thalis (Matching Target Design Mock) ───────────
 function ThaliSlotSwitcher({ timing }: { timing: MealTimingState }) {
+  const lunchSlot = timing.slots.lunch
+  const dinnerSlot = timing.slots.dinner
+  const isLunchOpen = lunchSlot?.isOpen ?? false
+  const isDinnerOpen = dinnerSlot?.isOpen ?? false
+
   return (
     <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
       {/* Today / Tomorrow pill */}
@@ -67,25 +72,43 @@ function ThaliSlotSwitcher({ timing }: { timing: MealTimingState }) {
           type="button"
           onClick={() => timing.setActiveSlot('lunch')}
           className={cn(
-            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none',
+            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none flex items-center gap-1.5',
             timing.activeSlot === 'lunch'
-              ? 'bg-[#185834] text-white shadow-xs'
-              : 'text-neutral-600 hover:text-neutral-900',
+              ? isLunchOpen
+                ? 'bg-[#185834] text-white shadow-xs'
+                : 'bg-neutral-600 text-white shadow-xs'
+              : !isLunchOpen
+                ? 'text-neutral-400 hover:text-neutral-600 opacity-70'
+                : 'text-neutral-600 hover:text-neutral-900',
           )}
         >
-          Lunch
+          <span>Lunch</span>
+          {!isLunchOpen && (
+            <span className="text-[10px] font-normal opacity-80">
+              ({lunchSlot?.isHolidayClosed ? 'Holiday' : lunchSlot?.isCutoffPassed ? 'Closed' : 'Coming Soon'})
+            </span>
+          )}
         </button>
         <button
           type="button"
           onClick={() => timing.setActiveSlot('dinner')}
           className={cn(
-            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none',
+            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none flex items-center gap-1.5',
             timing.activeSlot === 'dinner'
-              ? 'bg-[#185834] text-white shadow-xs'
-              : 'text-neutral-600 hover:text-neutral-900',
+              ? isDinnerOpen
+                ? 'bg-[#185834] text-white shadow-xs'
+                : 'bg-neutral-600 text-white shadow-xs'
+              : !isDinnerOpen
+                ? 'text-neutral-400 hover:text-neutral-600 opacity-70'
+                : 'text-neutral-600 hover:text-neutral-900',
           )}
         >
-          Dinner
+          <span>Dinner</span>
+          {!isDinnerOpen && (
+            <span className="text-[10px] font-normal opacity-80">
+              ({dinnerSlot?.isHolidayClosed ? 'Holiday' : dinnerSlot?.isCutoffPassed ? 'Closed' : 'Coming Soon'})
+            </span>
+          )}
         </button>
       </div>
     </div>
@@ -372,15 +395,6 @@ export function DesktopMenuView({
           /* ── DYNAMIC SECTIONS FEED (Target Design Mock: Farsan 4-col Grid, Thalis 2-col Grid) ── */
           <div className="space-y-12 sm:space-y-14">
             {groupedSections.map((sec) => {
-              const firstThali = sec.items.find((i) => i.food_items?.kind === 'thali') || sec.items[0]
-              const isItemsCutoffPassed = firstThali
-                ? isCutoffPassed(firstThali)
-                : (timing.activeSlotInfo?.isCutoffPassed ?? false)
-              const cutoffTimeStr =
-                firstThali?.cutoff_time || firstThali?.daily_menus?.cutoff_time || timing.activeSlotInfo?.cutoffTime
-              const formattedCutoff =
-                formatCutoffDisplay(cutoffTimeStr) || timing.activeSlotInfo?.formattedCutoff || ''
-
               return (
                 <section key={sec.key} aria-labelledby={`section-${sec.key}`} className="scroll-mt-32">
                   {/* ── SECTION HEADER ── */}
@@ -431,43 +445,64 @@ export function DesktopMenuView({
                     </div>
                   </div>
 
-                  {/* Cutoff or pre-order status notice for thali section */}
-                  {sec.isThali && (
-                    <>
-                      {isItemsCutoffPassed ? (
-                        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50/80 border border-amber-200/80 rounded-2xl mb-5 text-xs text-amber-900 font-medium">
+                  {/* Notice banner for thali section */}
+                  {sec.isThali && (() => {
+                    const notice = getClosureNotice(timing)
+                    if (!notice) return null
+                    const isHoliday = notice.type === 'holiday'
+                    const isCutoff = notice.type === 'cutoff'
+
+                    return (
+                      <div
+                        className={cn(
+                          'flex items-center gap-3 px-4 py-3 rounded-2xl mb-5 text-xs font-medium',
+                          isHoliday
+                            ? 'bg-red-50 border border-red-200 text-red-950 shadow-xs'
+                            : isCutoff
+                            ? 'bg-amber-50/80 border border-amber-200 text-amber-900'
+                            : 'bg-emerald-50/80 border border-emerald-200/80 text-emerald-950'
+                        )}
+                      >
+                        {isHoliday ? (
+                          <CalendarOff className="size-4 text-red-600 shrink-0" />
+                        ) : isCutoff ? (
                           <Clock className="size-4 text-amber-600 shrink-0" />
-                          <span>
-                            Ordering for {timing.isToday ? "today's" : ''}{' '}
-                            {timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} is closed
-                            {formattedCutoff ? ` (Cutoff was ${formattedCutoff})` : ''}.
-                          </span>
-                        </div>
-                      ) : !timing.slots[timing.activeSlot]?.isPublished ? (
-                        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl mb-5 text-xs text-amber-900 font-medium">
-                          <Clock className="size-4 text-amber-600 shrink-0" />
-                          <span>
-                            {timing.isTomorrow
-                              ? `Pre-orders are open for Tomorrow's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}. Daily specials will be announced soon.`
-                              : `Today's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} daily specials will be announced soon. Fixed Gujarati Thalis are available.`}
-                          </span>
-                        </div>
-                      ) : null}
-                    </>
-                  )}
+                        ) : (
+                          <Sparkles className="size-4 text-emerald-600 shrink-0" />
+                        )}
+                        <span>{notice.message}</span>
+                      </div>
+                    )
+                  })()}
 
                   {/* ── ITEMS DISPLAY ── */}
                   {sec.items.length === 0 ? (
                     sec.isThali ? (
                       <div className="py-10 text-center bg-amber-50/40 rounded-2xl border border-dashed border-amber-200">
                         <div className="size-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-2 text-2xl">
-                          🍱
+                          {timing.activeHoliday ? '🗓️' : timing.slots[timing.activeSlot]?.isCutoffPassed ? '🔒' : '🍱'}
                         </div>
                         <h3 className="text-base font-bold text-[#17231D]">
-                          {timing.isTomorrow ? "Tomorrow's" : "Today's"} {timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} menu coming soon
+                          {timing.activeHoliday
+                            ? `Closed for ${timing.activeHoliday.title}`
+                            : timing.slots[timing.activeSlot]?.isCutoffPassed
+                            ? `Ordering closed for ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}`
+                            : `${timing.isTomorrow ? "Tomorrow's" : "Today's"} ${
+                                timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'
+                              } menu coming soon`}
                         </h3>
-                        <p className="text-xs text-[#7A817B] max-w-sm mx-auto mt-1">
-                          Our kitchen is preparing the menu specials for {timing.isTomorrow ? 'tomorrow' : 'today'}. Please check back shortly.
+                        <p className="text-xs text-[#7A817B] max-w-sm mx-auto mt-1 leading-relaxed">
+                          {timing.activeHoliday
+                            ? (timing.activeHoliday.message || 'We are closed during this period. Regular orders resume after the holiday.')
+                            : timing.slots[timing.activeSlot]?.isCutoffPassed
+                            ? timing.activeSlot === 'lunch'
+                              ? timing.isDinnerOpen
+                                ? "Ordering for Lunch is closed. Tonight's Dinner is available."
+                                : "Ordering for Lunch is closed. Pre-orders are open for tomorrow."
+                              : "Ordering for Dinner is closed. Pre-orders are open for tomorrow."
+                            : `Our kitchen is preparing the menu specials for ${
+                                timing.isTomorrow ? 'tomorrow' : 'today'
+                              }. Please check back shortly.`}
                         </p>
                       </div>
                     ) : (
@@ -479,14 +514,32 @@ export function DesktopMenuView({
                     /* ── THALIS: 2-Column Wide Horizontal Cards (Target Design Mock) ── */
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                       {sec.items.map((item) => (
-                        <DesktopThaliCard key={item.id} listing={item} onCustomize={onCustomize} />
+                        <DesktopThaliCard
+                          key={item.id}
+                          listing={item}
+                          onCustomize={onCustomize}
+                          isHolidayClosed={
+                            item.daily_menus?.meal_type
+                              ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
+                              : timing.isHolidayClosed
+                          }
+                        />
                       ))}
                     </div>
                   ) : (
                     /* ── FARSAN / REGULAR: 4-Column Vertical Product Cards (Target Design Mock) ── */
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                       {sec.items.map((item) => (
-                        <MenuProductCard key={item.id} listing={item} onCustomize={onCustomize} />
+                        <MenuProductCard
+                          key={item.id}
+                          listing={item}
+                          onCustomize={onCustomize}
+                          isHolidayClosed={
+                            item.daily_menus?.meal_type
+                              ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
+                              : timing.isHolidayClosed
+                          }
+                        />
                       ))}
                     </div>
                   )}
@@ -521,45 +574,40 @@ export function DesktopMenuView({
                 )}
             </div>
 
-            {/* Cutoff notice */}
+            {/* Cutoff / Closure / Coming Soon notice */}
             {(() => {
               const isSingleThali =
                 !search &&
                 (selectedCategoryObj?.category_type === 'thali' ||
                   selectedCategoryObj?.slug?.includes('thali'))
-              const firstThali = filtered.find((i) => i.food_items?.kind === 'thali') || filtered[0]
-              const isSingleCutoffPassed = firstThali
-                ? isCutoffPassed(firstThali)
-                : (timing.activeSlotInfo?.isCutoffPassed ?? false)
-              const cutoffTimeStr =
-                firstThali?.cutoff_time || firstThali?.daily_menus?.cutoff_time || timing.activeSlotInfo?.cutoffTime
-              const formattedCutoff =
-                formatCutoffDisplay(cutoffTimeStr) || timing.activeSlotInfo?.formattedCutoff || ''
 
-              if (!isSingleThali || filtered.length === 0) return null
-              if (isSingleCutoffPassed) {
-                return (
-                  <div className="flex items-center gap-3 px-4 py-3 bg-amber-50/80 border border-amber-200/80 rounded-2xl mb-6 text-xs text-amber-900 font-medium">
+              if (!isSingleThali) return null
+              const notice = getClosureNotice(timing)
+              if (!notice) return null
+              const isHoliday = notice.type === 'holiday'
+              const isCutoff = notice.type === 'cutoff'
+
+              return (
+                <div
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-3 rounded-2xl mb-6 text-xs font-medium',
+                    isHoliday
+                      ? 'bg-red-50 border border-red-200 text-red-950 shadow-xs'
+                      : isCutoff
+                      ? 'bg-amber-50/80 border border-amber-200 text-amber-900'
+                      : 'bg-emerald-50/80 border border-emerald-200/80 text-emerald-950'
+                  )}
+                >
+                  {isHoliday ? (
+                    <CalendarOff className="size-4 text-red-600 shrink-0" />
+                  ) : isCutoff ? (
                     <Clock className="size-4 text-amber-600 shrink-0" />
-                    <span>
-                      Ordering is closed{formattedCutoff ? ` (Cutoff was ${formattedCutoff})` : ''}.
-                    </span>
-                  </div>
-                )
-              }
-              if (!timing.slots[timing.activeSlot]?.isPublished) {
-                return (
-                  <div className="flex items-center gap-3 px-4 py-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl mb-6 text-xs text-amber-900 font-medium">
-                    <Clock className="size-4 text-amber-600 shrink-0" />
-                    <span>
-                      {timing.isTomorrow
-                        ? `Pre-orders are open for Tomorrow's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}. Daily specials will be announced soon.`
-                        : `Today's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} menu hasn't been published yet.`}
-                    </span>
-                  </div>
-                )
-              }
-              return null
+                  ) : (
+                    <Sparkles className="size-4 text-emerald-600 shrink-0" />
+                  )}
+                  <span>{notice.message}</span>
+                </div>
+              )
             })()}
 
             {/* Grid display */}
@@ -568,13 +616,31 @@ export function DesktopMenuView({
             filtered.every((i) => i.food_items?.kind === 'thali') ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {filtered.map((item) => (
-                  <DesktopThaliCard key={item.id} listing={item} onCustomize={onCustomize} />
+                  <DesktopThaliCard
+                    key={item.id}
+                    listing={item}
+                    onCustomize={onCustomize}
+                    isHolidayClosed={
+                      item.daily_menus?.meal_type
+                        ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
+                        : timing.isHolidayClosed
+                    }
+                  />
                 ))}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {filtered.map((item) => (
-                  <MenuProductCard key={item.id} listing={item} onCustomize={onCustomize} />
+                  <MenuProductCard
+                    key={item.id}
+                    listing={item}
+                    onCustomize={onCustomize}
+                    isHolidayClosed={
+                      item.daily_menus?.meal_type
+                        ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
+                        : timing.isHolidayClosed
+                    }
+                  />
                 ))}
               </div>
             )}

@@ -12,11 +12,13 @@ import { cn } from '@/lib/utils'
 type MobileMenuItemRowProps = {
   listing: MenuListing
   onCustomize?: (listing: MenuListing) => void
+  isHolidayClosed?: boolean
 }
 
 export function MobileMenuItemRow({
   listing,
   onCustomize,
+  isHolidayClosed,
 }: MobileMenuItemRowProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -45,8 +47,10 @@ export function MobileMenuItemRow({
       : 0
   const soldOut = isSoldOut(listing)
   const cutoffPassed = isCutoffPassed(listing)
+  const isPublished = listing.daily_menus?.is_published !== false
   const isDisabled = listing.is_available === false || item.is_available === false
-  const isUnavailable = soldOut || cutoffPassed || isDisabled
+  const isHoliday = isHolidayClosed || false
+  const isUnavailable = soldOut || cutoffPassed || isDisabled || !isPublished || isHoliday
 
   // Check if chosen variant is already in cart without customizations (for direct +/- stepper)
   const targetVariantId = selectedVariant?.id ?? (variants.length === 1 ? variants[0].id : null)
@@ -205,8 +209,16 @@ export function MobileMenuItemRow({
         {/* Floating action button */}
         <div className="relative -mt-4 z-10 w-[84px] sm:w-[96px]">
           {isUnavailable ? (
-            <div className="w-full py-1 bg-neutral-100 text-neutral-500 font-bold text-[11px] rounded-xl shadow-sm text-center select-none border border-neutral-200">
-              {soldOut ? 'Sold Out' : isDisabled ? 'Unavailable' : 'Closed'}
+            <div className="w-full py-1 bg-neutral-100 text-neutral-500 font-bold text-[10px] sm:text-[11px] rounded-xl shadow-xs text-center select-none border border-neutral-200">
+              {soldOut
+                ? 'Sold Out'
+                : isDisabled
+                ? 'Unavailable'
+                : isHoliday
+                ? 'Closed'
+                : !isPublished
+                ? 'Coming Soon'
+                : 'Closed'}
             </div>
           ) : cartLine && !isThali ? (
             /* Active Stepper */

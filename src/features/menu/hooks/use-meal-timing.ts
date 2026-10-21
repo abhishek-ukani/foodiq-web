@@ -4,15 +4,35 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { MealType, Tables } from '@/types/database.types'
 
+export type KitchenHoliday = {
+  id: string
+  title: string
+  startDate: string
+  endDate: string
+  mealType: 'all' | 'lunch' | 'dinner'
+  message?: string
+  isActive: boolean
+  createdAt?: string
+}
+
+export type HolidaySettings = {
+  enabled: boolean
+  holidays: KitchenHoliday[]
+}
+
 export type SlotTimingInfo = {
   mealType: MealType
   cutoffTime: string | null // e.g. "11:30:00" or "20:00:00"
   formattedCutoff: string // e.g. "11:30 AM" or "8:00 PM"
   isPublished: boolean // true if daily_menus row exists and is_published = true
-  isOpen: boolean // true if isPublished && !isCutoffPassed
+  isOpen: boolean // true if isPublished && !isCutoffPassed && !isHolidayClosed
   isCutoffPassed: boolean // true if clock time has passed cutoff
+  isHolidayClosed: boolean // true if this slot is covered by an active holiday
   isClosingSoon: boolean // <= 30 minutes remaining
   minutesRemaining: number | null
+  note?: string | null
+  title?: string | null
+  holidayInfo?: KitchenHoliday | null
 }
 
 export type MealTimingState = {
@@ -27,6 +47,10 @@ export type MealTimingState = {
   slots: Record<MealType, SlotTimingInfo | null>
   isLunchOpen: boolean
   isDinnerOpen: boolean
+  isFullDayClosed: boolean
+  isHolidayClosed: boolean
+  activeHoliday: KitchenHoliday | null
+  holidaySettings: HolidaySettings | null
   lunchMinutesRemaining: number | null
   dinnerMinutesRemaining: number | null
   activeSlotInfo: SlotTimingInfo | null
@@ -56,21 +80,32 @@ export function useMealTiming(targetDate?: string): MealTimingState {
   const tomorrowStr = useMemo(() => dayjs().add(1, 'day').format('YYYY-MM-DD'), [])
   const [tick, setTick] = useState(0)
 
-  // Fetch slot metadata for today AND tomorrow from daily_menus
+  // Fetch slot metadata for today AND tomorrow from daily_menus, slots, and kitchen_holidays
   const { data: timingRaw, refetch: refetchTimingQuery } = useQuery({
     queryKey: ['meal-timing-data', todayStr, tomorrowStr],
     queryFn: async () => {
-      const [menusRes, slotsRes] = await Promise.all([
+      const [menusRes, slotsRes, holidaysRes] = await Promise.all([
         supabase
           .from('daily_menus')
-          .select('id, menu_date, meal_type, cutoff_time, is_published')
+          .select('id, menu_date, meal_type, cutoff_time, is_published, note, title')
           .in('menu_date', [todayStr, tomorrowStr]),
         supabase
           .from('delivery_slots')
           .select('*')
           .eq('is_active', true)
           .order('display_order'),
+        supabase
+          .from('system_config')
+          .select('value')
+          .eq('key', 'kitchen_holidays')
+          .maybeSingle(),
       ])
+
+      const holidayRaw = holidaysRes.data?.value as any
+      const holidaySettings: HolidaySettings = {
+        enabled: typeof holidayRaw?.enabled === 'boolean' ? holidayRaw.enabled : true,
+        holidays: Array.isArray(holidayRaw?.holidays) ? holidayRaw.holidays : [],
+      }
 
       return {
         rawMenus:
@@ -80,8 +115,11 @@ export function useMealTiming(targetDate?: string): MealTimingState {
             meal_type: MealType
             cutoff_time: string | null
             is_published: boolean
+            note: string | null
+            title: string | null
           }[]) || [],
         deliverySlots: (slotsRes.data as Tables<'delivery_slots'>[]) || [],
+        holidaySettings,
       }
     },
     staleTime: 0,
@@ -91,6 +129,7 @@ export function useMealTiming(targetDate?: string): MealTimingState {
 
   const rawMenus = timingRaw?.rawMenus || []
   const deliverySlots = timingRaw?.deliverySlots || []
+  const holidaySettings = timingRaw?.holidaySettings || { enabled: true, holidays: [] }
 
   const refetchTiming = useCallback(async () => {
     await refetchTimingQuery()
@@ -133,53 +172,59 @@ export function useMealTiming(targetDate?: string): MealTimingState {
     if (todayTiming.isDinnerPassed) {
       return { date: tomorrowStr, slot: 'lunch' }
     }
-    // 2. If today's lunch cutoff has passed: show today's dinner!
+
+    // 2. If today's lunch cutoff has passed, but dinner is still open: auto-select dinner!
     if (todayTiming.isLunchPassed) {
       return { date: todayStr, slot: 'dinner' }
     }
-    // 3. Morning: show today's lunch
+
+    // 3. Otherwise: today's lunch is active
     return { date: todayStr, slot: 'lunch' }
   }, [todayTiming, todayStr, tomorrowStr])
 
-  const [userSelectedDate, setUserSelectedDate] = useState<string | null>(targetDate || null)
+  // Explicit user selection overrides auto
+  const [userSelectedDate, setUserSelectedDate] = useState<string | null>(null)
   const [userSelectedSlot, setUserSelectedSlot] = useState<MealType | null>(null)
 
-  useEffect(() => {
-    if (targetDate !== undefined) {
-      setUserSelectedDate(targetDate || null)
-      setUserSelectedSlot(null)
-    }
-  }, [targetDate])
+  const effectiveDate = targetDate || userSelectedDate || autoDateAndSlot.date
+  const activeSlot = userSelectedSlot || (effectiveDate === autoDateAndSlot.date ? autoDateAndSlot.slot : 'lunch')
 
-  const effectiveDate = userSelectedDate || autoDateAndSlot.date
-  const isTargetToday = effectiveDate === todayStr
-  const defaultSlotForDate = isTargetToday ? autoDateAndSlot.slot : 'lunch'
-  const activeSlot = userSelectedSlot || defaultSlotForDate
+  // Check if an active holiday applies to the currently viewed date
+  const activeHoliday = useMemo<KitchenHoliday | null>(() => {
+    if (!holidaySettings?.enabled) return null
+    return (
+      holidaySettings.holidays.find(
+        (h) => h.isActive && effectiveDate >= h.startDate && effectiveDate <= h.endDate,
+      ) ?? null
+    )
+  }, [holidaySettings, effectiveDate])
 
-  // Compute timing details for effectiveDate
-  const slots = useMemo(() => {
+  // Calculate timing and availability for each slot of the effective date
+  const slots = useMemo<Record<MealType, SlotTimingInfo | null>>(() => {
     void tick
     const nowStr = dayjs().format('HH:mm')
-    const isFutureDate = dayjs(effectiveDate).isAfter(todayStr, 'day')
-    const isPastDate = dayjs(effectiveDate).isBefore(todayStr, 'day')
+    const isPastDate = effectiveDate < todayStr
+    const isFutureDate = effectiveDate > todayStr
 
     const result: Record<MealType, SlotTimingInfo | null> = {
-      breakfast: null,
       lunch: null,
       dinner: null,
+      breakfast: null,
     }
 
-    for (const type of ['breakfast', 'lunch', 'dinner'] as MealType[]) {
-      const menuMatch = rawMenus.find((s) => s.menu_date === effectiveDate && s.meal_type === type)
-      const slotMatch = deliverySlots.find((s) => s.meal_type === type)
+    const types: MealType[] = ['lunch', 'dinner']
 
-      const defaultCutoff = type === 'lunch' ? '11:30:00' : '20:00:00'
-      const rawCutoff = menuMatch?.cutoff_time || slotMatch?.cutoff_time || defaultCutoff
+    for (const type of types) {
+      const menuMatch = rawMenus.find(
+        (m) => m.menu_date === effectiveDate && m.meal_type === type,
+      )
+      const slotDef = deliverySlots.find((s) => s.meal_type === type)
+      const rawCutoff = menuMatch?.cutoff_time || slotDef?.cutoff_time || (type === 'lunch' ? '11:30:00' : '20:00:00')
       const cutoffShort = rawCutoff.substring(0, 5)
 
       let isCutoffPassed = false
-      let minutesRemaining: number | null = null
       let isClosingSoon = false
+      let minutesRemaining: number | null = null
 
       if (isPastDate) {
         isCutoffPassed = true
@@ -195,9 +240,14 @@ export function useMealTiming(targetDate?: string): MealTimingState {
         isClosingSoon = !isCutoffPassed && minutesRemaining !== null && minutesRemaining > 0 && minutesRemaining <= 30
       }
 
+      // Check if this specific meal slot is closed due to a holiday
+      const isHolidayClosed =
+        !!activeHoliday && (activeHoliday.mealType === 'all' || activeHoliday.mealType === type)
+
       const isPublished = !!menuMatch && menuMatch.is_published
-      // For future dates (tomorrow), pre-orders are open even if daily specials aren't published yet
-      const isOpen = (isFutureDate || isPublished) && !isCutoffPassed
+
+      // Slot is open if: published (or tomorrow) AND cutoff hasn't passed AND NOT closed by holiday!
+      const isOpen = (isFutureDate || isPublished) && !isCutoffPassed && !isHolidayClosed
 
       result[type] = {
         mealType: type,
@@ -206,16 +256,32 @@ export function useMealTiming(targetDate?: string): MealTimingState {
         isPublished,
         isOpen,
         isCutoffPassed,
+        isHolidayClosed,
         isClosingSoon,
         minutesRemaining: isOpen && minutesRemaining !== null && minutesRemaining >= 0 ? minutesRemaining : 0,
+        note: menuMatch?.note ?? null,
+        title: menuMatch?.title ?? null,
+        holidayInfo: isHolidayClosed ? activeHoliday : null,
       }
     }
 
     return result
-  }, [rawMenus, deliverySlots, effectiveDate, todayStr, tick])
+  }, [rawMenus, deliverySlots, effectiveDate, todayStr, tick, activeHoliday])
 
   const isLunchOpen = slots.lunch?.isOpen ?? false
   const isDinnerOpen = slots.dinner?.isOpen ?? false
+
+  const isFullDayHoliday = !!activeHoliday && activeHoliday.mealType === 'all'
+  const isBothCutoffPassed =
+    effectiveDate === todayStr &&
+    (slots.lunch?.isCutoffPassed ?? false) &&
+    (slots.dinner?.isCutoffPassed ?? false)
+
+  // Full day is ONLY closed if a full-day holiday is active, OR ordering hours for today have completely passed!
+  // Simply being unpublished means "Menu Coming Soon", NEVER "Closed for the day"!
+  const isFullDayClosed = isFullDayHoliday || isBothCutoffPassed
+  const isHolidayClosed = !!activeHoliday && (activeHoliday.mealType === 'all' || activeHoliday.mealType === activeSlot)
+
   const lunchMinutesRemaining = slots.lunch?.minutesRemaining ?? null
   const dinnerMinutesRemaining = slots.dinner?.minutesRemaining ?? null
 
@@ -240,9 +306,143 @@ export function useMealTiming(targetDate?: string): MealTimingState {
     slots,
     isLunchOpen,
     isDinnerOpen,
+    isFullDayClosed,
+    isHolidayClosed,
+    activeHoliday,
+    holidaySettings,
     lunchMinutesRemaining,
     dinnerMinutesRemaining,
     activeSlotInfo: slots[activeSlot],
     refetchTiming,
   }
+}
+
+export type ClosureNotice = {
+  type: 'holiday' | 'unpublished' | 'cutoff'
+  isClosed: boolean
+  scope: 'full_day' | 'lunch' | 'dinner' | 'slot'
+  title: string
+  message: string
+  holiday?: KitchenHoliday
+}
+
+/**
+ * Returns a user-friendly status notice based on the current timing and holiday state.
+ * Accurately differentiates between:
+ * 1. Holiday / Vacation Closures (e.g. Diwali multi-day 5-6 days or closed today)
+ * 2. Regular Cutoff Passed (order window closed for that meal)
+ * 3. Unpublished Menu ("Menu Coming Soon" - kitchen is preparing specials)
+ */
+export function getClosureNotice(timing: MealTimingState): ClosureNotice | null {
+  const activeSlot = timing.activeSlot
+  const activeInfo = timing.slots[activeSlot]
+  const isCutoffPassed = activeInfo?.isCutoffPassed ?? false
+  const isPublished = activeInfo?.isPublished ?? false
+  const formattedCutoff = activeInfo?.formattedCutoff || ''
+  const activeHoliday = timing.activeHoliday
+
+  // ── 1. ACTIVE HOLIDAY OR SCHEDULED CLOSURE ──
+  if (activeHoliday) {
+    const isSingleDay = activeHoliday.startDate === activeHoliday.endDate
+    const durationDays = dayjs(activeHoliday.endDate).diff(dayjs(activeHoliday.startDate), 'day') + 1
+
+    if (activeHoliday.mealType === 'all' || activeHoliday.mealType === activeSlot) {
+      const titleHasClosed = activeHoliday.title.toLowerCase().startsWith('closed')
+      const displayTitle = titleHasClosed ? activeHoliday.title : `Closed: ${activeHoliday.title}`
+
+      if (isSingleDay) {
+        return {
+          type: 'holiday',
+          isClosed: true,
+          scope: activeHoliday.mealType === 'all' ? 'full_day' : activeHoliday.mealType,
+          title: displayTitle,
+          message:
+            activeHoliday.message ||
+            (timing.isToday
+              ? (titleHasClosed
+                  ? `We are ${activeHoliday.title.toLowerCase()}. We can't serve meals today. Pre-orders are open for tomorrow.`
+                  : `We are closed today for ${activeHoliday.title}. We can't serve meals today. Pre-orders are open for tomorrow.`)
+              : `We are closed on ${dayjs(activeHoliday.startDate).format('D MMMM')} for ${activeHoliday.title}.`),
+          holiday: activeHoliday,
+        }
+      } else {
+        // Multi-day date range (e.g. Diwali 5 to 6 days break)
+        const resumeDate = dayjs(activeHoliday.endDate).add(1, 'day').format('D MMMM')
+        return {
+          type: 'holiday',
+          isClosed: true,
+          scope: activeHoliday.mealType === 'all' ? 'full_day' : activeHoliday.mealType,
+          title: titleHasClosed ? activeHoliday.title : `Closed for ${activeHoliday.title}`,
+          message:
+            activeHoliday.message ||
+            `We are closed for ${activeHoliday.title} from ${dayjs(activeHoliday.startDate).format('D MMM')} to ${dayjs(activeHoliday.endDate).format('D MMM YYYY')} (${durationDays} days). We can't serve meals during this period. Regular service resumes on ${resumeDate}.`,
+          holiday: activeHoliday,
+        }
+      }
+    }
+  }
+
+  // ── 2. BOTH CUTOFFS PASSED FOR TODAY (NORMAL OPERATING DAY, END OF HOURS) ──
+  const isBothCutoffPassed =
+    timing.isToday &&
+    (timing.slots.lunch?.isCutoffPassed ?? false) &&
+    (timing.slots.dinner?.isCutoffPassed ?? false)
+
+  if (isBothCutoffPassed) {
+    return {
+      type: 'cutoff',
+      isClosed: true,
+      scope: 'full_day',
+      title: 'Ordering Closed for Today',
+      message:
+        "Ordering hours for today have ended. Pre-orders are open for tomorrow's Lunch.",
+    }
+  }
+
+  // ── 3. SPECIFIC MEAL CUTOFF PASSED ──
+  if (timing.isToday && isCutoffPassed) {
+    if (activeSlot === 'lunch') {
+      return {
+        type: 'cutoff',
+        isClosed: true,
+        scope: 'lunch',
+        title: 'Lunch Service Closed',
+        message: `Ordering for Lunch is closed${formattedCutoff ? ` (Cutoff was ${formattedCutoff})` : ''}.${timing.isDinnerOpen ? " Tonight's Dinner is available." : ''}`,
+      }
+    }
+    if (activeSlot === 'dinner') {
+      return {
+        type: 'cutoff',
+        isClosed: true,
+        scope: 'dinner',
+        title: 'Dinner Service Closed',
+        message: `Ordering for Dinner is closed${formattedCutoff ? ` (Cutoff was ${formattedCutoff})` : ''}. Pre-orders are open for tomorrow.`,
+      }
+    }
+  }
+
+  // ── 4. UNPUBLISHED MENU (DEFAULT WHEN NOT A HOLIDAY AND NOT CUTOFF) ──
+  if (!isPublished) {
+    const mealLabel = activeSlot === 'lunch' ? 'Lunch' : 'Dinner'
+
+    if (timing.isTomorrow) {
+      return {
+        type: 'unpublished',
+        isClosed: false,
+        scope: 'slot',
+        title: 'Menu Coming Soon',
+        message: `Tomorrow's ${mealLabel} menu will be published soon. Our kitchen is preparing the specials — please check back shortly!`,
+      }
+    }
+
+    return {
+      type: 'unpublished',
+      isClosed: false,
+      scope: 'slot',
+      title: 'Menu Coming Soon',
+      message: `Today's ${mealLabel} menu is coming soon. Our kitchen is preparing today's specials — please check back shortly!`,
+    }
+  }
+
+  return null
 }

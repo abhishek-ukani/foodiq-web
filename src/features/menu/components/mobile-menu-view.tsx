@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, ArrowRight, UtensilsCrossed, Sun, Moon, Clock } from 'lucide-react'
+import { Search, ArrowRight, UtensilsCrossed, Sun, Moon, Clock, CalendarOff, Sparkles } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/common/empty-state'
@@ -8,8 +8,8 @@ import { CategoryShowcaseBar, getCategoryVisuals } from '@/features/menu/compone
 import { MobileMenuItemRow } from '@/features/menu/components/mobile-menu-item-row'
 import { useCartSummary } from '@/features/cart/hooks/use-cart'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
-import { isCutoffPassed, type MenuListing } from '@/features/menu/services/menu-service'
-import { formatCutoffDisplay, type MealTimingState } from '@/features/menu/hooks/use-meal-timing'
+import { type MenuListing } from '@/features/menu/services/menu-service'
+import { getClosureNotice, type MealTimingState } from '@/features/menu/hooks/use-meal-timing'
 import type { Tables } from '@/types/database.types'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +25,11 @@ type MobileMenuViewProps = {
 
 // ── Slot switcher (compact for mobile) ───────────────────────────────────────
 function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
+  const lunchSlot = timing.slots.lunch
+  const dinnerSlot = timing.slots.dinner
+  const isLunchOpen = lunchSlot?.isOpen ?? false
+  const isDinnerOpen = dinnerSlot?.isOpen ?? false
+
   return (
     <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
       {/* Day switcher */}
@@ -63,12 +68,21 @@ function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
           className={cn(
             'px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 transition-all min-h-[28px]',
             timing.activeSlot === 'lunch'
-              ? 'bg-white text-[#221b14] shadow-sm'
-              : 'text-[#6b5847] hover:text-[#221b14]',
+              ? isLunchOpen
+                ? 'bg-white text-[#221b14] shadow-sm'
+                : 'bg-neutral-600 text-white shadow-sm'
+              : !isLunchOpen
+                ? 'text-[#6b5847]/60 hover:text-[#221b14] opacity-60'
+                : 'text-[#6b5847] hover:text-[#221b14]',
           )}
         >
           <Sun className="size-3 text-amber-500" />
-          Lunch
+          <span>Lunch</span>
+          {!isLunchOpen && (
+            <span className="text-[9px] font-normal opacity-70">
+              ({lunchSlot?.isHolidayClosed ? 'Holiday' : lunchSlot?.isCutoffPassed ? 'Closed' : 'Coming Soon'})
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -76,12 +90,21 @@ function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
           className={cn(
             'px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 transition-all min-h-[28px]',
             timing.activeSlot === 'dinner'
-              ? 'bg-white text-[#221b14] shadow-sm'
-              : 'text-[#6b5847] hover:text-[#221b14]',
+              ? isDinnerOpen
+                ? 'bg-white text-[#221b14] shadow-sm'
+                : 'bg-neutral-600 text-white shadow-sm'
+              : !isDinnerOpen
+                ? 'text-[#6b5847]/60 hover:text-[#221b14] opacity-60'
+                : 'text-[#6b5847] hover:text-[#221b14]',
           )}
         >
           <Moon className="size-3 text-indigo-400" />
-          Dinner
+          <span>Dinner</span>
+          {!isDinnerOpen && (
+            <span className="text-[9px] font-normal opacity-70">
+              ({dinnerSlot?.isHolidayClosed ? 'Holiday' : dinnerSlot?.isCutoffPassed ? 'Closed' : 'Coming Soon'})
+            </span>
+          )}
         </button>
       </div>
     </div>
@@ -329,15 +352,6 @@ export function MobileMenuView({
           /* ── DYNAMIC SECTIONS FEED ── */
           <div className="space-y-8 pt-2">
             {groupedSections.map((sec) => {
-              const firstThali = sec.items.find((i) => i.food_items?.kind === 'thali') || sec.items[0]
-              const isItemsCutoffPassed = firstThali
-                ? isCutoffPassed(firstThali)
-                : (timing.activeSlotInfo?.isCutoffPassed ?? false)
-              const cutoffTimeStr =
-                firstThali?.cutoff_time || firstThali?.daily_menus?.cutoff_time || timing.activeSlotInfo?.cutoffTime
-              const formattedCutoff =
-                formatCutoffDisplay(cutoffTimeStr) || timing.activeSlotInfo?.formattedCutoff || ''
-
               return (
                 <div key={sec.key}>
                   {/* Section header */}
@@ -359,59 +373,66 @@ export function MobileMenuView({
                     </div>
                   </div>
 
-                  {/* Cutoff or pre-order status notice for thali section */}
-                  {sec.isThali && (
-                    <>
-                      {isItemsCutoffPassed ? (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200/80 rounded-xl mb-3 text-[11px] text-amber-900 font-medium">
+                  {/* Notice banner for thali section */}
+                  {sec.isThali && (() => {
+                    const notice = getClosureNotice(timing)
+                    if (!notice) return null
+                    const isHoliday = notice.type === 'holiday'
+                    const isCutoff = notice.type === 'cutoff'
+
+                    return (
+                      <div
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2 rounded-xl mb-3 text-[11px] font-medium',
+                          isHoliday
+                            ? 'bg-red-50 border border-red-200 text-red-950 shadow-xs'
+                            : isCutoff
+                            ? 'bg-amber-50 border border-amber-200 text-amber-900'
+                            : 'bg-emerald-50/80 border border-emerald-200/80 text-emerald-950'
+                        )}
+                      >
+                        {isHoliday ? (
+                          <CalendarOff className="size-3.5 text-red-600 shrink-0" />
+                        ) : isCutoff ? (
                           <Clock className="size-3.5 text-amber-600 shrink-0" />
-                          <span>
-                            Ordering for {timing.isToday ? "today's" : ''}{' '}
-                            {timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} is closed
-                            {formattedCutoff ? ` (Cutoff: ${formattedCutoff})` : ''}.
-                          </span>
-                        </div>
-                      ) : !timing.slots[timing.activeSlot]?.isPublished ? (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50/80 border border-amber-200/80 rounded-xl mb-3 text-[11px] text-amber-900 font-medium">
-                          <Clock className="size-3.5 text-amber-600 shrink-0" />
-                          <span>
-                            {timing.isTomorrow
-                              ? `Pre-orders open for Tomorrow's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}. Daily specials announced soon.`
-                              : `Today's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} specials announced soon. Fixed thalis available.`}
-                          </span>
-                        </div>
-                      ) : null}
-                    </>
-                  )}
+                        ) : (
+                          <Sparkles className="size-3.5 text-emerald-600 shrink-0" />
+                        )}
+                        <span>{notice.message}</span>
+                      </div>
+                    )
+                  })()}
 
                   {/* Items or empty state */}
                   {sec.items.length === 0 ? (
                     sec.isThali ? (
-                      isItemsCutoffPassed ? (
-                        <div className="py-8 px-4 text-center bg-white rounded-2xl border border-dashed border-[#ede4d3] my-2">
-                          <div className="size-10 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-2 text-base">
-                            🔒
-                          </div>
-                          <h3 className="text-sm font-bold text-neutral-800">
-                            Ordering closed for {timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}
-                          </h3>
-                          <p className="text-[11px] text-neutral-500 max-w-xs mx-auto mt-1 leading-relaxed">
-                            The cutoff {formattedCutoff ? `(${formattedCutoff})` : ''} for{' '}
-                            {timing.isToday ? "today's" : ''} {timing.activeSlot} has passed.
-                          </p>
+                      <div className="py-8 px-4 text-center bg-amber-50/40 rounded-2xl border border-dashed border-amber-200 my-2">
+                        <div className="size-10 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-2 text-xl">
+                          {timing.activeHoliday ? '🗓️' : timing.slots[timing.activeSlot]?.isCutoffPassed ? '🔒' : '🍱'}
                         </div>
-                      ) : (
-                        <div className="py-8 px-4 text-center bg-amber-50/40 rounded-2xl border border-dashed border-amber-200 my-2">
-                          <div className="size-10 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-2 text-xl">
-                            🍱
-                          </div>
-                          <h3 className="text-sm font-bold text-[#221b14]">Menu coming soon</h3>
-                          <p className="text-[11px] text-neutral-500 max-w-xs mx-auto mt-1 leading-relaxed">
-                            {timing.isTomorrow ? "Tomorrow's" : "Today's"}{' '}
-                            {timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} menu hasn't been published yet.
-                          </p>
-                        </div>
-                      )
+                        <h3 className="text-sm font-bold text-[#221b14]">
+                          {timing.activeHoliday
+                            ? `Closed for ${timing.activeHoliday.title}`
+                            : timing.slots[timing.activeSlot]?.isCutoffPassed
+                            ? `Ordering closed for ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}`
+                            : `${timing.isTomorrow ? "Tomorrow's" : "Today's"} ${
+                                timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'
+                              } menu coming soon`}
+                        </h3>
+                        <p className="text-[11px] text-neutral-500 max-w-xs mx-auto mt-1 leading-relaxed">
+                          {timing.activeHoliday
+                            ? (timing.activeHoliday.message || 'We are closed during this period. Regular orders resume after the holiday.')
+                            : timing.slots[timing.activeSlot]?.isCutoffPassed
+                            ? timing.activeSlot === 'lunch'
+                              ? timing.isDinnerOpen
+                                ? "Ordering for Lunch is closed. Tonight's Dinner is available."
+                                : "Ordering for Lunch is closed. Pre-orders are open for tomorrow."
+                              : "Ordering for Dinner is closed. Pre-orders are open for tomorrow."
+                            : `Our kitchen is preparing the menu specials for ${
+                                timing.isTomorrow ? 'tomorrow' : 'today'
+                              }. Please check back shortly.`}
+                        </p>
+                      </div>
                     ) : (
                       <div className="py-5 text-center bg-white rounded-xl border border-dashed border-[#ede4d3]">
                         <p className="text-xs text-neutral-500 font-medium">No dishes available in this section.</p>
@@ -420,7 +441,16 @@ export function MobileMenuView({
                   ) : (
                     <div>
                       {sec.items.map((item) => (
-                        <MobileMenuItemRow key={item.id} listing={item} onCustomize={onCustomize} />
+                        <MobileMenuItemRow
+                          key={item.id}
+                          listing={item}
+                          onCustomize={onCustomize}
+                          isHolidayClosed={
+                            item.daily_menus?.meal_type
+                              ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
+                              : timing.isHolidayClosed
+                          }
+                        />
                       ))}
                     </div>
                   )}
@@ -454,54 +484,54 @@ export function MobileMenuView({
               </div>
             </div>
 
-            {/* Cutoff banner for single-category thali */}
+            {/* Cutoff / Closure / Coming Soon banner for single-category thali */}
             {(() => {
               const isSingleThali =
                 !searchQuery &&
                 (selectedCategoryObj?.category_type === 'thali' ||
                   selectedCategoryObj?.slug?.includes('thali'))
-              const firstThali = filteredList.find((i) => i.food_items?.kind === 'thali') || filteredList[0]
-              const isSingleCutoffPassed = firstThali
-                ? isCutoffPassed(firstThali)
-                : (timing.activeSlotInfo?.isCutoffPassed ?? false)
-              const cutoffTimeStr =
-                firstThali?.cutoff_time ||
-                firstThali?.daily_menus?.cutoff_time ||
-                timing.activeSlotInfo?.cutoffTime
-              const formattedCutoff =
-                formatCutoffDisplay(cutoffTimeStr) || timing.activeSlotInfo?.formattedCutoff || ''
 
-              if (!isSingleThali || filteredList.length === 0) return null
-              if (isSingleCutoffPassed) {
-                return (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200/80 rounded-xl mb-3 text-[11px] text-amber-900 font-medium">
+              if (!isSingleThali) return null
+              const notice = getClosureNotice(timing)
+              if (!notice) return null
+              const isHoliday = notice.type === 'holiday'
+              const isCutoff = notice.type === 'cutoff'
+
+              return (
+                <div
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-2 rounded-xl mb-3 text-[11px] font-medium',
+                    isHoliday
+                      ? 'bg-red-50 border border-red-200 text-red-950 shadow-xs'
+                      : isCutoff
+                      ? 'bg-amber-50 border border-amber-200 text-amber-900'
+                      : 'bg-emerald-50/80 border border-emerald-200/80 text-emerald-950'
+                  )}
+                >
+                  {isHoliday ? (
+                    <CalendarOff className="size-3.5 text-red-600 shrink-0" />
+                  ) : isCutoff ? (
                     <Clock className="size-3.5 text-amber-600 shrink-0" />
-                    <span>
-                      Ordering for {timing.isToday ? "today's" : ''}{' '}
-                      {timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} is closed
-                      {formattedCutoff ? ` (Cutoff: ${formattedCutoff})` : ''}.
-                    </span>
-                  </div>
-                )
-              }
-              if (!timing.slots[timing.activeSlot]?.isPublished) {
-                return (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50/80 border border-amber-200/80 rounded-xl mb-3 text-[11px] text-amber-900 font-medium">
-                    <Clock className="size-3.5 text-amber-600 shrink-0" />
-                    <span>
-                      {timing.isTomorrow
-                        ? `Pre-orders open for Tomorrow's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}. Daily specials announced soon.`
-                        : `Today's ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'} specials announced soon.`}
-                    </span>
-                  </div>
-                )
-              }
-              return null
+                  ) : (
+                    <Sparkles className="size-3.5 text-emerald-600 shrink-0" />
+                  )}
+                  <span>{notice.message}</span>
+                </div>
+              )
             })()}
 
             <div>
               {filteredList.map((item) => (
-                <MobileMenuItemRow key={item.id} listing={item} onCustomize={onCustomize} />
+                <MobileMenuItemRow
+                  key={item.id}
+                  listing={item}
+                  onCustomize={onCustomize}
+                  isHolidayClosed={
+                    item.daily_menus?.meal_type
+                      ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
+                      : timing.isHolidayClosed
+                  }
+                />
               ))}
             </div>
           </div>

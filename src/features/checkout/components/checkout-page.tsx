@@ -325,7 +325,13 @@ export function CheckoutPage() {
             <Alert variant="destructive">
               <AlertTriangle className="size-4" />
               <AlertDescription>
-                Ordering for today's {mealType} is closed.
+                {timing.slots[mealType]?.isHolidayClosed
+                  ? (timing.activeHoliday?.message || `We are closed for ${timing.activeHoliday?.title || 'Holiday'}. We can't serve meals during this period.`)
+                  : timing.isToday && !timing.slots[mealType]?.isPublished && !timing.slots[mealType]?.isCutoffPassed
+                  ? `Today's ${mealType.charAt(0).toUpperCase() + mealType.slice(1)} menu has not been published yet. Orders are currently disabled.`
+                  : mealType === 'lunch'
+                  ? "Ordering for Lunch is closed."
+                  : "Ordering for Dinner is closed."}
               </AlertDescription>
             </Alert>
           )}

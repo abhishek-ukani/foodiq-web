@@ -67,12 +67,18 @@ export function useCartSummary(preferredMealType?: MealType) {
         return null
       }
 
+      if (timing.activeHoliday) {
+        if (timing.activeHoliday.mealType === 'all' || timing.activeHoliday.mealType === activeSlot) {
+          return `Closed for ${timing.activeHoliday.title}`
+        }
+      }
+
       if (isMenuPending) {
         return null
       }
 
       if (!menuListings || menuListings.length === 0) {
-        return "Today's menu not published"
+        return "Today's menu coming soon"
       }
 
       const matchingListings = menuListings.filter((l) => l.food_item_id === item.food_item_id)
@@ -83,6 +89,9 @@ export function useCartSummary(preferredMealType?: MealType) {
       // Priority 1: Match listing for the active or preferred meal slot (e.g. Dinner)
       const slotListing = matchingListings.find((l) => l.daily_menus?.meal_type === activeSlot)
       if (slotListing) {
+        if (slotListing.daily_menus?.is_published === false) {
+          return "Today's menu coming soon"
+        }
         if (isSoldOut(slotListing)) {
           return 'Sold Out'
         }
@@ -93,7 +102,9 @@ export function useCartSummary(preferredMealType?: MealType) {
       }
 
       // Priority 2: Check if any matching listing for today is currently open and in stock
-      const openListing = matchingListings.find((l) => !isCutoffPassed(l) && !isSoldOut(l))
+      const openListing = matchingListings.find(
+        (l) => l.daily_menus?.is_published !== false && !isCutoffPassed(l) && !isSoldOut(l),
+      )
       if (openListing) {
         return null
       }
@@ -131,7 +142,7 @@ export function useCartSummary(preferredMealType?: MealType) {
       unavailableItemsMap,
       isPending: isCartPending || isMenuPending,
     }
-  }, [items, menuListings, isCartPending, isMenuPending, activeSlot])
+  }, [items, menuListings, isCartPending, isMenuPending, activeSlot, timing.activeHoliday])
 }
 
 export function useAddToCart() {

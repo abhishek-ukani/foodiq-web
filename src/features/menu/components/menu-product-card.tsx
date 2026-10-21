@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 type MenuProductCardProps = {
   listing: MenuListing
   onCustomize?: (listing: MenuListing) => void
+  isHolidayClosed?: boolean
 }
 
 /**
@@ -34,7 +35,7 @@ function VegIndicator({ className }: { className?: string }) {
   )
 }
 
-export function MenuProductCard({ listing, onCustomize }: MenuProductCardProps) {
+export function MenuProductCard({ listing, onCustomize, isHolidayClosed }: MenuProductCardProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const { isAuthenticated } = useAuth()
@@ -57,8 +58,10 @@ export function MenuProductCard({ listing, onCustomize }: MenuProductCardProps) 
 
   const soldOut = isSoldOut(listing)
   const cutoffPassed = isCutoffPassed(listing)
+  const isPublished = listing.daily_menus?.is_published !== false
   const isDisabled = listing.is_available === false || item.is_available === false
-  const isUnavailable = soldOut || cutoffPassed || isDisabled
+  const isHoliday = isHolidayClosed || false
+  const isUnavailable = soldOut || cutoffPassed || isDisabled || !isPublished || isHoliday
 
   const cartLine = cartItems?.find(
     (ci) =>
@@ -166,7 +169,15 @@ export function MenuProductCard({ listing, onCustomize }: MenuProductCardProps) 
         {isUnavailable && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-[1px]">
             <span className="text-[11px] font-bold text-neutral-600 bg-white/95 px-3 py-1 rounded-full border border-[#E9E5DA] shadow-xs uppercase tracking-wide">
-              {soldOut ? 'Sold Out' : isDisabled ? 'Unavailable' : 'Closed'}
+              {soldOut
+                ? 'Sold Out'
+                : isDisabled
+                ? 'Unavailable'
+                : isHoliday
+                ? 'Closed for Holiday'
+                : !isPublished
+                ? 'Coming Soon'
+                : 'Closed'}
             </span>
           </div>
         )}
@@ -247,10 +258,10 @@ export function MenuProductCard({ listing, onCustomize }: MenuProductCardProps) 
                 disabled={isBusy || isUnavailable}
                 onClick={handleAdd}
                 className={cn(
-                  'flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 shadow-xs cursor-pointer',
+                  'flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 shadow-xs',
                   isUnavailable
-                    ? 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
-                    : 'bg-[#087443] hover:bg-[#065b34] text-white active:scale-95',
+                    ? 'bg-neutral-200 text-neutral-500 cursor-not-allowed shadow-none'
+                    : 'bg-[#087443] hover:bg-[#065b34] text-white active:scale-95 cursor-pointer',
                 )}
               >
                 <Plus className="size-3.5 stroke-[2.5]" />

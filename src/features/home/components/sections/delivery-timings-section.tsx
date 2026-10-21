@@ -23,12 +23,33 @@ export function DeliveryTimingsSection() {
   const lunchCutoff = timing.slots.lunch?.formattedCutoff || '11:30 AM'
   const dinnerCutoff = timing.slots.dinner?.formattedCutoff || '8:00 PM'
 
-  // Calculate live kitchen status based on real database cutoffs
-  const currentSlotState = useMemo<'lunch' | 'dinner' | 'tomorrow'>(() => {
-    if (timing.isLunchOpen) return 'lunch'
-    if (timing.isDinnerOpen) return 'dinner'
+  const isLunchOpen = timing.slots.lunch?.isOpen ?? false
+  const isDinnerOpen = timing.slots.dinner?.isOpen ?? false
+  const isLunchCutoff = timing.slots.lunch?.isCutoffPassed ?? false
+  const isDinnerCutoff = timing.slots.dinner?.isCutoffPassed ?? false
+  const isLunchPublished = timing.slots.lunch?.isPublished ?? false
+  const isDinnerPublished = timing.slots.dinner?.isPublished ?? false
+
+  // Calculate live kitchen status based on real database cutoffs, publishing, and holidays
+  const currentSlotState = useMemo<
+    | 'holiday'
+    | 'full_day_closed'
+    | 'lunch'
+    | 'lunch_unpublished'
+    | 'dinner'
+    | 'dinner_unpublished'
+    | 'tomorrow'
+  >(() => {
+    if (timing.activeHoliday && (timing.activeHoliday.mealType === 'all' || timing.activeHoliday.mealType === 'lunch')) {
+      return 'holiday'
+    }
+    if (timing.isFullDayClosed) return 'full_day_closed'
+    if (isLunchOpen) return 'lunch'
+    if (!isLunchCutoff && !isLunchPublished) return 'lunch_unpublished'
+    if (isDinnerOpen) return 'dinner'
+    if (!isDinnerCutoff && !isDinnerPublished) return 'dinner_unpublished'
     return 'tomorrow'
-  }, [timing.isLunchOpen, timing.isDinnerOpen])
+  }, [timing.activeHoliday, timing.isFullDayClosed, isLunchOpen, isDinnerOpen, isLunchCutoff, isLunchPublished, isDinnerCutoff, isDinnerPublished])
 
   return (
     <section id="delivery-timings" className="relative overflow-hidden bg-[#FAF6EE] py-16 sm:py-20 lg:py-24 border-t border-[#EDE4D3]">
@@ -71,15 +92,43 @@ export function DeliveryTimingsSection() {
 
         {/* ── LIVE KITCHEN STATUS PILL ── */}
         <div className="mt-8 flex justify-center">
-          <div className="inline-flex items-center gap-2.5 rounded-full border border-emerald-600/30 bg-emerald-50 px-4 py-1.5 text-xs font-semibold text-emerald-950 shadow-xs">
-            <span className="relative flex size-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full size-2 bg-emerald-600" />
+          <div
+            className={cn(
+              'inline-flex items-center gap-2.5 rounded-full border px-4 py-1.5 text-xs font-semibold shadow-xs text-center max-w-full',
+              currentSlotState === 'full_day_closed'
+                ? 'border-red-600/30 bg-red-50 text-red-950'
+                : currentSlotState === 'lunch_unpublished' || currentSlotState === 'dinner_unpublished'
+                ? 'border-amber-600/30 bg-amber-50 text-amber-950'
+                : 'border-emerald-600/30 bg-emerald-50 text-emerald-950'
+            )}
+          >
+            <span className="relative flex size-2 shrink-0">
+              {currentSlotState === 'lunch' || currentSlotState === 'dinner' ? (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full size-2 bg-emerald-600" />
+                </>
+              ) : currentSlotState === 'full_day_closed' ? (
+                <span className="relative inline-flex rounded-full size-2 bg-red-600" />
+              ) : (
+                <span className="relative inline-flex rounded-full size-2 bg-amber-600" />
+              )}
             </span>
             <span>
-              {currentSlotState === 'lunch' && `Kitchen is accepting orders for Today’s Lunch (Cutoff ${lunchCutoff})`}
-              {currentSlotState === 'dinner' && `Kitchen is accepting orders for Tonight’s Dinner (Cutoff ${dinnerCutoff})`}
-              {currentSlotState === 'tomorrow' && 'Evening orders closed • Accepting Pre-orders for Tomorrow’s Lunch'}
+              {currentSlotState === 'holiday' &&
+                `Closed for ${timing.activeHoliday?.title} • ${timing.activeHoliday?.message || 'We can’t serve meals during this holiday'}`}
+              {currentSlotState === 'full_day_closed' &&
+                'Ordering for today has ended • Accepting Pre-orders for Tomorrow’s Lunch'}
+              {currentSlotState === 'lunch' &&
+                `Kitchen is accepting orders for Today’s Lunch (Cutoff ${lunchCutoff})`}
+              {currentSlotState === 'lunch_unpublished' &&
+                `Today’s Lunch menu is coming soon • Orders will open shortly`}
+              {currentSlotState === 'dinner' &&
+                `Kitchen is accepting orders for Tonight’s Dinner (Cutoff ${dinnerCutoff})`}
+              {currentSlotState === 'dinner_unpublished' &&
+                `Tonight’s Dinner menu is coming soon • Orders will open shortly`}
+              {currentSlotState === 'tomorrow' &&
+                'Ordering for today has ended • Accepting Pre-orders for Tomorrow’s Lunch'}
             </span>
           </div>
         </div>
@@ -151,16 +200,34 @@ export function DeliveryTimingsSection() {
 
             {/* Action Button */}
             <div className="mt-6 pt-4 border-t border-[#EDE4D3]">
-              <Button
-                size="lg"
-                className="w-full h-11 rounded-full bg-primary text-white hover:bg-primary/90 text-sm font-semibold shadow-xs pill-tap"
-                asChild
-              >
-                <Link to={`${ROUTES.menu}?meal=lunch&category=thalis`} className="flex items-center justify-center gap-2">
-                  <span>Order Lunch Thali</span>
-                  <ArrowRight className="size-4" />
-                </Link>
-              </Button>
+              {isLunchOpen ? (
+                <Button
+                  size="lg"
+                  className="w-full h-11 rounded-full bg-primary text-white hover:bg-primary/90 text-sm font-semibold shadow-xs pill-tap cursor-pointer"
+                  asChild
+                >
+                  <Link to={`${ROUTES.menu}?meal=lunch&category=thalis`} className="flex items-center justify-center gap-2">
+                    <span>Order Lunch Thali</span>
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  disabled
+                  className="w-full h-11 rounded-full bg-neutral-200 text-neutral-500 text-sm font-semibold shadow-none cursor-not-allowed"
+                >
+                  <span>
+                    {timing.slots.lunch?.isHolidayClosed
+                      ? `Closed for ${timing.activeHoliday?.title || 'Holiday'}`
+                      : isLunchCutoff
+                      ? 'Lunch Ordering Closed'
+                      : !isLunchPublished
+                      ? 'Lunch Menu Coming Soon'
+                      : 'Lunch Ordering Closed'}
+                  </span>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -228,16 +295,34 @@ export function DeliveryTimingsSection() {
 
             {/* Action Button */}
             <div className="mt-6 pt-4 border-t border-[#EDE4D3]">
-              <Button
-                size="lg"
-                className="w-full h-11 rounded-full bg-[#185834] text-white hover:bg-[#185834]/90 text-sm font-semibold shadow-xs pill-tap"
-                asChild
-              >
-                <Link to={`${ROUTES.menu}?meal=dinner&category=thalis`} className="flex items-center justify-center gap-2">
-                  <span>Order Dinner Thali</span>
-                  <ArrowRight className="size-4" />
-                </Link>
-              </Button>
+              {isDinnerOpen ? (
+                <Button
+                  size="lg"
+                  className="w-full h-11 rounded-full bg-[#185834] text-white hover:bg-[#185834]/90 text-sm font-semibold shadow-xs pill-tap cursor-pointer"
+                  asChild
+                >
+                  <Link to={`${ROUTES.menu}?meal=dinner&category=thalis`} className="flex items-center justify-center gap-2">
+                    <span>Order Dinner Thali</span>
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  disabled
+                  className="w-full h-11 rounded-full bg-neutral-200 text-neutral-500 text-sm font-semibold shadow-none cursor-not-allowed"
+                >
+                  <span>
+                    {timing.slots.dinner?.isHolidayClosed
+                      ? `Closed for ${timing.activeHoliday?.title || 'Holiday'}`
+                      : isDinnerCutoff
+                      ? 'Dinner Ordering Closed'
+                      : !isDinnerPublished
+                      ? 'Dinner Menu Coming Soon'
+                      : 'Dinner Ordering Closed'}
+                  </span>
+                </Button>
+              )}
             </div>
           </div>
 

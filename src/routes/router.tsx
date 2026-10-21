@@ -1,11 +1,13 @@
 import { lazy, Suspense, type ReactNode } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom'
 import { PageLoader } from '@/components/common/page-loader'
 import { ProtectedRoute } from '@/components/common/protected-route'
 import { GuestRoute } from '@/components/common/guest-route'
 import { NotFoundPage } from '@/components/common/not-found-page'
 import { MainLayout } from '@/layouts/main-layout'
 import { ROUTES } from '@/constants'
+import { MenuPageSkeleton } from '@/features/menu/components/menu-page-skeleton'
+import { HomePageSkeleton } from '@/features/home/components/home-page-skeleton'
 
 const HomePage = lazy(() =>
   import('@/features/home/components/home-page').then((m) => ({ default: m.HomePage })),
@@ -37,11 +39,11 @@ const AccountPage = lazy(() =>
 const MenuPage = lazy(() =>
   import('@/features/menu/components/menu-page').then((m) => ({ default: m.MenuPage })),
 )
-const ProductDetailPage = lazy(() =>
-  import('@/features/menu/components/product-detail-page').then((m) => ({
-    default: m.ProductDetailPage,
-  })),
-)
+
+function MenuItemRedirect() {
+  const { slug } = useParams()
+  return <Navigate to={`/menu?item=${slug || ''}`} replace />
+}
 const CartPage = lazy(() =>
   import('@/features/cart/components/cart-page').then((m) => ({ default: m.CartPage })),
 )
@@ -96,9 +98,23 @@ export const router = createBrowserRouter([
   {
     element: <MainLayout />,
     children: [
-      { path: ROUTES.home, element: withSuspense(<HomePage />) },
-      { path: ROUTES.menu, element: withSuspense(<MenuPage />) },
-      { path: ROUTES.menuItem(':slug'), element: withSuspense(<ProductDetailPage />) },
+      {
+        path: ROUTES.home,
+        element: (
+          <Suspense fallback={<HomePageSkeleton />}>
+            <HomePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: ROUTES.menu,
+        element: (
+          <Suspense fallback={<MenuPageSkeleton />}>
+            <MenuPage />
+          </Suspense>
+        ),
+      },
+      { path: ROUTES.menuItem(':slug'), element: <MenuItemRedirect /> },
       {
         path: ROUTES.cart,
         element: withSuspense(

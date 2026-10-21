@@ -1,11 +1,31 @@
 import { useQuery } from '@tanstack/react-query'
 import { QUERY_KEYS } from '@/constants'
-import { fetchFoodItemBySlug, fetchMenuForDate } from '@/features/menu/services/menu-service'
+import {
+  fetchFoodItemBySlug,
+  fetchMenuForDate,
+  fetchActiveCategories,
+  fetchDailyMenuSlots,
+} from '@/features/menu/services/menu-service'
+import type { MealType } from '@/types/database.types'
 
-export function useMenuForDate(date: string) {
+export function useMenuForDate(date: string, mealType?: MealType) {
   return useQuery({
-    queryKey: QUERY_KEYS.dailyMenu(date),
-    queryFn: () => fetchMenuForDate(date),
+    queryKey: QUERY_KEYS.dailyMenu(date, mealType),
+    queryFn: () => fetchMenuForDate(date, mealType),
+  })
+}
+
+export function useActiveCategories() {
+  return useQuery({
+    queryKey: QUERY_KEYS.categories,
+    queryFn: () => fetchActiveCategories(),
+  })
+}
+
+export function useDailyMenuSlots(date: string) {
+  return useQuery({
+    queryKey: ['daily-menu-slots', date],
+    queryFn: () => fetchDailyMenuSlots(date),
   })
 }
 

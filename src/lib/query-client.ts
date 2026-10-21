@@ -16,10 +16,11 @@ function isRetryableError(error: unknown): boolean {
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60_000,
+      staleTime: 30_000,
       gcTime: 5 * 60_000,
       retry: (failureCount, error) => isRetryableError(error) && failureCount < 2,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
     },
     mutations: {
       retry: 0,

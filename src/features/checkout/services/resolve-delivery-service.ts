@@ -21,12 +21,12 @@ export interface DeliveryResult {
 
 /** Error returned by the Edge Function when geocoding fails (HTTP 502). */
 export class DeliveryResolveError extends Error {
-  constructor(
-    message: string,
-    public readonly code?: string,
-  ) {
+  readonly code?: string
+
+  constructor(message: string, code?: string) {
     super(message)
     this.name = 'DeliveryResolveError'
+    this.code = code
   }
 }
 
@@ -92,7 +92,7 @@ export async function resolveDelivery(input: DeliveryRequest): Promise<DeliveryR
       .maybeSingle()
 
     if (area) {
-      const charge = Number(area.delivery_charge ?? 0)
+      const charge = Number((area as any).delivery_charge ?? 0)
       return {
         deliverable: true,
         fee: charge,
@@ -101,28 +101,10 @@ export async function resolveDelivery(input: DeliveryRequest): Promise<DeliveryR
     }
   }
 
-  // 3. Fallback to default distance fee rule or first active rule
-  const { data: defaultRule } = await supabase
-    .from('delivery_fee_rules')
-    .select('*')
-    .eq('is_active', true)
-    .order('min_distance_km', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  if (defaultRule) {
-    const fee = Number(defaultRule.fee)
-    return {
-      deliverable: true,
-      fee: fee,
-      zone_type: fee === 0 ? 'FREE' : 'PAID',
-    }
-  }
-
-  // Default fallback if no rules exist
+  // 3. If no delivery zone or area matches, address is outside service area
   return {
-    deliverable: true,
-    fee: 25,
-    zone_type: 'PAID',
+    deliverable: false,
+    fee: 0,
+    zone_type: 'OUT_OF_RANGE',
   }
 }

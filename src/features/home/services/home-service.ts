@@ -23,9 +23,13 @@ export async function fetchTestimonials(): Promise<Tables<'testimonials'>[]> {
 }
 
 export async function fetchCategories(): Promise<Tables<'categories'>[]> {
-  const { data, error } = await supabase.from('categories').select('*').order('display_order')
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('is_active', true)
+    .order('display_order')
   if (error) throw error
-  return data
+  return data || []
 }
 
 export type SpecialMenuItem = Tables<'daily_menu_items'> & {
@@ -44,7 +48,9 @@ export async function fetchTodaysSpecial(): Promise<SpecialMenuItem[]> {
     .eq('is_available', true)
     .order('display_order')
   if (error) throw error
-  return data as unknown as SpecialMenuItem[]
+  return ((data as unknown as SpecialMenuItem[]) || []).filter(
+    (item) => item.food_items?.is_available !== false,
+  )
 }
 
 export async function fetchAllActiveItems(): Promise<Tables<'food_items'>[]> {
@@ -64,16 +70,6 @@ export async function fetchPopularItems(limit = 6): Promise<Tables<'food_items'>
     .eq('is_available', true)
     .order('total_sold', { ascending: false })
     .limit(limit)
-  if (error) throw error
-  return data
-}
-
-export async function fetchDeliveryAreas(): Promise<Tables<'delivery_areas'>[]> {
-  const { data, error } = await supabase
-    .from('delivery_areas')
-    .select('*')
-    .eq('is_active', true)
-    .order('name')
   if (error) throw error
   return data
 }

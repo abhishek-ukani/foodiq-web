@@ -43,6 +43,7 @@ export async function submitReview(input: {
     rating: input.rating,
     title: input.title ?? null,
     comment: input.comment ?? null,
+    helpful_count: 0,
   })
   if (error) throw error
 }

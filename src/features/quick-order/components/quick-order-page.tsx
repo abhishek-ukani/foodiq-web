@@ -409,12 +409,12 @@ export function QuickOrderPage() {
   const customerFirstName = profile?.full_name?.split(' ')[0] || 'Subscriber'
 
   return (
-    <div className="min-h-screen bg-neutral-50/60 dark:bg-background pb-32">
+    <div className="min-h-screen bg-neutral-50/60 pb-32">
       {/* ── Mobile Top Sticky Header ──────────────────────────── */}
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/70 px-4 py-3">
         <div className="mx-auto max-w-lg flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+            <div className="size-8 rounded-lg bg-amber-500/15 text-amber-600 flex items-center justify-center font-bold">
               <Zap className="size-4 fill-amber-500 text-amber-500" />
             </div>
             <div>
@@ -433,14 +433,14 @@ export function QuickOrderPage() {
           </div>
 
           {/* Slot Toggle: Lunch / Dinner */}
-          <div className="flex items-center p-0.5 bg-neutral-200/60 dark:bg-neutral-800/80 rounded-full text-xs">
+          <div className="flex items-center p-0.5 bg-neutral-200/60 rounded-full text-xs">
             <button
               type="button"
               onClick={() => setSelectedSlot('lunch')}
               className={cn(
                 'px-2.5 py-1 rounded-full font-semibold transition-all flex items-center gap-1 min-h-[30px]',
                 selectedSlot === 'lunch'
-                  ? 'bg-white dark:bg-neutral-900 text-foreground shadow-xs'
+                  ? 'bg-white text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -453,7 +453,7 @@ export function QuickOrderPage() {
               className={cn(
                 'px-2.5 py-1 rounded-full font-semibold transition-all flex items-center gap-1 min-h-[30px]',
                 selectedSlot === 'dinner'
-                  ? 'bg-white dark:bg-neutral-900 text-foreground shadow-xs'
+                  ? 'bg-white text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -476,9 +476,9 @@ export function QuickOrderPage() {
             </AlertDescription>
           </Alert>
         ) : activeSlotInfo?.formattedCutoff ? (
-          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-xs">
+          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-900 text-xs">
             <div className="flex items-center gap-1.5 font-medium">
-              <Clock className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <Clock className="size-3.5 text-amber-600 shrink-0" />
               <span>
                 {selectedSlot === 'lunch' ? 'Lunch' : 'Dinner'} cutoff: {activeSlotInfo.formattedCutoff}
               </span>
@@ -506,7 +506,7 @@ export function QuickOrderPage() {
                         {currentThali?.name || 'Gujarati Thali'}
                       </h2>
                       {isFavoriteThali ? (
-                        <Badge variant="secondary" className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20 px-1.5 py-0 font-medium">
+                        <Badge variant="secondary" className="text-[10px] bg-amber-500/15 text-amber-700 border-amber-500/20 px-1.5 py-0 font-medium">
                           <Sparkles className="size-2.5 mr-0.5 inline" />
                           Your Favorite ({context.orderCounts[currentThali.id]} orders)
                         </Badge>
@@ -551,7 +551,7 @@ export function QuickOrderPage() {
               variant={isSabjiValid ? 'default' : 'outline'}
               className={cn(
                 'text-[11px] font-semibold transition-colors',
-                isSabjiValid ? 'bg-emerald-600 text-white' : 'text-amber-600 border-amber-300 dark:border-amber-700',
+                isSabjiValid ? 'bg-emerald-600 text-white' : 'text-amber-600 border-amber-300',
               )}
             >
               {isSabjiValid ? (
@@ -580,10 +580,10 @@ export function QuickOrderPage() {
                     className={cn(
                       'w-full text-left p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 min-h-[58px]',
                       !isAvailable
-                        ? 'opacity-40 bg-neutral-100/50 dark:bg-neutral-900/30 border-dashed border-border cursor-not-allowed'
+                        ? 'opacity-40 bg-neutral-100/50 border-dashed border-border cursor-not-allowed'
                         : isSelected
-                          ? 'border-emerald-600 dark:border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/20 ring-1 ring-emerald-600 shadow-xs'
-                          : 'border-border/80 bg-card hover:bg-neutral-50/80 dark:hover:bg-neutral-900/40 hover:border-border',
+                          ? 'border-emerald-600 bg-emerald-50/70 ring-1 ring-emerald-600 shadow-xs'
+                          : 'border-border/80 bg-card hover:bg-neutral-50/80 hover:border-border',
                     )}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -640,7 +640,7 @@ export function QuickOrderPage() {
               variant={isBreadValid ? 'default' : 'outline'}
               className={cn(
                 'text-[11px] font-semibold transition-colors',
-                isBreadValid ? 'bg-amber-600 text-white' : 'text-amber-600 border-amber-300 dark:border-amber-700',
+                isBreadValid ? 'bg-amber-600 text-white' : 'text-amber-600 border-amber-300',
               )}
             >
               {isBreadValid ? (
@@ -669,10 +669,10 @@ export function QuickOrderPage() {
                     className={cn(
                       'text-left p-3.5 rounded-xl border transition-all flex items-center justify-between gap-2 min-h-[58px]',
                       !isAvailable
-                        ? 'opacity-40 bg-neutral-100/50 dark:bg-neutral-900/30 border-dashed border-border cursor-not-allowed'
+                        ? 'opacity-40 bg-neutral-100/50 border-dashed border-border cursor-not-allowed'
                         : isSelected
-                          ? 'border-amber-600 dark:border-amber-500 bg-amber-50/70 dark:bg-amber-950/20 ring-1 ring-amber-600 shadow-xs'
-                          : 'border-border/80 bg-card hover:bg-neutral-50/80 dark:hover:bg-neutral-900/40 hover:border-border',
+                          ? 'border-amber-600 bg-amber-50/70 ring-1 ring-amber-600 shadow-xs'
+                          : 'border-border/80 bg-card hover:bg-neutral-50/80 hover:border-border',
                     )}
                   >
                     <div className="min-w-0 flex-1">
@@ -722,7 +722,7 @@ export function QuickOrderPage() {
                 {['Gujarati Dal', 'Steamed Rice', 'Fresh Salad', 'Pickle (Aachar)'].map((name) => (
                   <span
                     key={name}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-[11px] text-foreground font-medium"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-100 text-[11px] text-foreground font-medium"
                   >
                     <CheckCircle2 className="size-3 text-emerald-600" />
                     {name}
@@ -809,7 +809,7 @@ export function QuickOrderPage() {
               type="button"
               disabled={quantity <= 1}
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="size-8 rounded-lg flex items-center justify-center text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="size-8 rounded-lg flex items-center justify-center text-foreground hover:bg-neutral-100 disabled:opacity-30 disabled:pointer-events-none transition-colors"
               aria-label="Decrease quantity"
             >
               <Minus className="size-3.5" />
@@ -819,7 +819,7 @@ export function QuickOrderPage() {
               type="button"
               disabled={quantity >= 10}
               onClick={() => setQuantity((q) => Math.min(10, q + 1))}
-              className="size-8 rounded-lg flex items-center justify-center text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="size-8 rounded-lg flex items-center justify-center text-foreground hover:bg-neutral-100 disabled:opacity-30 disabled:pointer-events-none transition-colors"
               aria-label="Increase quantity"
             >
               <Plus className="size-3.5" />
@@ -870,7 +870,7 @@ export function QuickOrderPage() {
                         prev ? (prev.includes(chip) ? prev : `${prev}, ${chip}`) : chip,
                       )
                     }}
-                    className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-muted-foreground hover:text-foreground hover:bg-neutral-200"
+                    className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-100 text-muted-foreground hover:text-foreground hover:bg-neutral-200"
                   >
                     +{chip}
                   </button>

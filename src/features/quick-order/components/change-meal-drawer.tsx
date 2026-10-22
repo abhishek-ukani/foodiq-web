@@ -68,7 +68,7 @@ export function ChangeMealDrawer({
                   'w-full text-left p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 min-h-[58px]',
                   isSelected
                     ? 'border-primary bg-primary/5 ring-1 ring-primary shadow-sm'
-                    : 'border-border/70 hover:border-border hover:bg-neutral-50/80 dark:hover:bg-neutral-900/40',
+                    : 'border-border/70 hover:border-border hover:bg-neutral-50/80',
                 )}
               >
                 <div className="flex-1 min-w-0">
@@ -77,7 +77,7 @@ export function ChangeMealDrawer({
                       {thali.name}
                     </span>
                     {isFavorite ? (
-                      <Badge variant="secondary" className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20 px-1.5 py-0">
+                      <Badge variant="secondary" className="text-[10px] bg-amber-500/15 text-amber-700 border-amber-500/20 px-1.5 py-0">
                         <Sparkles className="size-2.5 mr-0.5 inline" />
                         Most Ordered ({count}x)
                       </Badge>

@@ -78,7 +78,7 @@ export function ChangeAddressDrawer({
                     'w-full text-left p-3.5 rounded-xl border transition-all flex items-start justify-between gap-3 min-h-[58px]',
                     isSelected
                       ? 'border-primary bg-primary/5 ring-1 ring-primary shadow-sm'
-                      : 'border-border/70 hover:border-border hover:bg-neutral-50/80 dark:hover:bg-neutral-900/40',
+                      : 'border-border/70 hover:border-border hover:bg-neutral-50/80',
                   )}
                 >
                   <div className="flex items-start gap-2.5 min-w-0 flex-1">

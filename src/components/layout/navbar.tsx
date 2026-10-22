@@ -10,7 +10,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { useAuth } from '@/hooks/use-auth'
 import { useCartSummary } from '@/features/cart/hooks/use-cart'
 import { NotificationBell } from '@/features/notifications/components/notification-bell'
@@ -124,9 +123,8 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Right: ThemeToggle + Profile */}
+          {/* Right: Profile */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <ThemeToggle />
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -186,7 +184,6 @@ export function Navbar() {
         <div className="hidden items-center gap-2 md:flex">
           {isAuthenticated ? <NotificationBell /> : null}
           <CartLink />
-          <ThemeToggle />
           {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -198,7 +195,7 @@ export function Navbar() {
               <DropdownMenuContent align="end" className="w-52">
                 {profile?.is_subscription_eligible ? (
                   <DropdownMenuItem asChild>
-                    <Link to={ROUTES.quickOrder} className="cursor-pointer font-semibold text-amber-600 dark:text-amber-400">
+                    <Link to={ROUTES.quickOrder} className="cursor-pointer font-semibold text-amber-600">
                       <Zap className="mr-2 size-4 fill-amber-500 text-amber-500" />
                       Daily Quick Order
                     </Link>
@@ -258,11 +255,6 @@ export function Navbar() {
             <SheetContent side="right" className="w-72">
               <div className="mt-10 flex flex-col gap-6 px-4">
                 <NavLinks onNavigate={() => setMobileOpen(false)} className="text-base" />
-                
-                <div className="flex items-center justify-between border-t pt-4">
-                  <span className="text-sm text-muted-foreground">Theme</span>
-                  <ThemeToggle />
-                </div>
 
                 {isAuthenticated ? (
                   <div className="space-y-2 border-t pt-4">

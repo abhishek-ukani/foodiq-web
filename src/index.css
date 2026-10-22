@@ -1,10 +1,6 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
-/* ------------------------------------------------------------------ */
-/* Dark mode variant — toggled via a `.dark` class on <html>           */
-/* ------------------------------------------------------------------ */
-@custom-variant dark (&:where(.dark, .dark *));
 
 /* ------------------------------------------------------------------ */
 /* Brand design tokens — FoodIQ                                  */
@@ -63,42 +59,6 @@
   --font-display: 'Fraunces', 'ui-serif', 'Georgia', serif;
   --font-sans: 'Plus Jakarta Sans', 'ui-sans-serif', system-ui, sans-serif;
   --font-gujarati: 'Hind Vadodara', 'Noto Sans Gujarati', sans-serif;
-}
-
-.dark {
-  --background: #111a14;
-  --foreground: #f4f8f4;
-  --card: #18241c;
-  --card-foreground: #f4f8f4;
-  --popover: #18241c;
-  --popover-foreground: #f4f8f4;
-  --primary: #6da278;
-  --primary-foreground: #0d1610;
-  --secondary: #7fa886;
-  --secondary-foreground: #0d1610;
-  --muted: #1e2e23;
-  --muted-foreground: #b8c9bc;
-  --accent: #26382b;
-  --accent-foreground: #f4f8f4;
-  --terracotta: #ea8a4c;
-  --terracotta-foreground: #1c0e05;
-  --gold: #dcb15c;
-  --gold-foreground: #1b1508;
-  --destructive: #e2735c;
-  --destructive-foreground: #200b06;
-  --success: #6cbb7d;
-  --success-foreground: #0c1a0f;
-  --warning: #ea8a4c;
-  --warning-foreground: #201206;
-  --border: #23362a;
-  --input: #23362a;
-  --ring: #6da278;
-
-  --chart-1: #6da278;
-  --chart-2: #dcb15c;
-  --chart-3: #7fa886;
-  --chart-4: #ea8a4c;
-  --chart-5: #b8c9bc;
 }
 
 /* ------------------------------------------------------------------ */
@@ -172,10 +132,6 @@
     scroll-behavior: smooth;
   }
 
-  html.dark {
-    color-scheme: dark;
-  }
-
   body {
     @apply bg-background font-sans text-foreground antialiased;
     font-feature-settings: 'cv11', 'ss01';
@@ -209,10 +165,6 @@
 @layer utilities {
   .glass {
     @apply border border-border/60 bg-card/75 backdrop-blur-xl;
-  }
-
-  .glass-dark {
-    @apply dark:border-border/40 dark:bg-card/50 dark:backdrop-blur-xl;
   }
 
   .text-balance {

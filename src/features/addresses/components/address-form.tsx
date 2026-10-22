@@ -665,7 +665,7 @@ export function AddressForm({
                 type="button"
                 onClick={handleOpenMapWithCurrentLocation}
                 variant="outline"
-                className="h-12 px-3.5 rounded-xl border-2 font-bold text-xs shrink-0 flex items-center gap-1.5 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 dark:hover:bg-emerald-950/30 transition-all shadow-sm"
+                className="h-12 px-3.5 rounded-xl border-2 font-bold text-xs shrink-0 flex items-center gap-1.5 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition-all shadow-sm"
               >
                 <MapPin className="size-4 text-emerald-600" />
                 <span className="hidden sm:inline">Choose on</span> Map
@@ -702,9 +702,9 @@ export function AddressForm({
                         <span
                           className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
                             cat === 'commercial'
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                              ? 'bg-blue-100 text-blue-700'
                               : cat === 'residential'
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                              ? 'bg-emerald-100 text-emerald-700'
                               : 'bg-muted text-muted-foreground'
                           }`}
                         >
@@ -756,7 +756,7 @@ export function AddressForm({
                   {/* Delivery Fee Notice */}
                   <div className="mt-2 text-xs font-semibold">
                     {!resolvedDelivery.isOutOfZone ? (
-                      <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                      <div className="flex items-center gap-1.5 text-emerald-600">
                         <Sparkles className="size-3.5 shrink-0" />
                         <span>
                           Serviceable Area: {resolvedDelivery.zoneLabel} • Delivery Fee: {resolvedDelivery.fee === 0 ? 'Free Delivery' : `₹${resolvedDelivery.fee}`}
@@ -764,10 +764,10 @@ export function AddressForm({
                         </span>
                       </div>
                     ) : (
-                      <div className="flex items-start gap-2 text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2.5 mt-2">
-                        <PhoneCall className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                      <div className="flex items-start gap-2 text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2.5 mt-2">
+                        <PhoneCall className="size-4 shrink-0 mt-0.5 text-amber-600" />
                         <div className="space-y-0.5 text-left">
-                          <p className="font-semibold text-xs text-amber-900 dark:text-amber-300">
+                          <p className="font-semibold text-xs text-amber-900">
                             Extended Zone ({watchSublocality || selectedPlace?.sublocality || 'Selected Area'}) • Subject to Confirmation
                           </p>
                           <p className="text-[11px] text-muted-foreground font-normal leading-relaxed">
@@ -787,7 +787,7 @@ export function AddressForm({
                     variant="outline"
                     size="sm"
                     onClick={handleOpenMapWithCurrentLocation}
-                    className="text-xs h-7 px-2.5 rounded-lg gap-1 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 font-semibold hover:bg-emerald-50"
+                    className="text-xs h-7 px-2.5 rounded-lg gap-1 border-emerald-500/40 text-emerald-700 font-semibold hover:bg-emerald-50"
                   >
                     <MapPin className="size-3" />
                     Adjust Pin
@@ -874,7 +874,7 @@ export function AddressForm({
                 </h4>
               </div>
               {selectedPlace && (
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
                   <Sparkles className="size-3" /> Auto-filled from place
                 </span>
               )}

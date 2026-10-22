@@ -39,7 +39,7 @@ export function AboutPage() {
       </div>
 
       {policy?.content ? (
-        <article className="prose prose-neutral dark:prose-invert mx-auto max-w-none whitespace-pre-line">
+        <article className="prose prose-neutral mx-auto max-w-none whitespace-pre-line">
           {policy.content}
         </article>
       ) : null}

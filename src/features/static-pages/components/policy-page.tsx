@@ -25,7 +25,7 @@ export function PolicyPage({ slug, fallbackTitle }: { slug: PolicySlug; fallback
           description="This page hasn't been published yet — please check back soon."
         />
       ) : (
-        <article className="prose prose-neutral dark:prose-invert max-w-none">
+        <article className="prose prose-neutral max-w-none">
           <h1 className="font-display text-4xl font-semibold">{policy.title}</h1>
           <p className="text-muted-foreground text-sm">
             Last updated {dayjs(policy.updated_at).format(DATE_FORMAT)}

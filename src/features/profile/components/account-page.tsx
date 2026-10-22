@@ -60,6 +60,26 @@ export function AccountPage() {
         </Button>
       </div>
 
+<<<<<<< Updated upstream
+=======
+      {profile?.is_subscription_eligible ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-foreground">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-600 shrink-0">
+              <Zap className="size-5 fill-amber-500 text-amber-500" />
+            </div>
+            <div>
+              <p className="font-bold text-sm">Daily Quick Order Unlocked</p>
+              <p className="text-xs text-muted-foreground">Order today's meal in 1 tap with your Sabji & Bread preferences.</p>
+            </div>
+          </div>
+          <Button asChild size="sm" className="bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shrink-0">
+            <Link to={ROUTES.quickOrder}>Order Daily Meal</Link>
+          </Button>
+        </div>
+      ) : null}
+
+>>>>>>> Stashed changes
       {activeTab === 'addresses' ? (
         <AddressesTab />
       ) : activeTab === 'favorites' ? (

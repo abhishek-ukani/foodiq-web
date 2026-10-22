@@ -203,7 +203,7 @@ export function OrderHistoryPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="min-h-[44px] touch-manipulation gap-1.5 rounded-xl border-amber-300/80 bg-amber-50/70 px-3.5 text-xs font-medium text-amber-800 hover:bg-amber-100 hover:text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/60"
+                          className="min-h-[44px] touch-manipulation gap-1.5 rounded-xl border-amber-300/80 bg-amber-50/70 px-3.5 text-xs font-medium text-amber-800 hover:bg-amber-100 hover:text-amber-900"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleRateOrder(order)

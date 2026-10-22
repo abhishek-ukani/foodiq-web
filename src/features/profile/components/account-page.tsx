@@ -1,5 +1,5 @@
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { LogOut, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -60,8 +60,6 @@ export function AccountPage() {
         </Button>
       </div>
 
-<<<<<<< Updated upstream
-=======
       {profile?.is_subscription_eligible ? (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-foreground">
           <div className="flex items-center gap-3">
@@ -78,8 +76,6 @@ export function AccountPage() {
           </Button>
         </div>
       ) : null}
-
->>>>>>> Stashed changes
       {activeTab === 'addresses' ? (
         <AddressesTab />
       ) : activeTab === 'favorites' ? (

@@ -56,6 +56,7 @@ export function LoginPage() {
   const onSubmit = async (values: LoginInput) => {
     try {
       await signInWithEmail(values)
+      toast.success('Welcome back!')
       const searchParams = new URLSearchParams(location.search)
       const fromParam = searchParams.get('redirect') || searchParams.get('from')
       const from = fromParam || (location.state as { from?: { pathname?: string } } | null)?.from?.pathname

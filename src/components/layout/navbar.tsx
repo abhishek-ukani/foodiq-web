@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { ChefHat, ChevronLeft, Heart, LogOut, MapPin, Menu as MenuIcon, Package, ShoppingBag, User } from 'lucide-react'
+import { ChefHat, ChevronLeft, Heart, LogOut, MapPin, Menu as MenuIcon, Package, ShoppingBag, User, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -195,7 +195,15 @@ export function Navbar() {
                   {profile?.full_name?.split(' ')[0] ?? user?.email?.split('@')[0]}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-52">
+                {profile?.is_subscription_eligible ? (
+                  <DropdownMenuItem asChild>
+                    <Link to={ROUTES.quickOrder} className="cursor-pointer font-semibold text-amber-600 dark:text-amber-400">
+                      <Zap className="mr-2 size-4 fill-amber-500 text-amber-500" />
+                      Daily Quick Order
+                    </Link>
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuItem asChild>
                   <Link to={ROUTES.profile} className="cursor-pointer">
                     <User className="mr-2 size-4" />
@@ -258,6 +266,18 @@ export function Navbar() {
 
                 {isAuthenticated ? (
                   <div className="space-y-2 border-t pt-4">
+                    {profile?.is_subscription_eligible ? (
+                      <Button
+                        variant="default"
+                        className="w-full justify-start bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+                        asChild
+                      >
+                        <Link to={ROUTES.quickOrder} onClick={() => setMobileOpen(false)}>
+                          <Zap className="mr-2 size-4 fill-white" />
+                          Daily Quick Order
+                        </Link>
+                      </Button>
+                    ) : null}
                     <Button variant="outline" className="w-full justify-start" asChild>
                       <Link to={ROUTES.profile} onClick={() => setMobileOpen(false)}>
                         <User className="mr-2 size-4" />

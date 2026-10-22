@@ -57,7 +57,9 @@ export function LoginPage() {
     try {
       await signInWithEmail(values)
       toast.success('Welcome back!')
-      const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
+      const searchParams = new URLSearchParams(location.search)
+      const fromParam = searchParams.get('redirect') || searchParams.get('from')
+      const from = fromParam || (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
       navigate(from ?? ROUTES.home, { replace: true })
     } catch (error) {
       toast.error(toFriendlyAuthMessage(error))

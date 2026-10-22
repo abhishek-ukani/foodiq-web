@@ -50,6 +50,11 @@ const CartPage = lazy(() =>
 const CheckoutPage = lazy(() =>
   import('@/features/checkout/components/checkout-page').then((m) => ({ default: m.CheckoutPage })),
 )
+const QuickOrderPage = lazy(() =>
+  import('@/features/quick-order/components/quick-order-page').then((m) => ({
+    default: m.QuickOrderPage,
+  })),
+)
 const OrderSuccessPage = lazy(() =>
   import('@/features/orders/components/order-success-page').then((m) => ({
     default: m.OrderSuccessPage,
@@ -128,6 +133,14 @@ export const router = createBrowserRouter([
         element: withSuspense(
           <ProtectedRoute>
             <CheckoutPage />
+          </ProtectedRoute>,
+        ),
+      },
+      {
+        path: ROUTES.quickOrder,
+        element: withSuspense(
+          <ProtectedRoute>
+            <QuickOrderPage />
           </ProtectedRoute>,
         ),
       },

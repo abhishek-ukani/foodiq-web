@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Minus, ChevronDown } from 'lucide-react'
+import { Plus, Minus, ChevronDown, Star } from 'lucide-react'
 import { CURRENCY_SYMBOL } from '@/constants'
 import { FavoriteButton } from '@/features/favorites/components/favorite-button'
 import { useCartItems, useAddToCart, useRemoveCartItem, useUpdateCartItemQuantity } from '@/features/cart/hooks/use-cart'
@@ -89,32 +89,40 @@ export function MobileMenuItemRow({
         onCustomize?.(listing)
       }}
       className={cn(
-        'flex items-start justify-between gap-3 py-4 border-b border-[#ede4d3] last:border-b-0 transition-colors',
-        isUnavailable ? 'opacity-65 cursor-not-allowed' : 'cursor-pointer group active:bg-[#faf6ee]/80',
+        'flex items-start justify-between gap-3 py-4 border-b border-border last:border-b-0 transition-colors',
+        isUnavailable ? 'opacity-65 cursor-not-allowed' : 'cursor-pointer group active:bg-muted/30',
       )}
     >
       {/* ── LEFT: DISH DETAILS ── */}
       <div className="flex-1 min-w-0 pr-1">
         {/* Veg dot + Special badge */}
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="flex size-3.5 items-center justify-center rounded-xs border border-green-600 bg-white shrink-0">
-            <span className="size-1.5 rounded-full bg-green-600" />
+          <span className="flex size-3.5 items-center justify-center rounded-xs border border-emerald-600 bg-white shrink-0">
+            <span className="size-1.5 rounded-full bg-emerald-600" />
           </span>
           {listing.is_special && (
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-px rounded-full">
+            <span className="text-[10px] font-bold text-primary bg-accent/60 border border-primary/20 px-1.5 py-px rounded-full">
               ★ Special
             </span>
           )}
         </div>
 
-        {/* Title */}
-        <h3 className="text-sm font-bold text-[#221b14] leading-snug group-hover:text-[#185834] transition-colors">
-          {item.name}
-        </h3>
+        {/* Title & Rating */}
+        <div className="flex items-start justify-between gap-1.5">
+          <h3 className="font-display text-sm font-bold text-foreground leading-snug group-hover:text-primary transition-colors">
+            {item.name}
+          </h3>
+          {item.rating_count > 0 && (
+            <div className="inline-flex items-center gap-1 shrink-0 rounded-md border border-amber-300/80 bg-amber-50/90 px-1.5 py-0.5 text-[11px] font-bold text-amber-900">
+              <Star className="size-3 fill-amber-500 text-amber-500" />
+              <span>{Number(item.rating_average).toFixed(1)}</span>
+            </div>
+          )}
+        </div>
 
         {/* Price */}
         <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
-          <span className="text-sm font-extrabold text-[#221b14]">
+          <span className="font-display text-sm font-extrabold text-foreground">
             {hasMultipleVariants ? 'From ' : ''}{CURRENCY_SYMBOL}{price}
           </span>
           {strikePrice && (
@@ -156,13 +164,13 @@ export function MobileMenuItemRow({
             {item.ingredients.slice(0, 4).map((ing, i) => (
               <span
                 key={i}
-                className="text-[10px] bg-[#faf6ee] text-[#6b5847] font-medium px-1.5 py-0.5 rounded-md border border-[#ede4d3]"
+                className="text-[10px] bg-muted/60 text-muted-foreground font-medium px-1.5 py-0.5 rounded-md border border-border"
               >
                 {ing}
               </span>
             ))}
             {item.ingredients.length > 4 && (
-              <span className="text-[10px] text-neutral-400 font-medium px-1 py-0.5">
+              <span className="text-[10px] text-muted-foreground/80 font-medium px-1 py-0.5">
                 +{item.ingredients.length - 4} more
               </span>
             )}
@@ -171,7 +179,7 @@ export function MobileMenuItemRow({
 
         {/* Description (non-thali) */}
         {!isThali && item.description && (
-          <p className="text-xs text-[#6b5847]/80 line-clamp-2 mt-1 leading-relaxed">
+          <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
             {item.description}
           </p>
         )}
@@ -180,7 +188,7 @@ export function MobileMenuItemRow({
       {/* ── RIGHT: IMAGE + FLOATING ADD BUTTON ── */}
       <div className="relative shrink-0 flex flex-col items-center">
         {/* Image box */}
-        <div className="relative size-24 sm:size-28 rounded-2xl overflow-hidden bg-[#f4ede0] border border-[#ede4d3]/60 shadow-sm">
+        <div className="relative size-24 sm:size-28 rounded-2xl overflow-hidden bg-muted/50 border border-border shadow-xs">
           {item.image_url ? (
             <img
               src={item.image_url}
@@ -192,7 +200,7 @@ export function MobileMenuItemRow({
               )}
             />
           ) : (
-            <div className="size-full flex items-center justify-center text-3xl select-none bg-gradient-to-br from-[#faf6ee] to-[#f4ede0]">
+            <div className="size-full flex items-center justify-center text-3xl select-none bg-accent/30">
               {isThali ? '🍱' : '🍛'}
             </div>
           )}
@@ -209,7 +217,7 @@ export function MobileMenuItemRow({
         {/* Floating action button */}
         <div className="relative -mt-4 z-10 w-[84px] sm:w-[96px]">
           {isUnavailable ? (
-            <div className="w-full py-1 bg-neutral-100 text-neutral-500 font-bold text-[10px] sm:text-[11px] rounded-xl shadow-xs text-center select-none border border-neutral-200">
+            <div className="w-full py-1.5 bg-muted text-muted-foreground font-bold text-[10px] sm:text-[11px] rounded-xl shadow-xs text-center select-none border border-border">
               {soldOut
                 ? 'Sold Out'
                 : isDisabled
@@ -224,7 +232,7 @@ export function MobileMenuItemRow({
             /* Active Stepper */
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full flex items-center justify-between bg-white border-2 border-[#185834] rounded-xl p-0.5 shadow-md"
+              className="w-full flex items-center justify-between bg-card border-2 border-primary rounded-xl p-0.5 shadow-md"
             >
               <button
                 type="button"
@@ -233,20 +241,22 @@ export function MobileMenuItemRow({
                   if (cartLine.quantity <= 1) removeItem.mutate(cartLine.id)
                   else updateQuantity.mutate({ id: cartLine.id, quantity: cartLine.quantity - 1 })
                 }}
-                className="size-6 flex items-center justify-center text-[#185834] hover:bg-[#185834]/10 rounded-lg transition-colors"
+                className="size-7 flex items-center justify-center text-primary hover:bg-accent rounded-lg transition-colors cursor-pointer"
+                aria-label="Decrease quantity"
               >
-                <Minus className="size-3 stroke-[2.5]" />
+                <Minus className="size-3.5 stroke-[2.5]" />
               </button>
-              <span className="text-xs font-bold text-[#185834] tabular-nums">
+              <span className="text-xs font-bold text-primary font-display tabular-nums">
                 {cartLine.quantity}
               </span>
               <button
                 type="button"
                 disabled={isBusy}
                 onClick={() => updateQuantity.mutate({ id: cartLine.id, quantity: cartLine.quantity + 1 })}
-                className="size-6 flex items-center justify-center text-[#185834] hover:bg-[#185834]/10 rounded-lg transition-colors"
+                className="size-7 flex items-center justify-center text-primary hover:bg-accent rounded-lg transition-colors cursor-pointer"
+                aria-label="Increase quantity"
               >
-                <Plus className="size-3 stroke-[2.5]" />
+                <Plus className="size-3.5 stroke-[2.5]" />
               </button>
             </div>
           ) : (
@@ -255,11 +265,11 @@ export function MobileMenuItemRow({
               type="button"
               disabled={isBusy}
               onClick={handleActionClick}
-              className="w-full py-1.5 bg-white hover:bg-[#185834] hover:text-white border-2 border-[#185834] text-[#185834] font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center cursor-pointer"
+              className="w-full min-h-[44px] py-1.5 bg-card hover:bg-primary hover:text-primary-foreground border-2 border-primary text-primary font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex flex-col items-center justify-center cursor-pointer"
             >
               <span>ADD</span>
               {isThali ? (
-                <span className="text-[8px] font-semibold opacity-60 -mt-0.5 capitalize tracking-normal">
+                <span className="text-[8px] font-semibold opacity-75 -mt-0.5 capitalize tracking-normal">
                   customise
                 </span>
               ) : null}

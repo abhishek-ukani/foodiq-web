@@ -117,10 +117,10 @@ export function CategoryShowcaseBar({
               type="button"
               onClick={() => onSelectCategory(cat.key)}
               className={cn(
-                'inline-flex items-center gap-2.5 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-150 border shrink-0 min-h-[42px] cursor-pointer select-none',
+                'inline-flex items-center gap-2.5 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-150 border shrink-0 min-h-[44px] cursor-pointer select-none',
                 isActive
-                  ? 'bg-[#087443] text-white border-[#087443] shadow-[0_2px_8px_rgba(8,116,67,0.25)] ring-1 ring-[#087443]'
-                  : 'bg-white text-[#17231D] border-[#E9E5DA] hover:border-[#087443]/40 hover:bg-[#FAF8F2] shadow-2xs',
+                  ? 'bg-primary text-primary-foreground border-primary shadow-sm ring-1 ring-primary'
+                  : 'bg-card text-foreground border-border hover:border-primary/40 hover:bg-muted/40 shadow-2xs',
               )}
             >
               {/* Category visual: image if uploaded in admin, else category icon */}

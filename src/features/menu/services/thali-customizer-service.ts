@@ -154,6 +154,7 @@ export async function fetchThaliOptionGroups(
           groupNameLower.includes('roti') ||
           groupNameLower.includes('bread') ||
           groupNameLower.includes('bhakhri') ||
+          groupNameLower.includes('bhakhari') ||
           groupNameLower.includes('rotla') ||
           groupNameLower.includes('puri')
         ) {
@@ -163,11 +164,13 @@ export async function fetchThaliOptionGroups(
             catName.includes('roti') ||
             catName.includes('rotis') ||
             catName.includes('bhakhri') ||
+            catName.includes('bhakhari') ||
             catName.includes('rotla') ||
             catName.includes('puri') ||
             itemName.includes('roti') ||
             itemName.includes('rotli') ||
             itemName.includes('bhakhri') ||
+            itemName.includes('bhakhari') ||
             itemName.includes('rotla') ||
             itemName.includes('puri') ||
             itemName.includes('paratha')

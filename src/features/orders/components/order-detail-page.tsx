@@ -17,8 +17,15 @@ export function OrderDetailPage() {
   const { id = '' } = useParams()
   const { data: order, isPending, isError, refetch } = useOrder(id)
   const { data: myReviews } = useMyReviewsForOrder(id)
-  const [reviewTarget, setReviewTarget] = useState<{ foodItemId: string; name: string } | null>(null)
-  const reviewedFoodItemIds = new Set(myReviews?.map((r) => r.food_item_id))
+  const [reviewTarget, setReviewTarget] = useState<{
+    foodItemId: string
+    name: string
+    initialRating?: number
+    initialFoodRating?: number | null
+    initialPackagingRating?: number | null
+    initialDeliveryRating?: number | null
+    initialComment?: string | null
+  } | null>(null)
 
   if (isPending) {
     return (
@@ -40,9 +47,13 @@ export function OrderDetailPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold">{order.order_number}</h1>
-          <p className="text-muted-foreground text-sm">
-            Placed {dayjs(order.placed_at).format('D MMM YYYY, h:mm A')}
+          <h1 className="font-display text-2xl font-bold tracking-tight">
+            {order.meal_type
+              ? `${order.meal_type === 'dinner' ? 'Dinner' : 'Lunch'} Order`
+              : 'Kathiyawadi Meal Order'}
+          </h1>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
+            Order #{order.order_number} · Placed {dayjs(order.placed_at).format('D MMM YYYY, h:mm A')}
           </p>
         </div>
         <OrderStatusBadge status={order.status} />
@@ -110,23 +121,47 @@ export function OrderDetailPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     {order.status === 'delivered' && item.food_item_id ? (
-                      reviewedFoodItemIds.has(item.food_item_id) ? (
-                        <span className="text-muted-foreground flex items-center gap-1 text-xs">
-                          <Star className="size-3 fill-current text-amber-500" aria-hidden />
-                          Reviewed
-                        </span>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() =>
-                            setReviewTarget({ foodItemId: item.food_item_id!, name: item.item_name })
-                          }
-                        >
-                          Rate this item
-                        </Button>
-                      )
+                      (() => {
+                        const userReview = myReviews?.find((r) => r.food_item_id === item.food_item_id)
+                        if (userReview) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setReviewTarget({
+                                  foodItemId: item.food_item_id!,
+                                  name: item.item_name,
+                                  initialRating: userReview.rating,
+                                  initialFoodRating: userReview.food_rating,
+                                  initialPackagingRating: userReview.packaging_rating,
+                                  initialDeliveryRating: userReview.delivery_rating,
+                                  initialComment: userReview.comment,
+                                })
+                              }
+
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300/80 px-2 py-1 rounded-lg hover:bg-emerald-100 transition-colors"
+                              title="Tap to update your review"
+                            >
+                              <Star className="size-3 fill-amber-500 text-amber-500" aria-hidden />
+                              <span>{userReview.rating}★ Rated</span>
+                            </button>
+                          )
+                        }
+
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 min-h-[36px] text-xs gap-1 border-amber-300/80 bg-amber-50/70 text-amber-800 hover:bg-amber-100 font-medium"
+                            onClick={() =>
+                              setReviewTarget({ foodItemId: item.food_item_id!, name: item.item_name })
+                            }
+                          >
+                            <Star className="size-3 fill-amber-500 text-amber-500" />
+                            Rate this item
+                          </Button>
+                        )
+                      })()
                     ) : null}
                     <span className="font-medium">
                       {CURRENCY_SYMBOL}
@@ -180,6 +215,11 @@ export function OrderDetailPage() {
           foodItemId={reviewTarget.foodItemId}
           orderId={order.id}
           itemName={reviewTarget.name}
+          initialRating={reviewTarget.initialRating}
+          initialFoodRating={reviewTarget.initialFoodRating}
+          initialPackagingRating={reviewTarget.initialPackagingRating}
+          initialDeliveryRating={reviewTarget.initialDeliveryRating}
+          initialComment={reviewTarget.initialComment}
         />
       ) : null}
     </div>

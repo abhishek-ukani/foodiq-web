@@ -8,6 +8,7 @@ if (typeof document !== 'undefined') {
   document.documentElement.classList.remove('dark')
   try {
     localStorage.removeItem('thakar-rasoi-theme')
+    localStorage.removeItem('foodiq-theme')
   } catch {
     // ignore local storage errors if sandboxed
   }

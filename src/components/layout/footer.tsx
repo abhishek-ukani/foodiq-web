@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
-import { AtSign, ChefHat, Mail, MapPin, Phone } from 'lucide-react'
+import { AtSign, ChefHat, Mail, MapPin, Phone, Heart } from 'lucide-react'
 import { ROUTES } from '@/constants'
 
 const QUICK_LINKS = [
-  { to: ROUTES.about, label: 'About Us' },
+  { to: ROUTES.menu, label: "Today's Menu" },
+  { to: ROUTES.about, label: 'Our Story & Farm' },
   { to: ROUTES.contact, label: 'Contact Us' },
   { to: ROUTES.faq, label: 'FAQs' },
 ]
@@ -16,38 +17,58 @@ const LEGAL_LINKS = [
 
 export function Footer() {
   return (
-    <footer className="bg-primary text-primary-foreground mt-24">
-      <div className="mx-auto max-w-6xl px-4 py-14">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-4 sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-2.5">
-              <div className="bg-primary-foreground/15 flex size-9 items-center justify-center rounded-lg">
-                <ChefHat className="size-4.5" aria-hidden />
+    <footer className="relative bg-[#19110b] text-[#FAF4E6] mt-16 sm:mt-24 border-t border-[#2e1d13] overflow-hidden">
+      {/* Subtle Warm Amber Ambient Glow in Corner */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-24 right-0 size-80 rounded-full bg-primary/10 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 left-1/4 size-72 rounded-full bg-amber-500/5 blur-3xl"
+      />
+
+      <div className="relative z-10 mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10 xl:px-12 py-14 sm:py-16">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-12">
+          {/* Brand & Story Column */}
+          <div className="space-y-4 sm:col-span-2 lg:col-span-5">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary/20 border border-primary/30 flex size-10 items-center justify-center rounded-xl text-primary">
+                <ChefHat className="size-5" aria-hidden />
               </div>
-              <span className="font-display text-lg font-semibold">FoodIQ</span>
+              <span className="font-display text-xl font-bold tracking-tight text-white">FoodIQ</span>
             </div>
-            <p className="text-primary-foreground/70 max-w-xs text-sm">
-              Homemade tiffin, cooked fresh every day and delivered with care across Ahmedabad.
+
+            <p className="text-[#FAF4E6]/70 max-w-sm text-sm leading-relaxed font-sans">
+              Pure homemade Kathiyawadi tiffin, prepared daily with cold-pressed groundnut oil, Amul ghee, and delivered fresh across Ahmedabad.
             </p>
-            <a
-              href="https://instagram.com"
-              target="_blank"
-              rel="noreferrer"
-              className="bg-primary-foreground/10 hover:bg-primary-foreground/20 flex size-9 items-center justify-center rounded-full transition-colors"
-              aria-label="Instagram"
-            >
-              <AtSign className="size-4" aria-hidden />
-            </a>
+
+            <div className="flex items-center gap-3 pt-2">
+              <a
+                href="https://instagram.com"
+                target="_blank"
+                rel="noreferrer"
+                className="bg-white/10 hover:bg-white/20 text-[#FAF4E6] flex size-10 items-center justify-center rounded-full transition-colors border border-white/10"
+                aria-label="Instagram"
+              >
+                <AtSign className="size-4.5" aria-hidden />
+              </a>
+              <span className="text-xs text-[#FAF4E6]/60 font-medium">Follow our daily rasoi updates</span>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-sm font-semibold">Quick Links</p>
-            <ul className="space-y-2">
+          {/* Quick Links Column */}
+          <div className="space-y-3 lg:col-span-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-200/90">
+              Quick Links
+            </p>
+            <ul className="space-y-2.5">
               {QUICK_LINKS.map((link) => (
                 <li key={link.to}>
                   <Link
                     to={link.to}
-                    className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors"
+                    onClick={() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' })}
+                    className="text-[#FAF4E6]/75 hover:text-white text-sm transition-colors hover:underline underline-offset-4"
                   >
                     {link.label}
                   </Link>
@@ -56,14 +77,18 @@ export function Footer() {
             </ul>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-sm font-semibold">Legal</p>
-            <ul className="space-y-2">
+          {/* Legal Column */}
+          <div className="space-y-3 lg:col-span-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-200/90">
+              Legal &amp; Policy
+            </p>
+            <ul className="space-y-2.5">
               {LEGAL_LINKS.map((link) => (
                 <li key={link.to}>
                   <Link
                     to={link.to}
-                    className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors"
+                    onClick={() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' })}
+                    className="text-[#FAF4E6]/75 hover:text-white text-sm transition-colors hover:underline underline-offset-4"
                   >
                     {link.label}
                   </Link>
@@ -72,31 +97,46 @@ export function Footer() {
             </ul>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-sm font-semibold">Get in Touch</p>
-            <ul className="space-y-2 text-sm">
-              <li className="text-primary-foreground/70 flex items-start gap-2">
-                <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />
-                Ahmedabad, Gujarat
+          {/* Contact Column */}
+          <div className="space-y-3 lg:col-span-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-200/90">
+              Get in Touch
+            </p>
+            <ul className="space-y-2.5 text-sm">
+              <li className="text-[#FAF4E6]/75 flex items-start gap-2.5">
+                <MapPin className="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden />
+                <span>Ahmedabad, Gujarat, India</span>
               </li>
-              <li className="text-primary-foreground/70 flex items-center gap-2">
-                <Phone className="size-4 shrink-0" aria-hidden />
-                <a href="tel:+919999999999" className="hover:text-primary-foreground">
+              <li className="text-[#FAF4E6]/75 flex items-center gap-2.5">
+                <Phone className="size-4 shrink-0 text-amber-300" aria-hidden />
+                <a
+                  href="tel:+919999999999"
+                  className="hover:text-white transition-colors"
+                >
                   +91 99999 99999
                 </a>
               </li>
-              <li className="text-primary-foreground/70 flex items-center gap-2">
-                <Mail className="size-4 shrink-0" aria-hidden />
-                <a href="mailto:hello@thakarrasoi.com" className="hover:text-primary-foreground">
-                  hello@thakarrasoi.com
+              <li className="text-[#FAF4E6]/75 flex items-center gap-2.5">
+                <Mail className="size-4 shrink-0 text-amber-300" aria-hidden />
+                <a
+                  href="mailto:hello@foodiq.in"
+                  className="hover:text-white transition-colors"
+                >
+                  hello@foodiq.in
                 </a>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="border-primary-foreground/15 text-primary-foreground/60 mt-10 border-t pt-6 text-center text-xs">
-          © {new Date().getFullYear()} FoodIQ. All rights reserved.
+        {/* Bottom Bar */}
+        <div className="mt-12 pt-6 border-t border-white/10 text-xs text-[#FAF4E6]/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+          <p>© {new Date().getFullYear()} FoodIQ. All rights reserved.</p>
+          <p className="flex items-center gap-1.5 justify-center">
+            <span>Made with</span>
+            <Heart className="size-3 text-red-400 fill-red-400" />
+            <span>for authentic home food lovers</span>
+          </p>
         </div>
       </div>
     </footer>

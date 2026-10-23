@@ -39,14 +39,14 @@ function ThaliSlotSwitcher({ timing }: { timing: MealTimingState }) {
   return (
     <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
       {/* Today / Tomorrow pill */}
-      <div className="flex items-center p-0.5 bg-neutral-100/90 rounded-full border border-[#E9E5DA] text-xs">
+      <div className="flex items-center p-0.5 bg-neutral-100/90 rounded-full border border-border text-xs">
         <button
           type="button"
           onClick={() => timing.setDate(timing.todayDate)}
           className={cn(
-            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none',
+            'px-3.5 py-1.5 rounded-full font-semibold transition-all min-h-[32px] cursor-pointer select-none',
             timing.isToday
-              ? 'bg-[#185834] text-white shadow-xs'
+              ? 'bg-primary text-primary-foreground shadow-xs'
               : 'text-neutral-600 hover:text-neutral-900',
           )}
         >
@@ -56,9 +56,9 @@ function ThaliSlotSwitcher({ timing }: { timing: MealTimingState }) {
           type="button"
           onClick={() => timing.setDate(timing.tomorrowDate)}
           className={cn(
-            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none',
+            'px-3.5 py-1.5 rounded-full font-semibold transition-all min-h-[32px] cursor-pointer select-none',
             timing.isTomorrow
-              ? 'bg-[#185834] text-white shadow-xs'
+              ? 'bg-primary text-primary-foreground shadow-xs'
               : 'text-neutral-600 hover:text-neutral-900',
           )}
         >
@@ -67,15 +67,15 @@ function ThaliSlotSwitcher({ timing }: { timing: MealTimingState }) {
       </div>
 
       {/* Lunch / Dinner pill */}
-      <div className="flex items-center p-0.5 bg-neutral-100/90 rounded-full border border-[#E9E5DA] text-xs">
+      <div className="flex items-center p-0.5 bg-neutral-100/90 rounded-full border border-border text-xs">
         <button
           type="button"
           onClick={() => timing.setActiveSlot('lunch')}
           className={cn(
-            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none flex items-center gap-1.5',
+            'px-3.5 py-1.5 rounded-full font-semibold transition-all min-h-[32px] cursor-pointer select-none flex items-center gap-1.5',
             timing.activeSlot === 'lunch'
               ? isLunchOpen
-                ? 'bg-[#185834] text-white shadow-xs'
+                ? 'bg-primary text-primary-foreground shadow-xs'
                 : 'bg-neutral-600 text-white shadow-xs'
               : !isLunchOpen
                 ? 'text-neutral-400 hover:text-neutral-600 opacity-70'
@@ -93,10 +93,10 @@ function ThaliSlotSwitcher({ timing }: { timing: MealTimingState }) {
           type="button"
           onClick={() => timing.setActiveSlot('dinner')}
           className={cn(
-            'px-3.5 py-1 rounded-full font-semibold transition-all min-h-[30px] cursor-pointer select-none flex items-center gap-1.5',
+            'px-3.5 py-1.5 rounded-full font-semibold transition-all min-h-[32px] cursor-pointer select-none flex items-center gap-1.5',
             timing.activeSlot === 'dinner'
               ? isDinnerOpen
-                ? 'bg-[#185834] text-white shadow-xs'
+                ? 'bg-primary text-primary-foreground shadow-xs'
                 : 'bg-neutral-600 text-white shadow-xs'
               : !isDinnerOpen
                 ? 'text-neutral-400 hover:text-neutral-600 opacity-70'
@@ -436,7 +436,7 @@ export function DesktopMenuView({
                         <button
                           type="button"
                           onClick={() => setSelectedCategory(sec.category?.id ?? sec.key)}
-                          className="flex items-center gap-1 text-xs text-[#087443] font-semibold hover:underline cursor-pointer"
+                          className="flex items-center gap-1 text-xs text-primary font-bold hover:underline cursor-pointer"
                         >
                           <span>View all</span>
                           <ArrowRight className="size-3 stroke-[2.5]" />
@@ -653,7 +653,7 @@ export function DesktopMenuView({
         <div className="fixed bottom-6 inset-x-4 z-40 max-w-lg mx-auto pointer-events-auto">
           <Link
             to={ROUTES.checkout}
-            className="flex items-center justify-between bg-[#087443] hover:bg-[#065b34] active:scale-[0.99] text-white px-5 py-3.5 rounded-2xl shadow-[0_10px_30px_rgba(8,116,67,0.35)] transition-all duration-150"
+            className="flex items-center justify-between bg-primary hover:bg-primary/95 active:scale-[0.99] text-primary-foreground px-5 py-3.5 rounded-2xl shadow-[0_10px_30px_rgba(196,85,37,0.35)] transition-all duration-150"
           >
             <div className="flex items-center gap-3">
               <div className="size-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm">

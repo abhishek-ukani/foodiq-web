@@ -1,14 +1,14 @@
-function requireEnv(key: keyof ImportMetaEnv): string {
+function getEnv(key: keyof ImportMetaEnv, fallback = ''): string {
   const value = import.meta.env[key]
   if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`)
+    return fallback
   }
   return value
 }
 
 export const env = {
-  supabaseUrl: requireEnv('VITE_SUPABASE_URL'),
-  supabaseAnonKey: requireEnv('VITE_SUPABASE_ANON_KEY'),
-  appName: import.meta.env.VITE_APP_NAME || 'FoodIQ',
-  appUrl: import.meta.env.VITE_APP_URL || 'http://localhost:5173',
+  supabaseUrl: getEnv('VITE_SUPABASE_URL', 'https://placeholder.supabase.co'),
+  supabaseAnonKey: getEnv('VITE_SUPABASE_ANON_KEY', 'placeholder-anon-key'),
+  appName: getEnv('VITE_APP_NAME', 'FoodIQ'),
+  appUrl: getEnv('VITE_APP_URL', typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'),
 } as const

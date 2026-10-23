@@ -6,7 +6,7 @@ export interface FloatingInputProps extends React.ComponentProps<'input'> {
 }
 
 export const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
-  ({ className, label, id, value, defaultValue, placeholder, ...props }, ref) => {
+  ({ className, label, id, value, defaultValue: _defaultValue, placeholder: _placeholder, ...props }, ref) => {
     const generatedId = React.useId()
     const inputId = id || generatedId
 

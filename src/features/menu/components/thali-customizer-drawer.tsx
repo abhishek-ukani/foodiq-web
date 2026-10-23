@@ -345,21 +345,21 @@ export function ThaliCustomizerDrawer({
                           key={v.id}
                           type="button"
                           onClick={() => setSelectedVariantId(v.id)}
-                          className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all cursor-pointer min-h-[44px] ${
                             isSelected
-                              ? 'border-[#185834] bg-emerald-50/60 ring-1 ring-[#185834]'
+                              ? 'border-primary bg-primary/10 ring-1 ring-primary'
                               : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-700'
                           }`}
                         >
                           <div>
                             <p className="text-xs font-bold text-neutral-900">{v.label}</p>
-                            <p className="text-xs font-semibold text-emerald-800 mt-0.5">
+                            <p className="text-xs font-semibold text-primary mt-0.5">
                               {CURRENCY_SYMBOL}{v.price}
                             </p>
                           </div>
                           <div
                             className={`size-4 rounded-full border flex items-center justify-center shrink-0 ${
-                              isSelected ? 'border-[#185834] bg-[#185834]' : 'border-neutral-300'
+                              isSelected ? 'border-primary bg-primary' : 'border-neutral-300'
                             }`}
                           >
                             {isSelected && <div className="size-1.5 rounded-full bg-white" />}
@@ -437,34 +437,36 @@ export function ThaliCustomizerDrawer({
         </div>
 
         {/* ── STICKY FOOTER CTA ── */}
-        <div className="p-3 border-t bg-white flex items-center gap-2.5 shrink-0 shadow-lg">
+        <div className="p-3.5 border-t bg-white flex items-center gap-3 shrink-0 shadow-lg">
           {/* Quantity Stepper */}
-          <div className="flex items-center rounded-lg border border-neutral-200 bg-neutral-50 p-0.5">
+          <div className="flex items-center rounded-xl border border-neutral-200 bg-neutral-50 p-1">
             <button
               type="button"
               disabled={quantity <= 1}
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="size-7 flex items-center justify-center rounded-md bg-white text-neutral-700 shadow-2xs hover:bg-neutral-100 disabled:opacity-40 disabled:hover:bg-white"
+              className="size-8 flex items-center justify-center rounded-lg bg-white text-neutral-700 shadow-2xs hover:bg-neutral-100 disabled:opacity-40 disabled:hover:bg-white cursor-pointer"
+              aria-label="Decrease"
             >
-              <Minus className="size-3" />
+              <Minus className="size-3.5" />
             </button>
-            <span className="w-6 text-center text-xs font-bold text-neutral-900">
+            <span className="w-7 text-center text-xs font-bold text-neutral-900 tabular-nums">
               {quantity}
             </span>
             <button
               type="button"
               disabled={quantity >= 10}
               onClick={() => setQuantity((q) => Math.min(10, q + 1))}
-              className="size-7 flex items-center justify-center rounded-md bg-white text-neutral-700 shadow-2xs hover:bg-neutral-100 disabled:opacity-40 disabled:hover:bg-white"
+              className="size-8 flex items-center justify-center rounded-lg bg-white text-neutral-700 shadow-2xs hover:bg-neutral-100 disabled:opacity-40 disabled:hover:bg-white cursor-pointer"
+              aria-label="Increase"
             >
-              <Plus className="size-3" />
+              <Plus className="size-3.5" />
             </button>
           </div>
 
-          {/* Add to Cart Button */}
+          {/* Add to Cart Button (Accessible 44px min-height) */}
           <Button
-            size="sm"
-            className="flex-1 h-9 text-xs font-semibold rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white shadow-md flex items-center justify-between px-3.5 disabled:opacity-60"
+            size="default"
+            className="flex-1 min-h-[44px] text-xs sm:text-sm font-bold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md flex items-center justify-between px-4 disabled:opacity-60 cursor-pointer"
             disabled={!item || item.is_available === false || !isOptionSelectionValid || addToCart.isPending || !isSlotOpen}
             onClick={handleAddToCart}
           >
@@ -481,7 +483,7 @@ export function ThaliCustomizerDrawer({
                 ? 'Select required choices'
                 : 'Add to Order'}
             </span>
-            <span className="font-bold">
+            <span className="font-extrabold text-sm">
               {CURRENCY_SYMBOL}
               {totalPrice}
             </span>

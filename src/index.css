@@ -1,58 +1,58 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
-
 /* ------------------------------------------------------------------ */
 /* Brand design tokens — FoodIQ                                  */
 /* Premium homemade Indian tiffin aesthetic: warm, traditional, fresh  */
 /* ------------------------------------------------------------------ */
 :root {
-  /* Raw brand palette — Rasoi Ghar Jaisa Swad */
-  --brand-forest-green: #185834;
-  --brand-sage-medium: #2a7349;
+  /* Raw brand palette — Authentic Kathiyawadi Heritage */
+  --brand-terracotta: #c45525;
+  --brand-terracotta-dark: #a84217;
+  --brand-saffron: #e58a13;
+  --brand-kansa-bronze: #9a6735;
+  --brand-cilantro: #2a7249;
   --brand-cream-base: #faf6ee;
-  --brand-earth-brown: #6b5847;
-  --brand-golden: #c9891f;
-  --brand-white: #ffffff;
-  --brand-pale-cream: #f4ede0;
-  --brand-terracotta: #d85820;
-  --brand-warm-peach: #fbebd8;
+  --brand-cream-card: #ffffff;
+  --brand-pale-cream: #f5ece0;
+  --brand-earth-brown: #735b47;
+  --brand-warm-peach: #fdf1dc;
 
   /* Semantic tokens — light mode */
   --background: var(--brand-cream-base);
-  --foreground: #221b14;
+  --foreground: #221610;
   --card: #ffffff;
-  --card-foreground: #221b14;
+  --card-foreground: #221610;
   --popover: #ffffff;
-  --popover-foreground: #221b14;
-  --primary: var(--brand-forest-green);
+  --popover-foreground: #221610;
+  --primary: var(--brand-terracotta);
   --primary-foreground: #ffffff;
-  --secondary: var(--brand-sage-medium);
+  --secondary: var(--brand-saffron);
   --secondary-foreground: #ffffff;
   --muted: var(--brand-pale-cream);
   --muted-foreground: var(--brand-earth-brown);
   --accent: var(--brand-warm-peach);
-  --accent-foreground: #221b14;
+  --accent-foreground: #4a2612;
   --terracotta: var(--brand-terracotta);
   --terracotta-foreground: #ffffff;
-  --gold: var(--brand-golden);
-  --gold-foreground: #221b14;
+  --gold: var(--brand-saffron);
+  --gold-foreground: #221610;
   --destructive: #b3432b;
   --destructive-foreground: #ffffff;
-  --success: #185834;
+  --success: var(--brand-cilantro);
   --success-foreground: #ffffff;
-  --warning: var(--brand-terracotta);
+  --warning: #e58a13;
   --warning-foreground: #ffffff;
   --border: #ede4d3;
   --input: #ede4d3;
-  --ring: var(--brand-forest-green);
+  --ring: var(--brand-terracotta);
   --radius: 1rem;
 
   /* Chart palette (Recharts) */
-  --chart-1: var(--brand-forest-green);
-  --chart-2: var(--brand-golden);
-  --chart-3: var(--brand-sage-medium);
-  --chart-4: var(--brand-terracotta);
+  --chart-1: var(--brand-terracotta);
+  --chart-2: var(--brand-saffron);
+  --chart-3: var(--brand-kansa-bronze);
+  --chart-4: var(--brand-cilantro);
   --chart-5: var(--brand-earth-brown);
 
   /* Typography */

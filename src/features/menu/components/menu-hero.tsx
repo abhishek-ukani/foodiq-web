@@ -55,53 +55,51 @@ export function MenuHero({ searchQuery, onSearchChange, sort, onSortChange }: Me
         <div className="relative z-20 flex flex-col justify-center h-full min-h-[290px] px-6 sm:px-10 lg:px-12 py-7 sm:py-8 max-w-full lg:max-w-[52%]">
           {/* Eyebrow */}
           <div className="flex items-center gap-2 mb-2.5">
-            <span className="text-xs font-bold italic tracking-wide text-[#087443]">Fresh</span>
+            <span className="text-xs font-bold italic tracking-wide text-primary">Fresh</span>
             <span className="text-xs font-semibold text-[#8C8375]">•</span>
-            <span className="text-[11px] font-bold tracking-widest uppercase text-[#7A817B]">Homely</span>
+            <span className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground">Homely</span>
             <span className="text-xs font-semibold text-[#8C8375]">•</span>
-            <span className="text-[11px] font-bold tracking-widest uppercase text-[#7A817B]">Gujarati</span>
+            <span className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground">Kathiyawadi</span>
           </div>
 
           {/* Heading */}
           <h1
-            className="leading-[1.15] tracking-tight mb-2"
+            className="leading-[1.15] tracking-tight mb-2 font-display text-foreground"
             style={{
               fontSize: 'clamp(1.75rem, 2.8vw, 2.65rem)',
-              color: '#17231D',
               fontWeight: 800,
-              fontFamily: "'Playfair Display', Georgia, serif",
             }}
           >
-            Explore Our <span className="text-[#087443] font-bold">Delicious</span>
+            Explore Our <span className="text-primary font-bold">Authentic</span>
             <br />
-            Menu
+            Daily Menu
           </h1>
 
           {/* Subtext */}
-          <p className="text-xs sm:text-sm leading-relaxed mb-6 text-[#7A817B] max-w-[340px]">
-            Homestyle Gujarati dishes, freshly cooked daily and delivered to your doorstep.
+          <p className="text-xs sm:text-sm leading-relaxed mb-6 text-muted-foreground max-w-[340px]">
+            Homestyle Gujarati & Kathiyawadi dishes, freshly cooked with groundnut oil and pure spices.
           </p>
 
           {/* Search + Sort */}
           <div className="flex items-center gap-3 w-full max-w-[460px]">
             <div className="relative flex-1">
               <Search
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none size-4 text-[#8C8375]"
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none size-4 text-muted-foreground"
               />
               <Input
                 id="menu-hero-search"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="Search dishes, thalis, sabjis, sweets..."
-                className="pl-9 h-10 rounded-full text-xs sm:text-sm bg-white/95 hover:bg-white border-[#E5DEC9] focus-visible:ring-1 focus-visible:ring-[#087443] placeholder:text-[#9E9687] text-[#17231D] shadow-xs"
+                className="pl-9 h-11 rounded-full text-xs sm:text-sm bg-white/95 hover:bg-white border-[#E5DEC9] focus-visible:ring-1 focus-visible:ring-primary placeholder:text-muted-foreground text-foreground shadow-xs"
               />
             </div>
             <Select value={sort} onValueChange={(v) => onSortChange(v as SortOption)}>
               <SelectTrigger
-                className="h-10 rounded-full text-xs sm:text-sm min-w-[130px] bg-white/95 hover:bg-white border-[#E5DEC9] text-[#524B40] shadow-xs shrink-0"
+                className="h-11 rounded-full text-xs sm:text-sm min-w-[130px] bg-white/95 hover:bg-white border-[#E5DEC9] text-foreground shadow-xs shrink-0 cursor-pointer"
               >
                 <div className="flex items-center gap-1.5 font-medium">
-                  <svg width="13" height="11" viewBox="0 0 13 11" fill="none" className="text-[#6B5847]">
+                  <svg width="13" height="11" viewBox="0 0 13 11" fill="none" className="text-muted-foreground">
                     <path d="M0 1h13M2 5.5h9M4 10h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
                   <SelectValue placeholder="Sort" />

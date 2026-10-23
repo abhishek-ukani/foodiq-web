@@ -33,15 +33,15 @@ function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
   return (
     <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
       {/* Day switcher */}
-      <div className="flex items-center p-0.5 bg-[#f4ede0] rounded-full border border-[#ede4d3] text-[11px]">
+      <div className="flex items-center p-0.5 bg-muted/80 rounded-full border border-border text-[11px]">
         <button
           type="button"
           onClick={() => timing.setDate(timing.todayDate)}
           className={cn(
-            'px-2.5 py-1 rounded-full font-semibold transition-all min-h-[28px]',
+            'px-2.5 py-1 rounded-full font-semibold transition-all min-h-[32px] cursor-pointer',
             timing.isToday
-              ? 'bg-white text-[#221b14] shadow-sm'
-              : 'text-[#6b5847] hover:text-[#221b14]',
+              ? 'bg-card text-foreground shadow-xs'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           Today
@@ -50,10 +50,10 @@ function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
           type="button"
           onClick={() => timing.setDate(timing.tomorrowDate)}
           className={cn(
-            'px-2.5 py-1 rounded-full font-semibold transition-all min-h-[28px]',
+            'px-2.5 py-1 rounded-full font-semibold transition-all min-h-[32px] cursor-pointer',
             timing.isTomorrow
-              ? 'bg-white text-[#221b14] shadow-sm'
-              : 'text-[#6b5847] hover:text-[#221b14]',
+              ? 'bg-card text-foreground shadow-xs'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           Tmrw
@@ -61,22 +61,22 @@ function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
       </div>
 
       {/* Meal switcher */}
-      <div className="flex items-center p-0.5 bg-[#f4ede0] rounded-full border border-[#ede4d3] text-[11px]">
+      <div className="flex items-center p-0.5 bg-muted/80 rounded-full border border-border text-[11px]">
         <button
           type="button"
           onClick={() => timing.setActiveSlot('lunch')}
           className={cn(
-            'px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 transition-all min-h-[28px]',
+            'px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 transition-all min-h-[32px] cursor-pointer',
             timing.activeSlot === 'lunch'
               ? isLunchOpen
-                ? 'bg-white text-[#221b14] shadow-sm'
-                : 'bg-neutral-600 text-white shadow-sm'
+                ? 'bg-card text-foreground shadow-xs'
+                : 'bg-neutral-600 text-white shadow-xs'
               : !isLunchOpen
-                ? 'text-[#6b5847]/60 hover:text-[#221b14] opacity-60'
-                : 'text-[#6b5847] hover:text-[#221b14]',
+                ? 'text-muted-foreground/60 hover:text-foreground opacity-60'
+                : 'text-muted-foreground hover:text-foreground',
           )}
         >
-          <Sun className="size-3 text-amber-500" />
+          <Sun className="size-3 text-secondary" />
           <span>Lunch</span>
           {!isLunchOpen && (
             <span className="text-[9px] font-normal opacity-70">
@@ -88,14 +88,14 @@ function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
           type="button"
           onClick={() => timing.setActiveSlot('dinner')}
           className={cn(
-            'px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 transition-all min-h-[28px]',
+            'px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 transition-all min-h-[32px] cursor-pointer',
             timing.activeSlot === 'dinner'
               ? isDinnerOpen
-                ? 'bg-white text-[#221b14] shadow-sm'
-                : 'bg-neutral-600 text-white shadow-sm'
+                ? 'bg-card text-foreground shadow-xs'
+                : 'bg-neutral-600 text-white shadow-xs'
               : !isDinnerOpen
-                ? 'text-[#6b5847]/60 hover:text-[#221b14] opacity-60'
-                : 'text-[#6b5847] hover:text-[#221b14]',
+                ? 'text-muted-foreground/60 hover:text-foreground opacity-60'
+                : 'text-muted-foreground hover:text-foreground',
           )}
         >
           <Moon className="size-3 text-indigo-400" />
@@ -540,10 +540,10 @@ export function MobileMenuView({
 
       {/* ── FLOATING CART BAR ── */}
       {itemCount > 0 && (
-        <div className="fixed bottom-4 inset-x-4 z-40 max-w-md mx-auto">
+        <div className="fixed bottom-4 inset-x-4 z-40 max-w-md mx-auto pb-safe">
           <Link
             to={ROUTES.checkout}
-            className="flex items-center justify-between bg-[#185834] hover:bg-[#0f4024] active:scale-[0.99] text-white px-4 py-3.5 rounded-2xl shadow-xl transition-all duration-150"
+            className="flex items-center justify-between bg-primary hover:bg-primary/90 active:scale-[0.99] text-primary-foreground px-4 py-3.5 rounded-2xl shadow-xl transition-all duration-150 min-h-[52px]"
           >
             <div className="flex items-center gap-2.5">
               <div className="size-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-xs">
@@ -553,12 +553,12 @@ export function MobileMenuView({
                 <p className="text-xs font-semibold leading-none opacity-90">
                   {itemCount} {itemCount === 1 ? 'item' : 'items'} added
                 </p>
-                <p className="text-sm font-extrabold leading-none mt-1">
+                <p className="font-display text-sm font-extrabold leading-none mt-1">
                   {CURRENCY_SYMBOL}{subtotal}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1 text-xs font-bold bg-white/15 px-3 py-1.5 rounded-xl">
+            <div className="flex items-center gap-1.5 text-xs font-bold bg-white/20 px-3.5 py-1.5 rounded-xl">
               <span>Checkout</span>
               <ArrowRight className="size-3.5" />
             </div>

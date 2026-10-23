@@ -1,437 +1,465 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
+import { motion } from 'framer-motion'
 import {
   PartyPopper,
-  Users,
   Sparkles,
   Phone,
   MessageCircle,
   CheckCircle2,
-  Clock,
-  Flame,
   Briefcase,
   Heart,
   Luggage,
+  Flame,
+  Home,
+  Gift,
+  Sun,
+  ChefHat,
+  ShieldCheck,
+  Users,
+  ArrowRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/common/reveal'
 import { cn } from '@/lib/utils'
 
-// 4 Occasion Types
+// 8 Minimalist Occasion Cards (No images, generous empty space, clean typography)
 const OCCASIONS = [
   {
     id: 'family',
+    title: 'Family Gatherings & Milestones',
+    subtitle: 'Birthdays, wedding anniversaries, and reunions with pure homestyle warmth.',
+    scale: '10 to 100+ Guests',
+    tag: 'Celebration',
     icon: Heart,
-    title: 'Family & Kitty Parties',
-    gujaratiTitle: 'કૌટુંબિક પ્રસંગ અને મેળાવડો',
-    recommendedFor: 'Birthdays, Anniversaries, Vastu',
-    badge: '15 to 60 Guests',
-    accent: '#D85820',
   },
   {
     id: 'pooja',
+    title: 'Pooja, Hawan & Sacred Rituals',
+    subtitle: 'Satyanarayan katha, Navratri, and auspicious ceremonies cooked in pure cow ghee.',
+    scale: '15 to 150+ Guests',
+    tag: '100% Satvik',
     icon: Sparkles,
-    title: 'Pooja & Religious Functions',
-    gujaratiTitle: 'પૂજા અને ધાર્મિક ઉત્સવ',
-    recommendedFor: 'Satyanarayan Katha, Navratri, Diwali',
-    badge: 'Jain / No Onion-Garlic',
-    accent: '#C9891F',
   },
   {
-    id: 'office',
+    id: 'corporate',
+    title: 'Corporate & Team Lunches',
+    subtitle: 'Hygienic, individual spill-proof bento meals for team meets and conferences.',
+    scale: '10 to 99+ Guests',
+    tag: 'Executive',
     icon: Briefcase,
-    title: 'Office & Corporate Lunches',
-    gujaratiTitle: 'ઓફિસ લંચ અને મીટિંગ',
-    recommendedFor: 'Team Lunches, Client Meetings, Training',
-    badge: 'Individual Boxed Meals',
-    accent: '#185834',
+  },
+  {
+    id: 'housewarming',
+    title: 'Housewarming & Griha Pravesh',
+    subtitle: 'Bless your new home with auspicious dining and warm Saurashtra hospitality.',
+    scale: '20 to 120+ Guests',
+    tag: 'New Home',
+    icon: Home,
+  },
+  {
+    id: 'wedding-events',
+    title: 'Wedding Pre-Events & Mameru',
+    subtitle: 'Haldi, Mehendi, Sangeet dinners, and Mameru feasts with royal Gujarati spreads.',
+    scale: '25 to 150+ Guests',
+    tag: 'Grand Royal',
+    icon: Gift,
   },
   {
     id: 'travel',
+    title: 'Travel & Tirth Yatra Bhathu',
+    subtitle: 'Fresh, long-lasting travel packs with soft Methi Theplas and dry snacks.',
+    scale: '5 to 60+ Packs',
+    tag: 'Travel Safe',
     icon: Luggage,
-    title: 'Travel & Train Packs',
-    gujaratiTitle: 'પ્રવાસ અને ટ્રેન ભાથું',
-    recommendedFor: 'Outstation trips, Long Drives, Pilgrimages',
-    badge: 'Long-Lasting Freshness',
-    accent: '#2A7349',
+  },
+  {
+    id: 'satsang',
+    title: 'Satsang & Bhajan Mandal',
+    subtitle: 'Pure satvik prasadam with vaghareli khichdi, kadhi, and traditional sweets.',
+    scale: '25 to 130+ Guests',
+    tag: 'Bhakti Prasad',
+    icon: Sun,
+  },
+  {
+    id: 'society',
+    title: 'Community & Society Meets',
+    subtitle: 'Festive community celebrations with live counters and grand buffet setups.',
+    scale: '30 to 150+ Guests',
+    tag: 'Community',
+    icon: Users,
   },
 ]
-
-// 3 Catering Packages
-const PACKAGES = [
-  {
-    id: 'standard',
-    name: 'Ghar Nu Jaman',
-    gujaratiName: 'ઘરનું જમણ',
-    pricePerPerson: 149,
-    description: 'Wholesome everyday celebration meal',
-    items: [
-      '2 Seasonal Rasoi Shaak',
-      '5 Soft Phulka Rotlis',
-      'Gujarati Dal & Steamed Rice',
-      'Fresh Mint Chaas',
-      'Kachumber & Chutney',
-    ],
-  },
-  {
-    id: 'kathiyawadi',
-    name: 'Kathiyawadi Dawat',
-    gujaratiName: 'કાઠિયાવાડી દાવત',
-    pricePerPerson: 219,
-    popular: true,
-    description: 'Authentic Saurashtra feast with hot rotla',
-    items: [
-      'Ringan Bharthu & Sev Tameta',
-      '2 Clay-Tava Bajra Rotla with Ghee & Jaggery',
-      'Vaghareli Khichdi & Desi Kadhi',
-      'Lasaniya Marcha & Garlic Chutney',
-      'Chilled Masala Chaas',
-    ],
-  },
-  {
-    id: 'utsav',
-    name: 'Utsav Special Thali',
-    gujaratiName: 'ઉત્સવ સ્પેશિયલ થાળી',
-    pricePerPerson: 289,
-    description: 'Grand festive feast with sweet & farsan',
-    items: [
-      '2 Royal Gujarati Sabjis',
-      '1 Traditional Sweet (Mohanthal/Shrikhand)',
-      '1 Fresh Farsan (Dhokla or Samosa)',
-      'Pure Ghee Phulkas or Puris',
-      'Dal, Bhat, Chaas, Papad & Achar',
-    ],
-  },
-]
-
-// Preset Guest counts for quick selection
-const GUEST_COUNTS = [15, 25, 50, 75, 100]
 
 export function OccasionsSection() {
-  const [selectedOccasion, setSelectedOccasion] = useState(OCCASIONS[0].id)
-  const [guestCount, setGuestCount] = useState(25)
-  const [selectedPackage, setSelectedPackage] = useState(PACKAGES[1].id)
+  // Center card default: middle card
+  const [activeIndex, setActiveIndex] = useState(3)
 
-  const activeOccasionObj = OCCASIONS.find((o) => o.id === selectedOccasion) || OCCASIONS[0]
-  const activePackageObj = PACKAGES.find((p) => p.id === selectedPackage) || PACKAGES[1]
+  const activeOccasion = OCCASIONS[activeIndex]
 
-  const estimatedTotal = useMemo(() => {
-    return guestCount * activePackageObj.pricePerPerson
-  }, [guestCount, activePackageObj])
-
-  // Pre-filled WhatsApp inquiry link
-  const whatsappUrl = useMemo(() => {
-    const text = encodeURIComponent(
-      `Hello FoodIQ! I would like to inquire about bulk catering:\n` +
-        `• Occasion: ${activeOccasionObj.title} (${activeOccasionObj.gujaratiTitle})\n` +
-        `• Guest Count: ${guestCount} people\n` +
-        `• Package: ${activePackageObj.name} (₹${activePackageObj.pricePerPerson}/person)\n` +
-        `• Estimated Budget: ~₹${estimatedTotal.toLocaleString('en-IN')}\n\n` +
-        `Could you please share your custom menu options and availability?`,
-    )
-    return `https://wa.me/919999999999?text=${text}`
-  }, [activeOccasionObj, guestCount, activePackageObj, estimatedTotal])
+  const generalCustomWhatsAppUrl = `https://wa.me/919999999999?text=${encodeURIComponent(
+    `Hello FoodIQ! I am planning a catering order for ${activeOccasion.title} (~${activeOccasion.scale}).\n\n` +
+    `I saw your bulk catering starting from ₹1,499 for 10 people. We would like to customize our menu with Kathiyawadi dishes, Punjabi sabjis, and Pav Bhaji / Pulao. Please share options and a direct quote!`,
+  )}`
 
   return (
-    <section id="occasions" className="relative overflow-hidden bg-[#FAF6EE] py-16 sm:py-20 lg:py-24">
-      {/* ── Soft Ambient Background ── */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute top-1/4 right-0 size-96 rounded-full bg-[radial-gradient(ellipse_at_center,#C9891F12_0%,transparent_70%)]" />
-        <div className="absolute bottom-0 left-0 size-96 rounded-full bg-[radial-gradient(ellipse_at_center,#D8582012_0%,transparent_70%)]" />
-      </div>
+    <section
+      id="occasions"
+      className="relative overflow-hidden bg-[#FAF4E6] py-16 sm:py-24 lg:py-28 w-full"
+    >
+      {/* Decorative ambient background glows */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-40 right-0 size-[32rem] rounded-full bg-primary/5 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-40 left-0 size-[32rem] rounded-full bg-secondary/10 blur-3xl"
+      />
 
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      {/* Expansive Full-Width Container occupying full horizontal screen space */}
+      <div className="relative mx-auto max-w-[1440px] w-full px-4 sm:px-6 lg:px-10 xl:px-12">
 
         {/* ── SECTION HEADER ── */}
-        <div className="mx-auto max-w-3xl text-center space-y-3">
+        <div className="text-center space-y-3 max-w-3xl mx-auto">
           <Reveal>
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-600/30 bg-amber-50/90 px-4 py-1.5 text-xs font-semibold text-amber-950 tracking-wide shadow-xs">
-              <PartyPopper className="size-3.5 text-[#D85820] shrink-0" aria-hidden="true" />
-              <span>પ્રસંગ અને ઉત્સવ • Celebrations &amp; Bulk Catering</span>
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
+              <PartyPopper className="size-3.5 shrink-0" aria-hidden="true" />
+              <span>Bulk &amp; Event Catering</span>
             </div>
           </Reveal>
 
-          <Reveal delay={0.06}>
-            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight leading-[1.18]">
-              Bring the Taste of Home to{' '}
-              <span className="font-serif italic text-[#D85820] font-normal">Your Special Occasions</span>
+          <Reveal delay={0.05}>
+            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight leading-tight">
+              Catering for Every Celebration &amp; Gathering
             </h2>
           </Reveal>
 
-          <Reveal delay={0.12}>
-            <p className="font-gujarati text-base sm:text-lg text-primary font-semibold">
-              ગૃહપ્રવેશ, પૂજા કે ઓફિસ લંચ — રસભરી રસોઈ, પ્રેમપૂર્વક પીરસાયેલી
-            </p>
-          </Reveal>
-
-          <Reveal delay={0.18}>
-            <p className="text-base sm:text-lg leading-relaxed text-muted-foreground font-sans max-w-2xl mx-auto">
-              From intimate family pujas to office team lunches, we prepare pure homemade meals
-              fresh on your schedule. 10 to 150+ guests, cooked with pure groundnut oil and Amul ghee.
+          <Reveal delay={0.1}>
+            <p className="text-sm sm:text-base text-muted-foreground font-sans max-w-2xl mx-auto leading-relaxed">
+              Pure homemade meals prepared fresh for 10 to 500+ guests. Hover over any card to open and explore.
             </p>
           </Reveal>
         </div>
 
-        {/* ── 4 OCCASION SELECTOR TILES ── */}
-        <div className="mt-12 sm:mt-16 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {OCCASIONS.map((occ) => {
-            const Icon = occ.icon
-            const isSelected = occ.id === selectedOccasion
 
-            return (
-              <button
-                key={occ.id}
-                type="button"
-                onClick={() => setSelectedOccasion(occ.id)}
-                className={cn(
-                  'group relative flex flex-col justify-between p-4 sm:p-5 rounded-2xl border text-left transition-all duration-200 cursor-pointer',
-                  isSelected
-                    ? 'border-[#D85820] bg-white shadow-md ring-2 ring-[#D85820]/15'
-                    : 'border-[#EDE4D3] bg-white/70 hover:bg-white hover:border-[#D85820]/40 shadow-2xs',
-                )}
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
+
+        {/* ── 3D TILTING CARDS STAGE (Center card flat, flanking cards tilted 45° towards center, switches on mouse hover) ── */}
+        <div className="mt-14 sm:mt-20">
+          {/* 3D Perspective Stage Container */}
+          <div
+            className="relative w-full py-10 overflow-hidden [perspective:1400px] select-none"
+            style={{ perspectiveOrigin: 'center center' }}
+          >
+            <div className="flex items-center justify-center min-h-[460px] sm:min-h-[500px] px-2 sm:px-6">
+              {OCCASIONS.map((occ, i) => {
+                const Icon = occ.icon
+                const offset = i - activeIndex
+                const isActive = offset === 0
+
+                // 45° Tilt towards the center card:
+                // Left cards tilt 45° (rotateY: 45)
+                // Right cards tilt -45° (rotateY: -45)
+                // Center active card is flat (rotateY: 0)
+                let rotateY = 0
+                if (offset < 0) rotateY = 45
+                if (offset > 0) rotateY = -45
+
+                // Smooth scale and depth calculation
+                const scale = isActive ? 1.05 : 0.86
+                const zIndex = 40 - Math.abs(offset) * 4
+                const opacity = isActive
+                  ? 1
+                  : Math.max(0.35, 0.82 - Math.abs(offset) * 0.12)
+
+                return (
+                  <motion.div
+                    key={occ.id}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    onClick={() => setActiveIndex(i)}
+                    animate={{
+                      rotateY: rotateY,
+                      scale: scale,
+                      opacity: opacity,
+                      zIndex: zIndex,
+                      y: isActive ? -12 : 8,
+                    }}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 300,
+                      damping: 26,
+                    }}
+                    style={{
+                      transformStyle: 'preserve-3d',
+                      transformOrigin: offset < 0 ? 'right center' : offset > 0 ? 'left center' : 'center center',
+                    }}
+                    className={cn(
+                      'relative shrink-0 cursor-pointer transition-[margin] duration-300 ease-out',
+                      // Negative margin when tilted so cards tuck behind each other; expands when active
+                      isActive
+                        ? 'mx-3 sm:mx-6 lg:mx-8'
+                        : '-mx-10 sm:-mx-16 md:-mx-20 lg:-mx-24',
+                    )}
+                  >
+                    {/* Animated Card Body - SpectrumHQ style with clean space & radiant border glow */}
                     <div
                       className={cn(
-                        'flex size-10 items-center justify-center rounded-xl transition-transform group-hover:scale-105',
-                        isSelected ? 'bg-[#D85820] text-white' : 'bg-amber-500/10 text-[#D85820]',
+                        'relative rounded-3xl p-7 sm:p-9 flex flex-col justify-between transition-all duration-300',
+                        isActive
+                          ? 'w-[310px] sm:w-[360px] md:w-[390px] h-[420px] sm:h-[450px] bg-card border-2 border-primary shadow-2xl shadow-primary/15 ring-4 ring-primary/10'
+                          : 'w-[260px] sm:w-[290px] md:w-[320px] h-[380px] sm:h-[410px] bg-card/85 backdrop-blur-md border border-border/80 hover:border-primary/50 shadow-md',
                       )}
                     >
-                      <Icon className="size-5 stroke-[1.8]" />
+                      {/* SpectrumHQ Radiant Glow Accent on Active Card */}
+                      {isActive && (
+                        <div
+                          aria-hidden="true"
+                          className="pointer-events-none absolute -inset-1 rounded-[1.8rem] bg-gradient-to-br from-primary/30 via-secondary/20 to-primary/30 blur-md -z-10"
+                        />
+                      )}
+
+                      {/* Top Bar: Icon in soft frame + Category Tag */}
+                      <div className="flex items-center justify-between">
+                        <div
+                          className={cn(
+                            'size-13 rounded-2xl flex items-center justify-center transition-all duration-300',
+                            isActive
+                              ? 'bg-primary text-white shadow-md shadow-primary/20 scale-105'
+                              : 'bg-accent/80 text-primary',
+                          )}
+                        >
+                          <Icon className="size-6 stroke-[1.8]" />
+                        </div>
+
+                        <span
+                          className={cn(
+                            'text-[11px] font-bold uppercase tracking-wider px-3.5 py-1 rounded-full border transition-colors',
+                            isActive
+                              ? 'bg-primary/10 text-primary border-primary/30'
+                              : 'bg-muted/70 text-muted-foreground border-border/60',
+                          )}
+                        >
+                          {occ.tag}
+                        </span>
+                      </div>
+
+                      {/* Middle: Generous Empty Space with Clean Editorial Typography */}
+                      <div className="my-auto py-6 space-y-3.5">
+                        <h4
+                          className={cn(
+                            'font-display font-bold tracking-tight transition-colors leading-snug',
+                            isActive
+                              ? 'text-2xl sm:text-3xl text-foreground'
+                              : 'text-xl sm:text-2xl text-foreground/80',
+                          )}
+                        >
+                          {occ.title}
+                        </h4>
+
+                        <p
+                          className={cn(
+                            'text-xs sm:text-sm font-sans leading-relaxed transition-colors',
+                            isActive
+                              ? 'text-muted-foreground'
+                              : 'text-muted-foreground/80 line-clamp-2',
+                          )}
+                        >
+                          {occ.subtitle}
+                        </p>
+                      </div>
+
+                      {/* Bottom Bar: Clean Metadata with Spacious Layout (No bottom WhatsApp button inside card) */}
+                      <div className="pt-4 border-t border-border/70 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-foreground">
+                          <Users className="size-3.5 text-primary" />
+                          <span>{occ.scale}</span>
+                        </div>
+
+                        <span
+                          className={cn(
+                            'text-[11px] font-semibold transition-colors',
+                            isActive ? 'text-primary' : 'text-muted-foreground',
+                          )}
+                        >
+                          {isActive ? 'Active View' : 'Hover to Open'}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
-                      {occ.badge}
-                    </span>
-                  </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+          </div>
 
-                  <div>
-                    <h3 className="font-serif text-sm sm:text-base font-bold text-foreground leading-snug group-hover:text-primary transition-colors">
-                      {occ.title}
-                    </h3>
-                    <p className="font-gujarati text-xs text-[#D85820] font-semibold mt-0.5 leading-tight">
-                      {occ.gujaratiTitle}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-[11px] text-muted-foreground mt-2 line-clamp-1 font-sans">
-                  {occ.recommendedFor}
-                </p>
-              </button>
-            )
-          })}
+          {/* Minimalist dot indicator track */}
+          <div className="flex justify-center items-center gap-1.5 mt-4">
+            {OCCASIONS.map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onMouseEnter={() => setActiveIndex(idx)}
+                onClick={() => setActiveIndex(idx)}
+                aria-label={`Go to occasion ${idx + 1}`}
+                className={cn(
+                  'h-1.5 rounded-full transition-all cursor-pointer',
+                  idx === activeIndex
+                    ? 'w-8 bg-primary'
+                    : 'w-2 bg-border hover:bg-primary/40',
+                )}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* ── INTERACTIVE CATERING ESTIMATOR & MENU PLANNER ── */}
-        <div className="mt-8 rounded-3xl border border-[#EDE4D3] bg-white p-6 sm:p-8 shadow-sm">
-          <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
+        {/* ── HIGH-IMPACT CUSTOMIZE & DIRECT QUOTES BANNER ── */}
+        <div className="mt-16 sm:mt-24 rounded-3xl border border-primary/25 bg-gradient-to-br from-[#FFFDF9] via-[#FAF4E6] to-[#F5ECE0] p-6 sm:p-10 lg:p-12 shadow-sm relative overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-24 -right-24 size-80 rounded-full bg-primary/10 blur-3xl"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-24 -left-24 size-80 rounded-full bg-secondary/15 blur-3xl"
+          />
 
-            {/* Left Column: Guest Count & Package Selector */}
-            <div className="space-y-6 lg:col-span-7">
-
-              {/* Step A: Guest Count */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Users className="size-3.5 text-primary" />
-                    <span>How Many Guests?</span>
-                  </label>
-                  <span className="text-sm font-bold text-[#D85820]">
-                    {guestCount} Guests
-                  </span>
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-start justify-between gap-8 lg:gap-12">
+            {/* Left Content */}
+            <div className="space-y-6 flex-1">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-primary">
+                  <ChefHat className="size-3.5 shrink-0" />
+                  <span>100% Customized Food &amp; Menus</span>
                 </div>
 
-                {/* Quick Guest Count Buttons */}
-                <div className="flex flex-wrap gap-2">
-                  {GUEST_COUNTS.map((count) => (
-                    <button
-                      key={count}
-                      type="button"
-                      onClick={() => setGuestCount(count)}
-                      className={cn(
-                        'px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer',
-                        guestCount === count
-                          ? 'border-primary bg-primary text-white shadow-xs'
-                          : 'border-[#EDE4D3] bg-muted/30 text-foreground hover:bg-muted/80',
-                      )}
-                    >
-                      {count} People
-                    </button>
-                  ))}
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    <button
-                      type="button"
-                      onClick={() => setGuestCount((c) => Math.max(10, c - 5))}
-                      className="size-8 rounded-full border border-[#EDE4D3] flex items-center justify-center font-bold text-sm hover:bg-muted cursor-pointer"
-                    >
-                      -
-                    </button>
-                    <span className="text-xs font-bold w-10 text-center">{guestCount}</span>
-                    <button
-                      type="button"
-                      onClick={() => setGuestCount((c) => Math.min(300, c + 5))}
-                      className="size-8 rounded-full border border-[#EDE4D3] flex items-center justify-center font-bold text-sm hover:bg-muted cursor-pointer"
-                    >
-                      +
-                    </button>
-                  </div>
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-600/30 bg-amber-500/10 px-3.5 py-1 text-xs font-bold tracking-wide text-amber-900">
+                  <Sparkles className="size-3.5 text-amber-600 shrink-0" />
+                  <span>Starting at ₹1,499 per 10 People</span>
                 </div>
               </div>
 
-              {/* Step B: Choose Meal Package */}
-              <div className="space-y-3 pt-2 border-t border-[#EDE4D3]">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Sparkles className="size-3.5 text-primary" />
-                  <span>Choose Your Meal Style</span>
-                </label>
+              <div>
+                <h3 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight leading-snug">
+                  Customized Menus &amp; Direct Chef Quotes
+                </h3>
+                <p className="mt-2 text-sm sm:text-base text-muted-foreground leading-relaxed font-sans max-w-2xl">
+                  Every celebration is unique. Apart from standard meals, we prepare and customize food entirely according to your family&apos;s preference, taste, and tradition.
+                </p>
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {PACKAGES.map((pkg) => {
-                    const isSelected = pkg.id === selectedPackage
+              {/* Rich Menu Highlights Grid (Kathiyawadi, Punjabi, Pav Bhaji & Pulao, Live Rotla, Jain) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+                {/* 1. Kathiyawadi Dishes */}
+                <div className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur-xs p-4 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+                    <Flame className="size-4 shrink-0 text-primary" />
+                    <span>All Authentic Kathiyawadi Dishes</span>
+                  </div>
+                </div>
 
-                    return (
-                      <button
-                        key={pkg.id}
-                        type="button"
-                        onClick={() => setSelectedPackage(pkg.id)}
-                        className={cn(
-                          'relative p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between',
-                          isSelected
-                            ? 'border-[#D85820] bg-amber-50/50 shadow-xs ring-1 ring-[#D85820]'
-                            : 'border-[#EDE4D3] bg-white hover:border-[#D85820]/40',
-                        )}
-                      >
-                        {pkg.popular && (
-                          <span className="absolute -top-2 right-2.5 rounded-full bg-[#D85820] text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide">
-                            Most Loved
-                          </span>
-                        )}
+                {/* 2. Punjabi Sabjis */}
+                <div className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur-xs p-4 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center gap-2 text-amber-700 font-bold text-xs uppercase tracking-wider">
+                    <Sparkles className="size-4 shrink-0 text-amber-600" />
+                    <span>Rich Punjabi Sabjis</span>
+                  </div>
+                </div>
 
-                        <div>
-                          <p className="font-serif text-sm font-bold text-foreground leading-snug">
-                            {pkg.name}
-                          </p>
-                          <p className="font-gujarati text-xs text-[#D85820] font-semibold mt-0.5">
-                            {pkg.gujaratiName}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1">
-                            {pkg.description}
-                          </p>
-                        </div>
+                {/* 3. Pav Bhaji & Pulao */}
+                <div className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur-xs p-4 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center gap-2 text-orange-700 font-bold text-xs uppercase tracking-wider">
+                    <PartyPopper className="size-4 shrink-0 text-orange-600" />
+                    <span>Pav Bhaji &amp; Veg Pulao</span>
+                  </div>
+                </div>
 
-                        <div className="mt-3 pt-2 border-t border-[#EDE4D3]/60 flex items-baseline justify-between">
-                          <span className="text-xs font-bold text-foreground">
-                            ₹{pkg.pricePerPerson}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">/ person</span>
-                        </div>
-                      </button>
-                    )
-                  })}
+                {/* 4. Live Clay-Tava Bajra Rotla Counter */}
+                <div className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur-xs p-4 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+                    <Flame className="size-4 shrink-0 text-primary" />
+                    <span>Live Clay-Tava Rotla Counter</span>
+                  </div>
+                </div>
+
+                {/* 5. 100% Jain & Swaminarayan Safe */}
+                <div className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur-xs p-4 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs uppercase tracking-wider">
+                    <ShieldCheck className="size-4 shrink-0 text-emerald-600" />
+                    <span>100% Pure Jain &amp; Swaminarayan Safe</span>
+                  </div>
+                </div>
+
+                {/* 6. Tailored to Your Preference */}
+                <div className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur-xs p-4 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+                    <CheckCircle2 className="size-4 shrink-0 text-primary" />
+                    <span>Customized to Your Taste</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Dynamic Estimate & One-Tap WhatsApp Inquiry */}
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:p-6 lg:col-span-5 space-y-5">
-              <div className="flex items-center justify-between border-b border-primary/15 pb-3">
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
-                    Estimated Budget
+            {/* Right Action Box */}
+            <div className="shrink-0 w-full lg:w-[360px] space-y-4 bg-card p-6 sm:p-7 rounded-3xl border border-border/80 shadow-md">
+              {/* Highlight Bulk Price Box */}
+              <div className="rounded-2xl bg-primary/5 border border-primary/20 p-4 text-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
+                  Bulk Catering Benchmark
+                </span>
+                <div className="flex items-baseline justify-center gap-1.5 mt-1">
+                  <span className="text-3xl sm:text-4xl font-display font-bold text-primary">
+                    ₹1,499
                   </span>
-                  <p className="text-xs text-muted-foreground">
-                    For {guestCount} guests • {activePackageObj.name}
-                  </p>
+                  <span className="text-xs font-semibold text-foreground/85">/ for 10 people</span>
                 </div>
-                <div className="text-right">
-                  <span className="font-display text-2xl sm:text-3xl font-bold text-foreground">
-                    ₹{estimatedTotal.toLocaleString('en-IN')}
-                  </span>
-                  <p className="text-[10px] text-muted-foreground">
-                    ₹{activePackageObj.pricePerPerson} per person
-                  </p>
-                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  No rigid tiers • Scalable to 15, 25, 50, 100+ guests with customized menus
+                </p>
               </div>
 
-              {/* What's Included List */}
-              <div className="space-y-2">
-                <span className="text-xs font-bold text-foreground">What&apos;s Included:</span>
-                <ul className="space-y-1.5 text-xs text-muted-foreground">
-                  {activePackageObj.items.map((item) => (
-                    <li key={item} className="flex items-center gap-2">
-                      <CheckCircle2 className="size-3.5 text-primary shrink-0" />
-                      <span className="text-foreground/90">{item}</span>
-                    </li>
-                  ))}
-                </ul>
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-primary block">
+                  Get a Direct Custom Quote
+                </span>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Selected Occasion: <strong className="text-foreground">{activeOccasion.title}</strong>
+                </p>
               </div>
 
-              {/* Direct CTAs */}
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2.5 pt-1">
                 <Button
                   size="lg"
-                  className="w-full h-11 rounded-full bg-[#185834] text-white hover:bg-[#185834]/90 text-sm font-semibold shadow-md pill-tap"
+                  className="w-full min-h-[48px] rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold shadow-md active:scale-[0.98] transition-all cursor-pointer"
                   asChild
                 >
-                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2">
+                  <a
+                    href={generalCustomWhatsAppUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2"
+                  >
                     <MessageCircle className="size-4.5" />
-                    <span>Inquire via WhatsApp</span>
+                    <span>WhatsApp for Custom Quote</span>
+                    <ArrowRight className="size-4" />
                   </a>
                 </Button>
 
                 <Button
                   size="sm"
                   variant="outline"
-                  className="w-full h-10 rounded-full border-primary/30 text-primary hover:bg-primary/10 text-xs font-semibold pill-tap"
+                  className="w-full min-h-[44px] rounded-full border-border text-foreground hover:bg-muted text-xs font-semibold cursor-pointer"
                   asChild
                 >
                   <a href="tel:+919999999999" className="flex items-center justify-center gap-1.5">
-                    <Phone className="size-3.5" />
-                    <span>Or Call Us: +91 99999 99999</span>
+                    <Phone className="size-3.5 text-primary" />
+                    <span>Call Us Directly: +91 99999 99999</span>
                   </a>
                 </Button>
               </div>
 
-              {/* Delivery Note */}
-              <p className="text-[11px] text-center text-muted-foreground leading-tight">
-                ⚡ Please order at least 24 hours in advance for bulk batches. Custom Jain and fasting menus available.
-              </p>
-            </div>
-
-          </div>
-        </div>
-
-        {/* ── BOTTOM BULK QUALITY PILLARS ── */}
-        <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="flex items-center gap-2.5 rounded-2xl border border-[#EDE4D3] bg-white p-3.5 shadow-2xs">
-            <Clock className="size-5 text-[#D85820] shrink-0" />
-            <div>
-              <p className="text-xs font-bold text-foreground">On-Time Delivery</p>
-              <p className="text-[10px] text-muted-foreground">Hot at your doorstep</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 rounded-2xl border border-[#EDE4D3] bg-white p-3.5 shadow-2xs">
-            <Flame className="size-5 text-[#D85820] shrink-0" />
-            <div>
-              <p className="text-xs font-bold text-foreground">Cooked Fresh Daily</p>
-              <p className="text-[10px] text-muted-foreground">Never pre-frozen</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 rounded-2xl border border-[#EDE4D3] bg-white p-3.5 shadow-2xs">
-            <Sparkles className="size-5 text-primary shrink-0" />
-            <div>
-              <p className="text-xs font-bold text-foreground">100% Pure Vegetarian</p>
-              <p className="text-[10px] text-muted-foreground">Zero onion-garlic option</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 rounded-2xl border border-[#EDE4D3] bg-white p-3.5 shadow-2xs">
-            <CheckCircle2 className="size-5 text-primary shrink-0" />
-            <div>
-              <p className="text-xs font-bold text-foreground">Eco Spill-Proof Pack</p>
-              <p className="text-[10px] text-muted-foreground">Ready to serve trays</p>
+              <div className="pt-2 border-t border-border/60 text-center">
+                <p className="text-[10px] text-muted-foreground">
+                  ⚡ Direct Chef consultation · Quote in 15 mins · Pure homestyle cooking
+                </p>
+              </div>
             </div>
           </div>
         </div>

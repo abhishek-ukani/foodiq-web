@@ -132,17 +132,17 @@ export function ItemCustomizationPicker({
               type="button"
               onClick={() => onToggle(c.id, c.dynamicDetails)}
               className={`
-                inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+                inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold min-h-[36px]
                 border transition-all duration-150 cursor-pointer select-none
                 ${isSelected
-                  ? 'bg-[#2E7D32] border-[#2E7D32] text-white shadow-2xs'
-                  : 'bg-white border-gray-300 text-gray-700 hover:border-[#2E7D32] hover:text-[#2E7D32]'
+                  ? 'bg-primary border-primary text-primary-foreground shadow-2xs'
+                  : 'bg-white border-neutral-300 text-neutral-700 hover:border-primary hover:text-primary'
                 }
               `}
             >
-              {isSelected && <Check className="size-3 stroke-[2] shrink-0" />}
+              {isSelected && <Check className="size-3.5 stroke-[2.5] shrink-0" />}
               <span>{c.name}</span>
-              <span className={`text-[10px] font-semibold ${isSelected ? 'text-green-200' : 'text-[#2E7D32]'}`}>
+              <span className={`text-[10px] font-bold ${isSelected ? 'text-primary-foreground/90' : 'text-primary'}`}>
                 +{CURRENCY_SYMBOL}{c.price_delta}
               </span>
             </button>

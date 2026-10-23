@@ -1,382 +1,203 @@
-import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import {
-  Sun,
-  Moon,
-  Clock,
-  Truck,
-  Flame,
-  CirclePause,
-  CheckCircle2,
-  ArrowRight,
-  Sparkles,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Clock, Phone, MapPin, ShoppingBag, Bike, ArrowRight } from 'lucide-react'
 import { Reveal } from '@/components/common/reveal'
+import { Button } from '@/components/ui/button'
+import { Link } from 'react-router-dom'
 import { ROUTES } from '@/constants'
-import { cn } from '@/lib/utils'
-import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
 
 export function DeliveryTimingsSection() {
-  const timing = useMealTiming()
-
-  const lunchCutoff = timing.slots.lunch?.formattedCutoff || '11:30 AM'
-  const dinnerCutoff = timing.slots.dinner?.formattedCutoff || '8:00 PM'
-
-  const isLunchOpen = timing.slots.lunch?.isOpen ?? false
-  const isDinnerOpen = timing.slots.dinner?.isOpen ?? false
-  const isLunchCutoff = timing.slots.lunch?.isCutoffPassed ?? false
-  const isDinnerCutoff = timing.slots.dinner?.isCutoffPassed ?? false
-  const isLunchPublished = timing.slots.lunch?.isPublished ?? false
-  const isDinnerPublished = timing.slots.dinner?.isPublished ?? false
-
-  // Calculate live kitchen status based on real database cutoffs, publishing, and holidays
-  const currentSlotState = useMemo<
-    | 'holiday'
-    | 'full_day_closed'
-    | 'lunch'
-    | 'lunch_unpublished'
-    | 'dinner'
-    | 'dinner_unpublished'
-    | 'tomorrow'
-  >(() => {
-    if (timing.activeHoliday && (timing.activeHoliday.mealType === 'all' || timing.activeHoliday.mealType === 'lunch')) {
-      return 'holiday'
-    }
-    if (timing.isFullDayClosed) return 'full_day_closed'
-    if (isLunchOpen) return 'lunch'
-    if (!isLunchCutoff && !isLunchPublished) return 'lunch_unpublished'
-    if (isDinnerOpen) return 'dinner'
-    if (!isDinnerCutoff && !isDinnerPublished) return 'dinner_unpublished'
-    return 'tomorrow'
-  }, [timing.activeHoliday, timing.isFullDayClosed, isLunchOpen, isDinnerOpen, isLunchCutoff, isLunchPublished, isDinnerCutoff, isDinnerPublished])
 
   return (
-    <section id="delivery-timings" className="relative overflow-hidden bg-[#FAF6EE] py-16 sm:py-20 lg:py-24 border-t border-[#EDE4D3]">
-      {/* Soft Ambient Radiance */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute top-1/4 right-0 size-96 rounded-full bg-[radial-gradient(ellipse_at_center,#C9891F10_0%,transparent_70%)]" />
-        <div className="absolute bottom-0 left-0 size-96 rounded-full bg-[radial-gradient(ellipse_at_center,#18583410_0%,transparent_70%)]" />
-      </div>
+    <section
+      id="delivery-timings"
+      className="relative overflow-hidden bg-[#F3ECE0] py-16 sm:py-24 lg:py-28 text-foreground"
+    >
+      {/* Subtle Warm Amber Glows */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-40 right-0 size-96 rounded-full bg-primary/5 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-40 left-0 size-96 rounded-full bg-amber-500/5 blur-3xl"
+      />
 
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-
-        {/* ── SECTION HEADER ── */}
-        <div className="mx-auto max-w-3xl text-center space-y-3">
+      <div className="relative z-10 mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10 xl:px-12">
+        {/* ── HEADER: Airy & High-Contrast ── */}
+        <div className="max-w-3xl mx-auto text-center space-y-3 mb-12 sm:mb-16">
           <Reveal>
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-600/30 bg-amber-50/90 px-4 py-1.5 text-xs font-semibold text-amber-950 tracking-wide shadow-xs">
-              <Clock className="size-3.5 text-[#D85820] shrink-0" aria-hidden="true" />
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
+              <Clock className="size-3.5 shrink-0" />
               <span>રસોઈ અને ડિલિવરી સમય • Daily Tiffin Schedule</span>
             </div>
           </Reveal>
 
-          <Reveal delay={0.06}>
-            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight leading-[1.18]">
-              Cooked Fresh On Your Schedule,{' '}
-              <span className="font-serif italic text-[#D85820] font-normal">Delivered Piping Hot</span>
+          <Reveal delay={0.05}>
+            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground leading-tight">
+              Cooked Fresh On Your Schedule
             </h2>
           </Reveal>
 
-          <Reveal delay={0.12}>
-            <p className="font-gujarati text-base sm:text-lg text-primary font-semibold">
-              બપોર અને સાંજની તાજી રસોઈ — ક્યારેય ફ્રીઝ કરેલું કે વાસી નહીં
-            </p>
-          </Reveal>
-
-          <Reveal delay={0.18}>
-            <p className="text-base sm:text-lg leading-relaxed text-muted-foreground font-sans max-w-2xl mx-auto">
-              We cook strictly in small batches right before delivery. Soft phulkas, warm dal, and seasonal shaak arrive fresh in spill-proof thermal carriers.
+          <Reveal delay={0.1}>
+            <p className="text-sm sm:text-base text-muted-foreground font-sans max-w-xl mx-auto leading-relaxed">
+              Cooked fresh in small batches right before delivery. Place your order before cutoff, or pick up takeaway.
             </p>
           </Reveal>
         </div>
 
-        {/* ── LIVE KITCHEN STATUS PILL ── */}
-        <div className="mt-8 flex justify-center">
-          <div
-            className={cn(
-              'inline-flex items-center gap-2.5 rounded-full border px-4 py-1.5 text-xs font-semibold shadow-xs text-center max-w-full',
-              currentSlotState === 'full_day_closed'
-                ? 'border-red-600/30 bg-red-50 text-red-950'
-                : currentSlotState === 'lunch_unpublished' || currentSlotState === 'dinner_unpublished'
-                ? 'border-amber-600/30 bg-amber-50 text-amber-950'
-                : 'border-emerald-600/30 bg-emerald-50 text-emerald-950'
-            )}
-          >
-            <span className="relative flex size-2 shrink-0">
-              {currentSlotState === 'lunch' || currentSlotState === 'dinner' ? (
-                <>
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full size-2 bg-emerald-600" />
-                </>
-              ) : currentSlotState === 'full_day_closed' ? (
-                <span className="relative inline-flex rounded-full size-2 bg-red-600" />
-              ) : (
-                <span className="relative inline-flex rounded-full size-2 bg-amber-600" />
-              )}
-            </span>
-            <span>
-              {currentSlotState === 'holiday' &&
-                `Closed for ${timing.activeHoliday?.title} • ${timing.activeHoliday?.message || 'We can’t serve meals during this holiday'}`}
-              {currentSlotState === 'full_day_closed' &&
-                'Ordering for today has ended • Accepting Pre-orders for Tomorrow’s Lunch'}
-              {currentSlotState === 'lunch' &&
-                `Kitchen is accepting orders for Today’s Lunch (Cutoff ${lunchCutoff})`}
-              {currentSlotState === 'lunch_unpublished' &&
-                `Today’s Lunch menu is coming soon • Orders will open shortly`}
-              {currentSlotState === 'dinner' &&
-                `Kitchen is accepting orders for Tonight’s Dinner (Cutoff ${dinnerCutoff})`}
-              {currentSlotState === 'dinner_unpublished' &&
-                `Tonight’s Dinner menu is coming soon • Orders will open shortly`}
-              {currentSlotState === 'tomorrow' &&
-                'Ordering for today has ended • Accepting Pre-orders for Tomorrow’s Lunch'}
-            </span>
-          </div>
-        </div>
+        {/* ── MAIN TWO-COLUMN CONTENT WITH AMPLE EMPTY SPACE ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 max-w-5xl mx-auto items-stretch">
 
-        {/* ── 2 MEAL SLOTS CARDS ── */}
-        <div className="mt-10 sm:mt-12 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-
-          {/* Slot 1: Lunch Tiffin */}
-          <div className={cn(
-            'group relative flex flex-col justify-between rounded-3xl border p-6 sm:p-8 transition-all duration-200 bg-white shadow-sm',
-            currentSlotState === 'lunch'
-              ? 'border-[#D85820] ring-2 ring-[#D85820]/15'
-              : 'border-[#EDE4D3] hover:border-[#D85820]/40',
-          )}>
+          {/* LEFT: Spacious Cutoff Card (Lunch & Dinner) */}
+          <div className="lg:col-span-7 rounded-[2.5rem] bg-card border border-border/70 p-7 sm:p-10 shadow-sm flex flex-col justify-between space-y-8">
             <div className="space-y-6">
-              {/* Header with Sun Icon */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-900">
-                    <Sun className="size-6 text-[#D85820]" />
-                  </div>
-                  <div>
-                    <h3 className="font-display text-xl sm:text-2xl font-bold text-foreground">
-                      Lunch Meal
-                    </h3>
-                    <p className="font-gujarati text-xs sm:text-sm font-semibold text-[#D85820]">
-                      બપોરનું જમણ
-                    </p>
-                  </div>
-                </div>
-
-                <span className="rounded-full bg-amber-50 border border-amber-600/25 px-2.5 py-1 text-[11px] font-bold text-amber-900">
-                  Cutoff: {lunchCutoff}
+              <div className="flex items-center justify-between pb-4 border-b border-border/60">
+                <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                  <Clock className="size-4" />
+                  Order Cutoff Times
                 </span>
+                <span className="text-xs text-muted-foreground font-medium">Fresh Daily Batches</span>
               </div>
 
-              {/* Timeline Steps */}
-              <div className="space-y-3 rounded-2xl bg-[#FAF6EE] p-4 border border-[#EDE4D3]">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
-                    <Clock className="size-3.5 text-primary" />
-                    Order Locked By
+              {/* Clean 2-Box Timings with Generous Whitespace */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                {/* Lunch Box */}
+                <div className="rounded-2xl bg-[#FAF5EC] p-6 border border-amber-900/10 space-y-2">
+                  <span className="text-lg font-semibold  text-amber-800">
+                    Lunch
                   </span>
-                  <span className="font-bold text-foreground">{lunchCutoff}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
-                    <Flame className="size-3.5 text-[#D85820]" />
-                    Fresh Cooking Window
-                  </span>
-                  <span className="font-bold text-foreground">10:30 AM – 11:30 AM</span>
-                </div>
-                <div className="flex items-center justify-between text-xs pt-1 border-t border-[#EDE4D3]">
-                  <span className="text-muted-foreground flex items-center gap-1.5 font-bold text-primary">
-                    <Truck className="size-3.5 text-primary" />
-                    Doorstep Delivery
-                  </span>
-                  <span className="font-bold text-primary text-sm">12:00 PM – 2:00 PM</span>
-                </div>
-              </div>
+                  <p className="text-xs text-muted-foreground">Place order by</p>
+                  <div className="flex items-baseline gap-1.5 pt-1">
+                    <span className="font-display text-4xl sm:text-5xl font-bold text-foreground">
+                      10:00
+                    </span>
+                    <span className="text-sm font-bold text-primary uppercase">AM</span>
+                  </div>
 
-              {/* Description Pills */}
-              <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-muted-foreground">
-                <span className="bg-muted/40 px-2.5 py-1 rounded-full">Hot Phulkas &amp; Sabji</span>
-                <span className="bg-muted/40 px-2.5 py-1 rounded-full">Gujarati Dal-Rice</span>
-                <span className="bg-muted/40 px-2.5 py-1 rounded-full">Chilled Chaas</span>
+                </div>
+
+                {/* Dinner Box */}
+                <div className="rounded-2xl bg-[#FAF5EC] p-6 border border-amber-900/10 space-y-2">
+                  <span className="text-lg font-semibold  text-amber-800">
+                    Dinner
+                  </span>
+                  <p className="text-xs text-muted-foreground">Place order by</p>
+                  <div className="flex items-baseline gap-1.5 pt-1">
+                    <span className="font-display text-4xl sm:text-5xl font-bold text-foreground">
+                      6:00
+                    </span>
+                    <span className="text-sm font-bold text-primary uppercase">PM</span>
+                  </div>
+
+                </div>
               </div>
             </div>
 
-            {/* Action Button */}
-            <div className="mt-6 pt-4 border-t border-[#EDE4D3]">
-              {isLunchOpen ? (
-                <Button
-                  size="lg"
-                  className="w-full h-11 rounded-full bg-primary text-white hover:bg-primary/90 text-sm font-semibold shadow-xs pill-tap cursor-pointer"
-                  asChild
+            {/* Quick Actions */}
+            <div className="pt-6 border-t border-border/60 flex flex-wrap items-center gap-4 sm:gap-6">
+              <Button
+                size="lg"
+                className="min-h-[52px] rounded-full bg-white text-primary hover:bg-[#FAF6EE] px-9 text-sm sm:text-base font-bold shadow-xl shadow-black/20 transition-all hover:scale-105 active:scale-95 group/btn cursor-pointer justify-center"
+                asChild
+              >
+                <Link
+                  to={ROUTES.menu}
+                  onClick={() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' })}
+                  className="flex items-center gap-2"
                 >
-                  <Link to={`${ROUTES.menu}?meal=lunch&category=thalis`} className="flex items-center justify-center gap-2">
-                    <span>Order Lunch Thali</span>
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  size="lg"
-                  disabled
-                  className="w-full h-11 rounded-full bg-neutral-200 text-neutral-500 text-sm font-semibold shadow-none cursor-not-allowed"
-                >
-                  <span>
-                    {timing.slots.lunch?.isHolidayClosed
-                      ? `Closed for ${timing.activeHoliday?.title || 'Holiday'}`
-                      : isLunchCutoff
-                      ? 'Lunch Ordering Closed'
-                      : !isLunchPublished
-                      ? 'Lunch Menu Coming Soon'
-                      : 'Lunch Ordering Closed'}
-                  </span>
-                </Button>
-              )}
+                  <span>Order Now</span>
+                  <ArrowRight className="size-4.5 transition-transform duration-300 group-hover/btn:translate-x-1" />
+                </Link>
+              </Button>
+
+              <a
+                href="tel:+919999999999"
+                className="inline-flex min-h-[44px] items-center gap-2 text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors"
+              >
+                <Phone className="size-4 text-primary" />
+                <span>Call Us Now: +91 99999 99999</span>
+              </a>
             </div>
           </div>
 
-          {/* Slot 2: Dinner Tiffin */}
-          <div className={cn(
-            'group relative flex flex-col justify-between rounded-3xl border p-6 sm:p-8 transition-all duration-200 bg-white shadow-sm',
-            currentSlotState === 'dinner'
-              ? 'border-[#185834] ring-2 ring-[#185834]/15'
-              : 'border-[#EDE4D3] hover:border-[#185834]/40',
-          )}>
-            <div className="space-y-6">
-              {/* Header with Moon Icon */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-primary">
-                    <Moon className="size-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-display text-xl sm:text-2xl font-bold text-foreground">
-                      Dinner Meal
-                    </h3>
-                    <p className="font-gujarati text-xs sm:text-sm font-semibold text-primary">
-                      સાંજનું જમણ
-                    </p>
-                  </div>
+          {/* RIGHT: Highlighting Delivery, Takeaway, City & Apps */}
+          <div className="lg:col-span-5 flex flex-col justify-between space-y-5">
+            {/* Delivery & City Highlights */}
+            <div className="rounded-[2.5rem] bg-card border border-border/70 p-7 sm:p-8 shadow-sm space-y-6">
+              {/* Highlight 1: Free Delivery */}
+              <div className="flex items-start gap-4">
+                <div className="size-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Bike className="size-5.5" />
                 </div>
+                <div>
+                  <h4 className="font-display text-base font-bold text-foreground">
+                    Free Home Delivery
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    Zero delivery charge within 3 km of our local kitchen.
+                  </p>
+                </div>
+              </div>
 
-                <span className="rounded-full bg-emerald-50 border border-emerald-600/25 px-2.5 py-1 text-[11px] font-bold text-emerald-900">
-                  Cutoff: {dinnerCutoff}
+              {/* Highlight 2: Take-away & No Dine-in */}
+              <div className="flex items-start gap-4">
+                <div className="size-11 rounded-2xl bg-amber-500/10 text-amber-800 shrink-0 flex items-center justify-center">
+                  <ShoppingBag className="size-5.5" />
+                </div>
+                <div>
+                  <h4 className="font-display text-base font-bold text-foreground">
+                    Take-away &amp; Delivery Only
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    Fresh pickup counter open daily. We are a pure delivery kitchen with no dine-in.
+                  </p>
+                </div>
+              </div>
+
+              {/* Highlight 3: Ahmedabad Exclusivity */}
+              <div className="flex items-start gap-4">
+                <div className="size-11 rounded-2xl bg-emerald-500/10 text-emerald-800 shrink-0 flex items-center justify-center">
+                  <MapPin className="size-5.5" />
+                </div>
+                <div>
+                  <h4 className="font-display text-base font-bold text-foreground">
+                    Exclusively in Ahmedabad
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    Operating exclusively across Ahmedabad to guarantee speed, freshness, and piping hot meals.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Coming Soon on Apps Card */}
+            <div className="rounded-[2rem] bg-card border border-border/70 p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">
+                  Coming Soon On
                 </span>
+                <span className="text-xs text-muted-foreground">Order from your favorite platforms</span>
               </div>
 
-              {/* Timeline Steps */}
-              <div className="space-y-3 rounded-2xl bg-[#FAF6EE] p-4 border border-[#EDE4D3]">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
-                    <Clock className="size-3.5 text-primary" />
-                    Order Locked By
-                  </span>
-                  <span className="font-bold text-foreground">{dinnerCutoff}</span>
+              <div className="flex items-center gap-2.5">
+                {/* Zomato Badge */}
+                <div className="h-10 px-3.5 rounded-xl bg-[#E23744] text-white flex items-center justify-center shadow-xs font-black italic text-xs tracking-tighter">
+                  zomato
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
-                    <Flame className="size-3.5 text-[#D85820]" />
-                    Fresh Cooking Window
-                  </span>
-                  <span className="font-bold text-foreground">5:30 PM – 6:30 PM</span>
+
+                {/* Swiggy Badge */}
+                <div className="h-10 px-3 rounded-xl bg-[#FC8019] text-white flex items-center justify-center shadow-xs font-black text-[11px] tracking-wider uppercase">
+                  swiggy
                 </div>
-                <div className="flex items-center justify-between text-xs pt-1 border-t border-[#EDE4D3]">
-                  <span className="text-muted-foreground flex items-center gap-1.5 font-bold text-primary">
-                    <Truck className="size-3.5 text-primary" />
-                    Doorstep Delivery
-                  </span>
-                  <span className="font-bold text-primary text-sm">7:30 PM – 9:30 PM</span>
+
+                {/* Toing Badge */}
+                <div className="h-10 px-3.5 rounded-xl bg-[#07472A] text-[#FF3E7A] flex items-center justify-center shadow-xs font-black text-xs tracking-tight">
+                  toing
                 </div>
               </div>
-
-              {/* Description Pills */}
-              <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-muted-foreground">
-                <span className="bg-muted/40 px-2.5 py-1 rounded-full">Bajra Rotlo &amp; Ringan Ollo</span>
-                <span className="bg-muted/40 px-2.5 py-1 rounded-full">Desi Kadhi-Khichdi</span>
-                <span className="bg-muted/40 px-2.5 py-1 rounded-full">Garlic Chutney</span>
-              </div>
             </div>
 
-            {/* Action Button */}
-            <div className="mt-6 pt-4 border-t border-[#EDE4D3]">
-              {isDinnerOpen ? (
-                <Button
-                  size="lg"
-                  className="w-full h-11 rounded-full bg-[#185834] text-white hover:bg-[#185834]/90 text-sm font-semibold shadow-xs pill-tap cursor-pointer"
-                  asChild
-                >
-                  <Link to={`${ROUTES.menu}?meal=dinner&category=thalis`} className="flex items-center justify-center gap-2">
-                    <span>Order Dinner Thali</span>
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  size="lg"
-                  disabled
-                  className="w-full h-11 rounded-full bg-neutral-200 text-neutral-500 text-sm font-semibold shadow-none cursor-not-allowed"
-                >
-                  <span>
-                    {timing.slots.dinner?.isHolidayClosed
-                      ? `Closed for ${timing.activeHoliday?.title || 'Holiday'}`
-                      : isDinnerCutoff
-                      ? 'Dinner Ordering Closed'
-                      : !isDinnerPublished
-                      ? 'Dinner Menu Coming Soon'
-                      : 'Dinner Ordering Closed'}
-                  </span>
-                </Button>
-              )}
-            </div>
           </div>
 
-        </div>
-
-        {/* ── 4 KITCHEN COMMITMENTS (Zero walls of text) ── */}
-        <div className="mt-12 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-5xl mx-auto">
-          <div className="rounded-2xl border border-[#EDE4D3] bg-white p-4 shadow-2xs space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Flame className="size-4.5 text-[#D85820] shrink-0" />
-              <h4 className="font-serif text-xs sm:text-sm font-bold text-foreground">Zero Pre-Cooking</h4>
-            </div>
-            <p className="text-[11px] text-muted-foreground leading-snug">
-              Every sabji and rotli is cooked only after the batch is locked.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#EDE4D3] bg-white p-4 shadow-2xs space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Truck className="size-4.5 text-primary shrink-0" />
-              <h4 className="font-serif text-xs sm:text-sm font-bold text-foreground">Thermal Insulated</h4>
-            </div>
-            <p className="text-[11px] text-muted-foreground leading-snug">
-              Special heat-retaining food containers keep meals hot for 60+ minutes.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#EDE4D3] bg-white p-4 shadow-2xs space-y-1.5">
-            <div className="flex items-center gap-2">
-              <CirclePause className="size-4.5 text-[#D85820] shrink-0" />
-              <h4 className="font-serif text-xs sm:text-sm font-bold text-foreground">Easy Pause Anytime</h4>
-            </div>
-            <p className="text-[11px] text-muted-foreground leading-snug">
-              Skip or pause meal delivery anytime before cutoff on WhatsApp.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#EDE4D3] bg-white p-4 shadow-2xs space-y-1.5">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="size-4.5 text-primary shrink-0" />
-              <h4 className="font-serif text-xs sm:text-sm font-bold text-foreground">On-Time Guarantee</h4>
-            </div>
-            <p className="text-[11px] text-muted-foreground leading-snug">
-              Consistent daily delivery route within your fixed 30-minute window.
-            </p>
-          </div>
-        </div>
-
-        {/* ── SERVICE CITIES FOOTER ── */}
-        <div className="mt-8 text-center text-xs font-medium text-muted-foreground">
-          <p className="flex items-center justify-center gap-1.5">
-            <Sparkles className="size-3.5 text-primary" />
-            <span>Serving fresh homemade tiffins daily across Ahmedabad &amp; Gandhinagar</span>
-          </p>
         </div>
 
       </div>

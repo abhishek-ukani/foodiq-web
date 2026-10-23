@@ -1,297 +1,215 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import {
-  HandHeart,
-  Heart,
-  Sparkles,
   MessageCircle,
-  ShieldCheck,
   Camera,
+  UtensilsCrossed,
+  HeartHandshake,
+  Sparkles,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/common/reveal'
-import { cn } from '@/lib/utils'
 
-// Preset Donation Tiers (Traditional Shubh amounts)
-const TIERS = [
-  {
-    thalis: 1,
-    amount: 51,
-    title: '1 Thali',
-    impact: 'Feeds 1 person a complete wholesome meal',
-  },
-  {
-    thalis: 5,
-    amount: 251,
-    title: '5 Thalis',
-    popular: true,
-    impact: 'Feeds a family waiting outside the hospital',
-  },
-  {
-    thalis: 11,
-    amount: 551,
-    title: '11 Thalis',
-    impact: 'Feeds 11 elders at local shelter homes',
-  },
-  {
-    thalis: 21,
-    amount: 1100,
-    title: '21 Thalis',
-    impact: 'Special occasion sadavrat for an entire ward',
-  },
+const PRICE_PER_MEAL = 110
+const WHATSAPP_PHONE = '919999999999'
+
+const THALI_ITEMS = [
+  '5 Roti',
+  '2 Sabji',
+  'Dal',
+  'Rice',
+  'Salad',
+  'Papad',
+  'Sweet',
+  'Pickle',
+  'Chhas',
 ]
 
 export function AnnadaanSection() {
-  const [selectedThalis, setSelectedThalis] = useState(5)
+  const thaliCount = 10
 
-  // Calculate amount based on selected thalis (₹50 approx / thali with rounded traditional numbers)
-  const totalAmount = useMemo(() => {
-    const tier = TIERS.find((t) => t.thalis === selectedThalis)
-    if (tier) return tier.amount
-    return selectedThalis * 51
-  }, [selectedThalis])
+  // Every 10 thalis, FoodIQ contributes 1 more
+  const foodiqAdds = useMemo(() => Math.floor(thaliCount / 10), [thaliCount])
+  const totalMealsServed = useMemo(() => thaliCount + foodiqAdds, [thaliCount, foodiqAdds])
+  const totalAmount = useMemo(() => thaliCount * PRICE_PER_MEAL, [thaliCount])
 
-  const currentImpact = useMemo(() => {
-    const tier = TIERS.find((t) => t.thalis === selectedThalis)
-    if (tier) return tier.impact
-    return `Feeds ${selectedThalis} people a hot, nourishing home-cooked thali`
-  }, [selectedThalis])
+  const handleWhatsAppClick = () => {
+    const msg =
+      `Hi FoodIQ! I would like to plan a meal donation (Annadaan):\n\n` +
+      `• Sponsoring: ${thaliCount} Thalis (₹${totalAmount.toLocaleString('en-IN')})\n` +
+      `• FoodIQ Match: +${foodiqAdds} extra Thali${foodiqAdds > 1 ? 's' : ''}\n` +
+      `• Total Meals Served: ${totalMealsServed} People\n\n` +
+      `Please guide me with the available dates, occasion and delivery details in Ahmedabad.`;
 
-  // Pre-filled WhatsApp message for donation
-  const whatsappUrl = useMemo(() => {
-    const text = encodeURIComponent(
-      `Pranam FoodIQ team! I would like to contribute towards the Annadaan Initiative (અન્નદાન સેવા):\n` +
-        `• Sponsoring: ${selectedThalis} Fresh Thalis\n` +
-        `• Contribution: ₹${totalAmount.toLocaleString('en-IN')}\n\n` +
-        `Please guide me with the UPI payment details and sharing of distribution photos.`,
-    )
-    return `https://wa.me/919999999999?text=${text}`
-  }, [selectedThalis, totalAmount])
+    window.open(`https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(msg)}`, '_blank')
+  }
 
   return (
-    <section id="annadaan" className="relative overflow-hidden bg-gradient-to-b from-[#FFFDF9] via-[#FAF5EC] to-[#FFFDF9] py-16 sm:py-20 lg:py-24 border-t border-[#EDE4D3]">
-      {/* Soft Ambient Radiance */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 size-96 rounded-full bg-[radial-gradient(ellipse_at_center,#D8582010_0%,transparent_70%)]" />
-      </div>
+    <section
+      id="donate"
+      className="relative overflow-hidden bg-[#3a0a1a] text-[#fff6e0] py-14 sm:py-20 lg:py-24 px-4 sm:px-6"
+      style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}
+    >
+      {/* Anchor for backward compatibility with #annadaan */}
+      <span id="annadaan" className="absolute -top-24 left-0 pointer-events-none" aria-hidden="true" />
 
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      {/* Main Grid Container */}
+      <div className="max-w-[1120px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch">
 
-        {/* ── SECTION HEADER ── */}
-        <div className="mx-auto max-w-3xl text-center space-y-3">
-          <Reveal>
-            <div className="inline-flex items-center gap-2 rounded-full border border-terracotta/30 bg-terracotta/5 px-4 py-1.5 text-xs font-semibold text-terracotta tracking-wide shadow-xs">
-              <HandHeart className="size-4 shrink-0 text-terracotta" aria-hidden="true" />
-              <span>અન્નદાન એ જ મહાદાન • Annadaan Seva</span>
-            </div>
-          </Reveal>
+        {/* ── LEFT COLUMN: Headline & High-Trust Impact Cards ── */}
+        <div className="lg:col-span-6 flex flex-col justify-between h-full">
+          <div>
+            <Reveal>
+              <h2
+                className="text-[clamp(32px,5vw,54px)] font-normal leading-[1.06] tracking-[-0.01em] text-[#fff6e0]"
+                style={{ fontFamily: "'Young Serif', Georgia, serif" }}
+              >
+                Feed someone on your special day
+              </h2>
+            </Reveal>
 
-          <Reveal delay={0.06}>
-            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight leading-[1.18]">
-              No One Sleeps Hungry —{' '}
-              <span className="font-serif italic text-terracotta font-normal">Sponsor a Fresh Meal</span>
-            </h2>
-          </Reveal>
+            <Reveal delay={0.06}>
+              <p className="mt-3.5 text-[16px] sm:text-[17px] text-[#e9cfc0] max-w-[38ch] leading-relaxed">
+                You choose how many. We cook fresh and deliver.
+              </p>
+            </Reveal>
 
-          <Reveal delay={0.12}>
-            <p className="font-gujarati text-base sm:text-lg text-primary font-semibold">
-              &ldquo;જે અન્ન ખવડાવે તે પુણ્ય કમાય&rdquo; — શુદ્ધ અને સાત્વિક સદાવ્રત સેવા
-            </p>
-          </Reveal>
-
-          <Reveal delay={0.18}>
-            <p className="text-base sm:text-lg leading-relaxed text-muted-foreground font-sans max-w-2xl mx-auto">
-              In Kathiyawad and Gujarat, sharing food has always been a sacred tradition.
-              Sponsor fresh homemade thalis for hospital attendants, shelter homes, and people in need.
-            </p>
-          </Reveal>
-        </div>
-
-        {/* ── INTERACTIVE SPONSOR CARD ── */}
-        <div className="mt-10 sm:mt-14 max-w-3xl mx-auto rounded-3xl border border-[#EDE4D3] bg-white p-6 sm:p-8 shadow-sm">
-          <div className="space-y-6">
-
-            {/* Step 1: Select Thali Tier */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Heart className="size-3.5 text-terracotta" />
-                  <span>Choose Meals to Sponsor</span>
-                </label>
-                <span className="text-xs font-bold text-terracotta bg-terracotta/10 px-2.5 py-0.5 rounded-full">
-                  ₹51 / Thali
-                </span>
-              </div>
-
-              {/* 4 Preset Buttons */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-                {TIERS.map((tier) => {
-                  const isSelected = selectedThalis === tier.thalis
-
-                  return (
-                    <button
-                      key={tier.thalis}
-                      type="button"
-                      onClick={() => setSelectedThalis(tier.thalis)}
-                      className={cn(
-                        'relative p-3.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center',
-                        isSelected
-                          ? 'border-terracotta bg-terracotta/5 ring-2 ring-terracotta/20 shadow-xs'
-                          : 'border-[#EDE4D3] bg-muted/20 hover:bg-muted/50 hover:border-terracotta/30',
-                      )}
-                    >
-                      {tier.popular && (
-                        <span className="absolute -top-2.5 rounded-full bg-terracotta text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-xs">
-                          Most Chosen
-                        </span>
-                      )}
-                      <span className="text-sm sm:text-base font-bold text-foreground">
-                        {tier.title}
-                      </span>
-                      <span className="text-xs font-semibold text-terracotta mt-0.5">
-                        ₹{tier.amount}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-
-              {/* Custom Count Stepper */}
-              <div className="mt-4 flex items-center justify-between rounded-2xl border border-[#EDE4D3] bg-[#FAF6EE] px-4 py-2.5">
-                <span className="text-xs font-semibold text-foreground">
-                  Custom number of thalis:
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedThalis((c) => Math.max(1, c - 1))}
-                    className="size-8 rounded-full border border-[#EDE4D3] bg-white flex items-center justify-center font-bold text-sm hover:bg-muted cursor-pointer transition-colors"
-                  >
-                    -
-                  </button>
-                  <span className="text-sm font-bold w-12 text-center text-foreground">
-                    {selectedThalis}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedThalis((c) => Math.min(100, c + 1))}
-                    className="size-8 rounded-full border border-[#EDE4D3] bg-white flex items-center justify-center font-bold text-sm hover:bg-muted cursor-pointer transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 2: Impact Summary & CTA */}
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-primary/15 pb-3">
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
-                    Your Generous Impact
-                  </span>
-                  <p className="text-sm font-semibold text-foreground mt-0.5">
-                    {currentImpact}
-                  </p>
-                </div>
-                <div className="sm:text-right">
-                  <span className="font-display text-2xl sm:text-3xl font-bold text-foreground">
-                    ₹{totalAmount.toLocaleString('en-IN')}
-                  </span>
-                  <p className="text-[10px] text-muted-foreground">
-                    For {selectedThalis} fresh home thalis
-                  </p>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-2.5">
-                <Button
-                  size="lg"
-                  className="w-full sm:flex-1 h-11 rounded-full bg-[#185834] text-white hover:bg-[#185834]/90 text-sm font-semibold shadow-md pill-tap"
-                  asChild
+            {/* Give-back match highlight pill */}
+            <Reveal delay={0.12}>
+              <div className="mt-6 inline-flex items-center gap-3 bg-[#f2a900] text-[#2a0713] py-2 pr-5 pl-2 rounded-full font-semibold text-sm sm:text-[15px] shadow-sm select-none">
+                <b
+                  className="w-[38px] h-[38px] rounded-full bg-[#3a0a1a] text-[#f2a900] grid place-items-center text-[17px] font-normal shrink-0"
+                  style={{ fontFamily: "'Young Serif', Georgia, serif" }}
                 >
-                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2">
-                    <MessageCircle className="size-4.5" />
-                    <span>Sponsor {selectedThalis} Meals via WhatsApp</span>
-                  </a>
-                </Button>
+                  +1
+                </b>
+                <span>Donate 10 thalis, we add 1 more</span>
+              </div>
+            </Reveal>
+          </div>
+
+          {/* High-Trust Annadaan Transparency Cards (Compact & Sleek) */}
+          <div className="mt-6 space-y-2 max-w-md">
+            <Reveal delay={0.16}>
+              <div className="rounded-xl bg-[#521329]/50 border border-[#6d2a40]/60 py-2 px-3 sm:py-2.5 sm:px-3.5 flex items-center gap-2.5 transition-all hover:bg-[#521329]/75 hover:border-[#f2a900]/40">
+                <div className="size-7 rounded-lg bg-[#f2a900]/15 border border-[#f2a900]/30 text-[#f2a900] flex items-center justify-center shrink-0">
+                  <Camera className="size-3.5" />
+                </div>
+                <h4 className="text-xs sm:text-sm font-medium text-[#fff6e0]">
+                  Photo &amp; Video Proof
+                </h4>
+              </div>
+            </Reveal>
+
+            <Reveal delay={0.2}>
+              <div className="rounded-xl bg-[#521329]/50 border border-[#6d2a40]/60 py-2 px-3 sm:py-2.5 sm:px-3.5 flex items-center gap-2.5 transition-all hover:bg-[#521329]/75 hover:border-[#f2a900]/40">
+                <div className="size-7 rounded-lg bg-[#f2a900]/15 border border-[#f2a900]/30 text-[#f2a900] flex items-center justify-center shrink-0">
+                  <UtensilsCrossed className="size-3.5" />
+                </div>
+                <h4 className="text-xs sm:text-sm font-medium text-[#fff6e0]">
+                  Cooked Fresh
+                </h4>
+              </div>
+            </Reveal>
+
+            <Reveal delay={0.24}>
+              <div className="rounded-xl bg-[#521329]/50 border border-[#6d2a40]/60 py-2 px-3 sm:py-2.5 sm:px-3.5 flex items-center gap-2.5 transition-all hover:bg-[#521329]/75 hover:border-[#f2a900]/40">
+                <div className="size-7 rounded-lg bg-[#f2a900]/15 border border-[#f2a900]/30 text-[#f2a900] flex items-center justify-center shrink-0">
+                  <HeartHandshake className="size-3.5" />
+                </div>
+                <h4 className="text-xs sm:text-sm font-medium text-[#fff6e0]">
+                  Respectful Direct Delivery
+                </h4>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+
+        {/* ── RIGHT COLUMN: Physical Meal Ticket Card ── */}
+        <div className="lg:col-span-6 flex flex-col justify-between h-full">
+          <Reveal delay={0.15} className="w-full h-full flex flex-col">
+            <div className="relative w-full h-full bg-[#fff6e0] text-[#2a0713] rounded-[26px] p-6 sm:p-7 shadow-[0_24px_50px_rgba(0,0,0,0.35)] flex flex-col justify-between transition-all">
+              {/* Ticket Top Section */}
+              <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3
+                      className="text-[26px] font-normal leading-tight text-[#2a0713]"
+                      style={{ fontFamily: "'Young Serif', Georgia, serif" }}
+                    >
+                      Plan your donation
+                    </h3>
+                    <span className="inline-block mt-1.5 font-semibold text-sm text-[#9a5b00]">
+                      Choose Your Meal
+                    </span>
+                  </div>
+
+                  {/* Annadaan Seva Badge */}
+                  <div className="inline-flex items-center gap-1.5 bg-[#f6e7bf] border border-[#ecd9b0] text-[#2a0713] px-3 py-1 rounded-full text-xs font-semibold shrink-0 shadow-2xs">
+                    <Sparkles className="size-3 text-[#9a5b00]" />
+                    <span>Annadaan Seva</span>
+                  </div>
+                </div>
+
+                {/* Inclusions Chips */}
+                <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-4">
+                  {THALI_ITEMS.map((item) => (
+                    <span
+                      key={item}
+                      className="text-[13px] sm:text-[13.5px] font-medium py-1.5 px-3 rounded-full bg-white border border-[#ecd9b0] text-[#2a0713] shadow-2xs"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
               </div>
 
-              <p className="text-[11px] text-center text-muted-foreground leading-tight">
-                🙏 100% of your contribution goes toward freshly prepared food. We send distribution photos on WhatsApp after every drive.
-              </p>
-            </div>
+              {/* Ticket Bottom Section */}
+              <div className="mt-6">
+                {/* ── SIGNATURE TICKET TEAR LINE WITH PHYSICAL EDGE CUTOUT NOTCHES ── */}
+                <div className="relative my-4 -mx-6 sm:-mx-7 border-t-2 border-dashed border-[#d9bf8a]">
+                  {/* Left Notch Cutout */}
+                  <span
+                    aria-hidden="true"
+                    className="absolute -top-3 -left-3 size-6 rounded-full bg-[#3a0a1a]"
+                  />
+                  {/* Right Notch Cutout */}
+                  <span
+                    aria-hidden="true"
+                    className="absolute -top-3 -right-3 size-6 rounded-full bg-[#3a0a1a]"
+                  />
+                </div>
 
-          </div>
-        </div>
+                {/* Bonus Pill & Total Price */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-[13px] sm:text-[13.5px] font-semibold bg-[#3a0a1a] text-[#f2a900] py-1.5 px-3 rounded-full">
+                    +1 thali on every 10
+                  </span>
+                  <span
+                    className="text-[26px] sm:text-[28px] font-normal text-[#2a0713]"
+                    style={{ fontFamily: "'Young Serif', Georgia, serif" }}
+                  >
+                    From ₹1,000
+                  </span>
+                </div>
 
-        {/* ── 3 PILLARS OF ANNADAAN TRANSPARENCY ── */}
-        <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
-          <div className="flex items-start gap-3 rounded-2xl border border-[#EDE4D3] bg-white p-4 shadow-2xs">
-            <div className="size-9 rounded-xl bg-amber-500/10 text-amber-900 flex items-center justify-center shrink-0">
-              <Sparkles className="size-4.5 text-terracotta" />
-            </div>
-            <div>
-              <h3 className="font-serif text-sm font-bold text-foreground">Same Purity &amp; Taste</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Cooked with pure groundnut oil and fresh Amul ghee. Never leftovers or discarded food.
-              </p>
-            </div>
-          </div>
+                {/* Action CTA Button */}
+                <button
+                  id="cta"
+                  type="button"
+                  onClick={handleWhatsAppClick}
+                  className="mt-3.5 w-full rounded-[16px] bg-[#3a0a1a] hover:bg-[#6b1a36] text-[#fff6e0] font-semibold text-base py-3.5 sm:py-4 px-5 flex items-center justify-center gap-2.5 cursor-pointer shadow-md transition-all active:scale-[0.99] focus-visible:outline-3 focus-visible:outline-[#3a0a1a] focus-visible:outline-offset-2"
+                >
+                  <MessageCircle className="size-5 text-[#f2a900]" />
+                  <span>Plan my donation on WhatsApp</span>
+                </button>
 
-          <div className="flex items-start gap-3 rounded-2xl border border-[#EDE4D3] bg-white p-4 shadow-2xs">
-            <div className="size-9 rounded-xl bg-emerald-500/10 text-primary flex items-center justify-center shrink-0">
-              <ShieldCheck className="size-4.5 text-primary" />
+                {/* Trust Steps Badges */}
+                <div className="flex flex-wrap gap-1.5 mt-3 text-[11.5px] sm:text-[12px] text-[#8a6a5c]">
+                  <span className="bg-[#f6e7bf] rounded-full py-1 px-2.5 font-medium">Min 10 thalis</span>
+                  <span className="bg-[#f6e7bf] rounded-full py-1 px-2.5 font-medium">Book 24 hrs ahead</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <h3 className="font-serif text-sm font-bold text-foreground">Direct Handover</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Delivered directly to hospital attendants, elderly shelter homes, and sadavrat centers.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3 rounded-2xl border border-[#EDE4D3] bg-white p-4 shadow-2xs">
-            <div className="size-9 rounded-xl bg-blue-500/10 text-blue-800 flex items-center justify-center shrink-0">
-              <Camera className="size-4.5 text-blue-700" />
-            </div>
-            <div>
-              <h3 className="font-serif text-sm font-bold text-foreground">Photo Transparency</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Every donor receives verified distribution photos and thank-you updates.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* ── LIVE IMPACT COUNTER STRIP ── */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-center">
-          <div>
-            <span className="font-display text-xl sm:text-2xl font-bold text-primary">
-              4,280+
-            </span>
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-0.5">
-              Meals Distributed
-            </p>
-          </div>
-          <span className="text-muted-foreground/30">•</span>
-          <div>
-            <span className="font-display text-xl sm:text-2xl font-bold text-terracotta">
-              100%
-            </span>
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-0.5">
-              Goes to Food
-            </p>
-          </div>
-          <span className="text-muted-foreground/30">•</span>
-          <div>
-            <span className="font-display text-xl sm:text-2xl font-bold text-foreground">
-              Weekly
-            </span>
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-0.5">
-              Distribution Drives
-            </p>
-          </div>
+          </Reveal>
         </div>
 
       </div>

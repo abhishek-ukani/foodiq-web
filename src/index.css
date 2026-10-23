@@ -2,103 +2,63 @@
 @plugin '@tailwindcss/typography';
 
 /* ------------------------------------------------------------------ */
-/* Dark mode variant — toggled via a `.dark` class on <html>           */
-/* ------------------------------------------------------------------ */
-@custom-variant dark (&:where(.dark, .dark *));
-
-/* ------------------------------------------------------------------ */
 /* Brand design tokens — FoodIQ                                  */
 /* Premium homemade Indian tiffin aesthetic: warm, traditional, fresh  */
 /* ------------------------------------------------------------------ */
 :root {
-  /* Raw brand palette — Rasoi Ghar Jaisa Swad */
-  --brand-forest-green: #185834;
-  --brand-sage-medium: #2a7349;
+  /* Raw brand palette — Authentic Kathiyawadi Heritage */
+  --brand-terracotta: #c45525;
+  --brand-terracotta-dark: #a84217;
+  --brand-saffron: #e58a13;
+  --brand-kansa-bronze: #9a6735;
+  --brand-cilantro: #2a7249;
   --brand-cream-base: #faf6ee;
-  --brand-earth-brown: #6b5847;
-  --brand-golden: #c9891f;
-  --brand-white: #ffffff;
-  --brand-pale-cream: #f4ede0;
-  --brand-terracotta: #d85820;
-  --brand-warm-peach: #fbebd8;
+  --brand-cream-card: #ffffff;
+  --brand-pale-cream: #f5ece0;
+  --brand-earth-brown: #735b47;
+  --brand-warm-peach: #fdf1dc;
 
   /* Semantic tokens — light mode */
   --background: var(--brand-cream-base);
-  --foreground: #221b14;
+  --foreground: #221610;
   --card: #ffffff;
-  --card-foreground: #221b14;
+  --card-foreground: #221610;
   --popover: #ffffff;
-  --popover-foreground: #221b14;
-  --primary: var(--brand-forest-green);
+  --popover-foreground: #221610;
+  --primary: var(--brand-terracotta);
   --primary-foreground: #ffffff;
-  --secondary: var(--brand-sage-medium);
+  --secondary: var(--brand-saffron);
   --secondary-foreground: #ffffff;
   --muted: var(--brand-pale-cream);
   --muted-foreground: var(--brand-earth-brown);
   --accent: var(--brand-warm-peach);
-  --accent-foreground: #221b14;
+  --accent-foreground: #4a2612;
   --terracotta: var(--brand-terracotta);
   --terracotta-foreground: #ffffff;
-  --gold: var(--brand-golden);
-  --gold-foreground: #221b14;
+  --gold: var(--brand-saffron);
+  --gold-foreground: #221610;
   --destructive: #b3432b;
   --destructive-foreground: #ffffff;
-  --success: #185834;
+  --success: var(--brand-cilantro);
   --success-foreground: #ffffff;
-  --warning: var(--brand-terracotta);
+  --warning: #e58a13;
   --warning-foreground: #ffffff;
   --border: #ede4d3;
   --input: #ede4d3;
-  --ring: var(--brand-forest-green);
+  --ring: var(--brand-terracotta);
   --radius: 1rem;
 
   /* Chart palette (Recharts) */
-  --chart-1: var(--brand-forest-green);
-  --chart-2: var(--brand-golden);
-  --chart-3: var(--brand-sage-medium);
-  --chart-4: var(--brand-terracotta);
+  --chart-1: var(--brand-terracotta);
+  --chart-2: var(--brand-saffron);
+  --chart-3: var(--brand-kansa-bronze);
+  --chart-4: var(--brand-cilantro);
   --chart-5: var(--brand-earth-brown);
 
   /* Typography */
   --font-display: 'Fraunces', 'ui-serif', 'Georgia', serif;
   --font-sans: 'Plus Jakarta Sans', 'ui-sans-serif', system-ui, sans-serif;
   --font-gujarati: 'Hind Vadodara', 'Noto Sans Gujarati', sans-serif;
-}
-
-.dark {
-  --background: #111a14;
-  --foreground: #f4f8f4;
-  --card: #18241c;
-  --card-foreground: #f4f8f4;
-  --popover: #18241c;
-  --popover-foreground: #f4f8f4;
-  --primary: #6da278;
-  --primary-foreground: #0d1610;
-  --secondary: #7fa886;
-  --secondary-foreground: #0d1610;
-  --muted: #1e2e23;
-  --muted-foreground: #b8c9bc;
-  --accent: #26382b;
-  --accent-foreground: #f4f8f4;
-  --terracotta: #ea8a4c;
-  --terracotta-foreground: #1c0e05;
-  --gold: #dcb15c;
-  --gold-foreground: #1b1508;
-  --destructive: #e2735c;
-  --destructive-foreground: #200b06;
-  --success: #6cbb7d;
-  --success-foreground: #0c1a0f;
-  --warning: #ea8a4c;
-  --warning-foreground: #201206;
-  --border: #23362a;
-  --input: #23362a;
-  --ring: #6da278;
-
-  --chart-1: #6da278;
-  --chart-2: #dcb15c;
-  --chart-3: #7fa886;
-  --chart-4: #ea8a4c;
-  --chart-5: #b8c9bc;
 }
 
 /* ------------------------------------------------------------------ */
@@ -172,10 +132,6 @@
     scroll-behavior: smooth;
   }
 
-  html.dark {
-    color-scheme: dark;
-  }
-
   body {
     @apply bg-background font-sans text-foreground antialiased;
     font-feature-settings: 'cv11', 'ss01';
@@ -209,10 +165,6 @@
 @layer utilities {
   .glass {
     @apply border border-border/60 bg-card/75 backdrop-blur-xl;
-  }
-
-  .glass-dark {
-    @apply dark:border-border/40 dark:bg-card/50 dark:backdrop-blur-xl;
   }
 
   .text-balance {

@@ -212,25 +212,25 @@ export function DynamicThaliOptionPicker({
                     disabled={isDisabled}
                     onClick={() => handleSelect(grp.id, opt, grp.max_select)}
                     className={`
-                      inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+                      inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold min-h-[36px]
                       border transition-all duration-150 cursor-pointer select-none
                       ${isDisabled
-                        ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200 text-gray-400'
+                        ? 'opacity-50 cursor-not-allowed bg-muted border-border text-muted-foreground'
                         : isSelected
-                        ? 'bg-[#2E7D32] border-[#2E7D32] text-white shadow-2xs'
-                        : 'bg-white border-gray-300 text-gray-700 hover:border-[#2E7D32] hover:text-[#2E7D32]'
+                        ? 'bg-primary border-primary text-primary-foreground shadow-2xs'
+                        : 'bg-white border-neutral-300 text-neutral-700 hover:border-primary hover:text-primary'
                       }
                     `}
                   >
-                    {isSelected && <Check className="size-3 stroke-[2] shrink-0" />}
+                    {isSelected && <Check className="size-3.5 stroke-[2.5] shrink-0" />}
                     <span>{opt.label}</span>
                     {opt.is_cutoff_closed && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 bg-amber-50 px-1 py-0.5 rounded-full font-normal">
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full font-normal">
                         <Clock className="size-2.5" /> Closed
                       </span>
                     )}
                     {opt.price_delta > 0 && (
-                      <span className={`text-[10px] font-semibold ${isSelected ? 'text-green-200' : 'text-[#2E7D32]'}`}>
+                      <span className={`text-[10px] font-bold ${isSelected ? 'text-primary-foreground/90' : 'text-primary'}`}>
                         +{CURRENCY_SYMBOL}{opt.price_delta}
                       </span>
                     )}

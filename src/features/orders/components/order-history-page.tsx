@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import toast from 'react-hot-toast'
@@ -26,7 +26,9 @@ import { ErrorState } from '@/components/common/error-state'
 import { OrderStatusBadge } from '@/components/common/order-status-badge'
 import { ReviewFormDialog } from '@/features/reviews/components/review-form-dialog'
 import { useMyOrders } from '@/features/orders/hooks/use-orders'
+import { useMyReviews } from '@/features/reviews/hooks/use-reviews'
 import type { OrderWithItems } from '@/features/orders/services/orders-service'
+import type { Tables } from '@/types/database.types'
 import { supabase } from '@/lib/supabase'
 import { CURRENCY_SYMBOL, QUERY_KEYS, ROUTES } from '@/constants'
 
@@ -55,13 +57,30 @@ function useReorder() {
 export function OrderHistoryPage() {
   const navigate = useNavigate()
   const { data: orders, isPending, isError, refetch } = useMyOrders()
+  const { data: myReviews } = useMyReviews()
   const reorder = useReorder()
+
+  // Map user reviews by `orderId_foodItemId`
+  const reviewsByOrderAndItem = useMemo(() => {
+    const map = new Map<string, Tables<'reviews'>>()
+    myReviews?.forEach((r) => {
+      if (r.order_id && r.food_item_id) {
+        map.set(`${r.order_id}_${r.food_item_id}`, r)
+      }
+    })
+    return map
+  }, [myReviews])
 
   // State for reviewing single item
   const [reviewTarget, setReviewTarget] = useState<{
     foodItemId: string
     orderId: string
     itemName: string
+    initialRating?: number
+    initialFoodRating?: number | null
+    initialPackagingRating?: number | null
+    initialDeliveryRating?: number | null
+    initialComment?: string | null
   } | null>(null)
 
   // State for choosing item to rate when order has multiple items
@@ -76,10 +95,16 @@ export function OrderHistoryPage() {
 
     if (rateableItems.length === 1) {
       const single = rateableItems[0]
+      const existing = reviewsByOrderAndItem.get(`${order.id}_${single.food_item_id}`)
       setReviewTarget({
         foodItemId: single.food_item_id!,
         orderId: order.id,
         itemName: single.item_name,
+        initialRating: existing?.rating,
+        initialFoodRating: existing?.food_rating,
+        initialPackagingRating: existing?.packaging_rating,
+        initialDeliveryRating: existing?.delivery_rating,
+        initialComment: existing?.comment,
       })
     } else {
       setOrderToPickReview(order)
@@ -199,19 +224,52 @@ export function OrderHistoryPage() {
                     {/* Left Action / Status Indicator */}
                     <div>
                       {isDelivered ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="min-h-[44px] touch-manipulation gap-1.5 rounded-xl border-amber-300/80 bg-amber-50/70 px-3.5 text-xs font-medium text-amber-800 hover:bg-amber-100 hover:text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/60"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleRateOrder(order)
-                          }}
-                        >
-                          <Star className="size-3.5 fill-amber-500 text-amber-500" />
-                          Rate Order
-                        </Button>
+                        (() => {
+                          const rateableItems = order.order_items.filter((item) => Boolean(item.food_item_id))
+                          const reviewedCount = rateableItems.filter((item) =>
+                            reviewsByOrderAndItem.has(`${order.id}_${item.food_item_id}`),
+                          ).length
+                          const isAllReviewed = rateableItems.length > 0 && reviewedCount === rateableItems.length
+                          const isPartiallyReviewed = reviewedCount > 0 && !isAllReviewed
+
+                          if (isAllReviewed) {
+                            return (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="min-h-[44px] touch-manipulation gap-1.5 rounded-xl border-emerald-300/90 bg-emerald-50/80 px-3.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 hover:text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleRateOrder(order)
+                                }}
+                              >
+                                <Star className="size-3.5 fill-amber-500 text-amber-500" />
+                                <span>Rated · Tap to view</span>
+                              </Button>
+                            )
+                          }
+
+                          return (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="min-h-[44px] touch-manipulation gap-1.5 rounded-xl border-amber-300/80 bg-amber-50/70 px-3.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 hover:text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/60"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleRateOrder(order)
+                              }}
+                            >
+                              <Star className="size-3.5 fill-amber-500 text-amber-500" />
+                              <span>
+                                {isPartiallyReviewed
+                                  ? `Rate remaining (${rateableItems.length - reviewedCount})`
+                                  : 'Rate Order'}
+                              </span>
+                            </Button>
+                          )
+                        })()
                       ) : isInProgress ? (
                         <div className="flex items-center gap-2 text-xs font-medium text-primary sm:text-sm">
                           <span className="relative flex size-2">
@@ -253,43 +311,76 @@ export function OrderHistoryPage() {
           open={Boolean(orderToPickReview)}
           onOpenChange={(open) => !open && setOrderToPickReview(null)}
         >
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md p-5 sm:p-6 rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Rate Dishes</DialogTitle>
-              <DialogDescription>
-                Choose which item from this order you would like to review.
+              <DialogTitle className="text-lg font-bold">Rate Dishes</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                Choose which item from this order you would like to review or update.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2 py-2">
               {orderToPickReview.order_items
                 .filter((item) => Boolean(item.food_item_id))
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between rounded-xl border p-3 hover:bg-muted/40"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{item.item_name}</p>
-                      <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="min-h-[44px] gap-1.5 text-xs"
-                      onClick={() => {
-                        setReviewTarget({
-                          foodItemId: item.food_item_id!,
-                          orderId: orderToPickReview.id,
-                          itemName: item.item_name,
-                        })
-                        setOrderToPickReview(null)
-                      }}
+                .map((item) => {
+                  const existing = reviewsByOrderAndItem.get(`${orderToPickReview.id}_${item.food_item_id}`)
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border p-3 hover:bg-muted/40 transition-colors"
                     >
-                      <Star className="size-3.5 fill-amber-500 text-amber-500" />
-                      Rate
-                    </Button>
-                  </div>
-                ))}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-foreground truncate">{item.item_name}</p>
+                        <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                      </div>
+
+                      {existing ? (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                            <Star className="size-3 fill-amber-500 text-amber-500" />
+                            {existing.rating}★
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="min-h-[44px] text-xs font-medium text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setReviewTarget({
+                                foodItemId: item.food_item_id!,
+                                orderId: orderToPickReview.id,
+                                itemName: item.item_name,
+                                initialRating: existing.rating,
+                                initialFoodRating: existing.food_rating,
+                                initialPackagingRating: existing.packaging_rating,
+                                initialDeliveryRating: existing.delivery_rating,
+                                initialComment: existing.comment,
+                              })
+                              setOrderToPickReview(null)
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="min-h-[44px] shrink-0 gap-1.5 text-xs font-medium border-amber-300/80 bg-amber-50/70 text-amber-800 hover:bg-amber-100"
+                          onClick={() => {
+                            setReviewTarget({
+                              foodItemId: item.food_item_id!,
+                              orderId: orderToPickReview.id,
+                              itemName: item.item_name,
+                            })
+                            setOrderToPickReview(null)
+                          }}
+                        >
+                          <Star className="size-3.5 fill-amber-500 text-amber-500" />
+                          Rate
+                        </Button>
+                      )}
+                    </div>
+                  )
+                })}
             </div>
           </DialogContent>
         </Dialog>
@@ -303,8 +394,14 @@ export function OrderHistoryPage() {
           foodItemId={reviewTarget.foodItemId}
           orderId={reviewTarget.orderId}
           itemName={reviewTarget.itemName}
+          initialRating={reviewTarget.initialRating}
+          initialFoodRating={reviewTarget.initialFoodRating}
+          initialPackagingRating={reviewTarget.initialPackagingRating}
+          initialDeliveryRating={reviewTarget.initialDeliveryRating}
+          initialComment={reviewTarget.initialComment}
         />
       ) : null}
     </div>
   )
 }
+

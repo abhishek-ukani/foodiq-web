@@ -343,13 +343,13 @@ export function MapLocationPicker({
             {onCancel && (
               <button
                 type="button"
-                className="size-10 rounded-full shadow-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex items-center justify-center border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="size-10 rounded-full shadow-lg bg-white text-slate-800 flex items-center justify-center border border-slate-200 hover:bg-slate-100 transition-colors"
                 onClick={onCancel}
               >
                 <ArrowLeft className="size-5" />
               </button>
             )}
-            <span className="hidden sm:inline-flex bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-bold px-4 py-2.5 rounded-full shadow-lg border border-slate-200 dark:border-slate-700">
+            <span className="hidden sm:inline-flex bg-white text-slate-800 text-xs font-bold px-4 py-2.5 rounded-full shadow-lg border border-slate-200">
               Select Delivery Location
             </span>
           </div>
@@ -365,25 +365,25 @@ export function MapLocationPicker({
                 }}
                 onFocus={() => setIsSearchOpen(true)}
                 placeholder="Search area, building, street..."
-                className="h-10 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm pl-10 pr-4 shadow-xl rounded-xl border border-slate-300 dark:border-slate-700 focus-visible:ring-2 focus-visible:ring-primary font-medium placeholder:text-slate-400"
+                className="h-10 bg-white text-slate-900 text-sm pl-10 pr-4 shadow-xl rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-primary font-medium placeholder:text-slate-400"
               />
-              <Search className="absolute left-3 top-3 size-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
+              <Search className="absolute left-3 top-3 size-4 text-slate-500 pointer-events-none" />
             </div>
 
             {/* Search Dropdown Predictions */}
             {isSearchOpen && predictions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl overflow-hidden z-30 max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden z-30 max-h-60 overflow-y-auto divide-y divide-slate-100">
                 {predictions.map((p) => (
                   <button
                     key={p.placeId}
                     type="button"
                     onClick={() => handleSelectPrediction(p)}
-                    className="w-full text-left p-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-start gap-2.5"
+                    className="w-full text-left p-3 hover:bg-slate-50 transition-colors flex items-start gap-2.5"
                   >
                     <MapPin className="size-4 text-primary shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{p.mainText}</p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{p.secondaryText}</p>
+                      <p className="text-xs font-bold text-slate-900">{p.mainText}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{p.secondaryText}</p>
                     </div>
                   </button>
                 ))}
@@ -413,7 +413,7 @@ export function MapLocationPicker({
             size="sm"
             onClick={handleUseCurrentLocation}
             disabled={isLocatingGPS}
-            className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold shadow-xl border border-slate-200 dark:border-slate-700 rounded-full h-10 px-4 text-xs"
+            className="bg-white text-slate-800 hover:bg-slate-100 font-bold shadow-xl border border-slate-200 rounded-full h-10 px-4 text-xs"
           >
             <Navigation className={`size-4 mr-2 text-emerald-600 ${isLocatingGPS ? 'animate-spin' : ''}`} />
             Use my current location
@@ -435,7 +435,7 @@ export function MapLocationPicker({
             }}
           />
         ) : (
-          <div className="size-full flex items-center justify-center bg-slate-100 dark:bg-slate-800">
+          <div className="size-full flex items-center justify-center bg-slate-100">
             <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading map...</p>
           </div>
         )}
@@ -451,11 +451,11 @@ export function MapLocationPicker({
             </p>
           </div>
 
-          <Card className="border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/20 shadow-sm">
+          <Card className="border-emerald-500/30 bg-emerald-500/10 shadow-sm">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-bold text-sm text-foreground truncate">
-                  <MapPin className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <MapPin className="size-4 text-emerald-600 shrink-0" />
                   <span className="truncate">{pinnedData.sublocality || 'Ahmedabad'}</span>
                 </div>
                 <button
@@ -480,7 +480,7 @@ export function MapLocationPicker({
           </Card>
 
           {quotaExceeded && (
-            <p className="text-xs text-amber-700 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-950/50 p-3 rounded-xl border border-amber-200 dark:border-amber-800">
+            <p className="text-xs text-amber-700 font-semibold bg-amber-50 p-3 rounded-xl border border-amber-200">
               ⚠️ Google Geocoding quota reached for this key. Pin location saved, click below to fill building/street details.
             </p>
           )}
@@ -511,7 +511,7 @@ export function MapLocationPicker({
               variant="outline"
               size="lg"
               onClick={onCancel}
-              className="w-full h-11 text-xs sm:text-sm font-semibold border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+              className="w-full h-11 text-xs sm:text-sm font-semibold border-slate-300 hover:bg-slate-100 rounded-xl"
             >
               Cancel
             </Button>

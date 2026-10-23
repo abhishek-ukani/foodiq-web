@@ -1,4 +1,4 @@
-import { Plus, Minus } from 'lucide-react'
+import { Plus, Minus, Star } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
 import { FavoriteButton } from '@/features/favorites/components/favorite-button'
@@ -145,14 +145,14 @@ export function MenuProductCard({ listing, onCustomize, isHolidayClosed }: MenuP
 
         {/* Special badge */}
         {listing.is_special && (
-          <span className="absolute top-2.5 left-8 z-10 text-[10px] font-bold text-amber-700 bg-amber-50/95 border border-amber-200 px-1.5 py-0.5 rounded-full shadow-xs">
+          <span className="absolute top-2.5 left-8 z-10 text-[10px] font-bold text-amber-900 bg-amber-100/95 border border-amber-300/80 px-2 py-0.5 rounded-full shadow-xs">
             ★ Special
           </span>
         )}
 
         {/* Discount badge */}
         {discountPercent > 0 && (
-          <span className="absolute top-2.5 right-11 z-10 text-[10px] font-bold text-emerald-800 bg-emerald-50/95 border border-emerald-300 px-1.5 py-0.5 rounded-full shadow-xs">
+          <span className="absolute top-2.5 right-11 z-10 text-[10px] font-bold text-emerald-900 bg-emerald-100/95 border border-emerald-300 px-2 py-0.5 rounded-full shadow-xs">
             {discountPercent}% OFF
           </span>
         )}
@@ -161,14 +161,14 @@ export function MenuProductCard({ listing, onCustomize, isHolidayClosed }: MenuP
         <div className="absolute top-2.5 right-2.5 z-10" onClick={(e) => e.stopPropagation()}>
           <FavoriteButton
             foodItemId={item.id}
-            className="size-7 p-1 bg-white/90 backdrop-blur-xs rounded-full shadow-xs border border-white/60 hover:bg-white text-[#7A817B] hover:text-rose-500"
+            className="size-8 p-1.5 bg-white/90 backdrop-blur-xs rounded-full shadow-xs border border-white/60 hover:bg-white text-muted-foreground hover:text-rose-500"
           />
         </div>
 
         {/* Unavailable overlay */}
         {isUnavailable && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-[1px]">
-            <span className="text-[11px] font-bold text-neutral-600 bg-white/95 px-3 py-1 rounded-full border border-[#E9E5DA] shadow-xs uppercase tracking-wide">
+          <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
+            <span className="text-[11px] font-bold text-neutral-700 bg-white/95 px-3 py-1 rounded-full border border-border shadow-xs uppercase tracking-wide">
               {soldOut
                 ? 'Sold Out'
                 : isDisabled
@@ -186,18 +186,26 @@ export function MenuProductCard({ listing, onCustomize, isHolidayClosed }: MenuP
       {/* ── CARD CONTENT ── */}
       <div className="p-4 flex flex-col flex-1 justify-between gap-2.5">
         <div>
-          {/* Dish Name */}
-          <h3 className="font-bold text-sm sm:text-base text-[#17231D] leading-snug group-hover:text-[#087443] transition-colors line-clamp-1">
-            {item.name}
-          </h3>
+          {/* Dish Name & Rating */}
+          <div className="flex items-start justify-between gap-1.5">
+            <h3 className="font-bold text-sm sm:text-base text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-1">
+              {item.name}
+            </h3>
+            {item.rating_count > 0 && (
+              <div className="inline-flex items-center gap-1 shrink-0 rounded-md border border-amber-300/80 bg-amber-50/90 px-1.5 py-0.5 text-[11px] font-bold text-amber-900">
+                <Star className="size-3 fill-amber-500 text-amber-500" />
+                <span>{Number(item.rating_average).toFixed(1)}</span>
+              </div>
+            )}
+          </div>
 
           {/* Price */}
           <div className="flex items-baseline gap-1.5 mt-0.5">
-            <span className="text-base sm:text-lg font-bold text-[#17231D]">
+            <span className="text-base sm:text-lg font-extrabold text-foreground">
               {hasMultipleVariants ? 'From ' : ''}{CURRENCY_SYMBOL}{price}
             </span>
             {strikePrice && (
-              <span className="text-xs text-[#7A817B] line-through">
+              <span className="text-xs text-muted-foreground line-through">
                 {CURRENCY_SYMBOL}{strikePrice}
               </span>
             )}
@@ -205,22 +213,20 @@ export function MenuProductCard({ listing, onCustomize, isHolidayClosed }: MenuP
 
           {/* Description */}
           {item.description && (
-            <p className="text-xs text-[#7A817B] line-clamp-2 leading-relaxed mt-1 min-h-[32px]">
+            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mt-1 min-h-[32px]">
               {item.description}
             </p>
           )}
         </div>
 
         {/* Tags + Add Button Row */}
-        <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#F3EFE6]/70">
-          {/* Metadata pill tags */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {tags.slice(0, 3).map((tag, idx) => (
-              <span
-                key={idx}
-                className="text-[11px] font-medium text-[#7A817B] bg-[#FAF8F2] border border-[#E9E5DA] px-2 py-0.5 rounded-md whitespace-nowrap"
-              >
-                {tag}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
+          {/* Unboxed Metadata text (Zero-pill discipline) */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+            {tags.slice(0, 2).map((tag, idx) => (
+              <span key={idx} className="flex items-center gap-1.5">
+                {idx > 0 && <span className="opacity-40">·</span>}
+                <span className="truncate">{tag}</span>
               </span>
             ))}
           </div>
@@ -228,7 +234,7 @@ export function MenuProductCard({ listing, onCustomize, isHolidayClosed }: MenuP
           {/* Action Button */}
           <div onClick={(e) => e.stopPropagation()} className="shrink-0">
             {cartLine && !hasMultipleVariants ? (
-              <div className="flex items-center gap-1 bg-white border border-[#087443] rounded-full p-0.5 shadow-xs">
+              <div className="flex items-center gap-1 bg-white border border-primary rounded-full p-0.5 shadow-xs">
                 <button
                   type="button"
                   disabled={isBusy}
@@ -236,20 +242,22 @@ export function MenuProductCard({ listing, onCustomize, isHolidayClosed }: MenuP
                     if (cartLine.quantity <= 1) removeItem.mutate(cartLine.id)
                     else updateQuantity.mutate({ id: cartLine.id, quantity: cartLine.quantity - 1 })
                   }}
-                  className="size-6 flex items-center justify-center text-[#087443] hover:bg-[#087443]/10 rounded-full transition-colors"
+                  className="size-7 flex items-center justify-center text-primary hover:bg-primary/10 rounded-full transition-colors cursor-pointer"
+                  aria-label="Decrease quantity"
                 >
-                  <Minus className="size-3 stroke-[2.5]" />
+                  <Minus className="size-3.5 stroke-[2.5]" />
                 </button>
-                <span className="text-xs font-bold text-[#087443] w-4 text-center tabular-nums">
+                <span className="text-xs font-bold text-primary w-5 text-center tabular-nums">
                   {cartLine.quantity}
                 </span>
                 <button
                   type="button"
                   disabled={isBusy}
                   onClick={() => updateQuantity.mutate({ id: cartLine.id, quantity: cartLine.quantity + 1 })}
-                  className="size-6 flex items-center justify-center text-[#087443] hover:bg-[#087443]/10 rounded-full transition-colors"
+                  className="size-7 flex items-center justify-center text-primary hover:bg-primary/10 rounded-full transition-colors cursor-pointer"
+                  aria-label="Increase quantity"
                 >
-                  <Plus className="size-3 stroke-[2.5]" />
+                  <Plus className="size-3.5 stroke-[2.5]" />
                 </button>
               </div>
             ) : (
@@ -258,10 +266,10 @@ export function MenuProductCard({ listing, onCustomize, isHolidayClosed }: MenuP
                 disabled={isBusy || isUnavailable}
                 onClick={handleAdd}
                 className={cn(
-                  'flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 shadow-xs',
+                  'flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all duration-150 shadow-xs min-h-[36px]',
                   isUnavailable
                     ? 'bg-neutral-200 text-neutral-500 cursor-not-allowed shadow-none'
-                    : 'bg-[#087443] hover:bg-[#065b34] text-white active:scale-95 cursor-pointer',
+                    : 'bg-primary hover:bg-primary/90 text-primary-foreground active:scale-95 cursor-pointer',
                 )}
               >
                 <Plus className="size-3.5 stroke-[2.5]" />

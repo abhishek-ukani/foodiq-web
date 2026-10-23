@@ -1,37 +1,37 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, MapPin, Flame, Sprout, Home, CookingPot, ShieldCheck, Truck } from 'lucide-react'
+import { ArrowRight, Flame, Sparkles, Clock, HeartHandshake, ShieldCheck, Truck, UtensilsCrossed } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/constants'
-import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 
 const HERO_THALI_IMAGE = '/images/hero-thali.jpg'
 
-// Rotating words for the animated headline
-const ROTATING_WORDS = ['Homemade', 'Fresh', 'Authentic', 'Kathiyawadi']
+// Rotating adjectives for dynamic appetite appeal
+const ROTATING_WORDS = ['Kathiyawadi', 'Fresh', 'Pure Desi', 'Homestyle']
 
-// 4 statements for the separate horizontal line (matching reference image style)
+// 4 core promises for the clean divider bar
 const STATEMENTS = [
   {
-    icon: Home,
-    title: 'Home-style',
-    description: 'Made to feel like home.',
+    icon: UtensilsCrossed,
+    title: 'Ghar Jaisa Swad',
+    description: 'Traditional slow-cooked recipes, never commercial.',
   },
   {
-    icon: CookingPot,
-    title: 'Freshly prepared',
-    description: 'Prepared fresh for every meal.',
+    icon: HeartHandshake,
+    title: 'Cold-Pressed Oil & Ghee',
+    description: '100% pure kachi ghani singtel & Amul cow ghee.',
   },
   {
-    icon: ShieldCheck,
-    title: 'Hygienic',
-    description: 'Clean, careful and quality-focused.',
+    icon: Flame,
+    title: 'Tava Fresh Rotla & Rotli',
+    description: 'Piping hot desi bajra rotla & soft phulkas.',
   },
   {
     icon: Truck,
-    title: 'Doorstep delivery',
-    description: 'Fresh & on-time to your door.',
+    title: 'Daily Doorstep Tiffin',
+    description: 'Punctual lunch & dinner delivery in Ahmedabad.',
   },
 ]
 
@@ -41,111 +41,105 @@ export function HeroSection() {
   useEffect(() => {
     const interval = setInterval(() => {
       setWordIndex((prev) => (prev + 1) % ROTATING_WORDS.length)
-    }, 2000)
+    }, 2400)
     return () => clearInterval(interval)
   }, [])
 
   return (
     <section
       id="hero"
-      className="relative overflow-hidden bg-[#FDFAF4] min-h-[90svh] sm:min-h-[80svh] flex flex-col justify-center"
+      className="relative overflow-hidden bg-background min-h-[85svh] flex flex-col justify-center"
     >
-      {/* ── Gujarati Rangoli-inspired warm background ── */}
+      {/* ── Subtle Warm Kathiyawadi Ambient Background ── */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-        {/* Warm saffron-gold radial glow — top left */}
-        <div className="absolute -top-24 -left-24 size-[36rem] rounded-full bg-[radial-gradient(ellipse_at_center,#FFF0CC55_0%,transparent_70%)]" />
-        {/* Terracotta warm accent — bottom right */}
-        <div className="absolute -bottom-20 -right-12 size-80 rounded-full bg-[radial-gradient(ellipse_at_center,#D8582018_0%,transparent_70%)]" />
-        {/* Subtle dot pattern — Gujarati textile feel */}
+        <div className="absolute -top-32 -left-20 size-[34rem] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(229,138,19,0.12)_0%,transparent_70%)]" />
+        <div className="absolute -bottom-24 -right-16 size-96 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(196,85,37,0.1)_0%,transparent_70%)]" />
         <div
-          className="absolute inset-0 opacity-[0.025]"
+          className="absolute inset-0 opacity-[0.02]"
           style={{
-            backgroundImage: `radial-gradient(circle, #8B4513 1px, transparent 1px)`,
-            backgroundSize: '28px 28px',
+            backgroundImage: `radial-gradient(circle, #735B47 1px, transparent 1px)`,
+            backgroundSize: '24px 24px',
           }}
         />
       </div>
 
-      {/* ── Decorative top border — saffron stripe ── */}
+      {/* ── Top Subtle Warm Border Accent ── */}
       <div
         aria-hidden="true"
-        className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-[#D85820] to-amber-500"
+        className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-primary to-secondary"
       />
 
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 sm:py-16 w-full">
+      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10 xl:px-12 py-10 sm:py-16 w-full">
         <div className="grid gap-10 lg:grid-cols-12 lg:items-center">
 
-          {/* ── LEFT COLUMN: Copy & CTAs ── */}
+          {/* ── LEFT COLUMN: Story Copy & CTAs ── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, ease: 'easeOut' }}
-            className="space-y-7 lg:col-span-7"
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="space-y-6 lg:col-span-7"
           >
-            {/* Origin Pill — Gir · Somnath */}
-            <motion.div
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.15, duration: 0.4 }}
-              className="inline-flex items-center gap-2 rounded-full border border-amber-600/35 bg-amber-50 px-3.5 py-1.5 text-xs font-semibold text-amber-800 tracking-wide shadow-sm"
-            >
-              <MapPin className="size-3.5 text-[#D85820] shrink-0" aria-hidden="true" />
-              <span>Gir · Somnath</span>
-              <span className="mx-1 text-amber-400">•</span>
-              <Sprout className="size-3.5 text-primary shrink-0" aria-hidden="true" />
-              <span>Farm-Direct Ingredients</span>
-            </motion.div>
+            {/* Live Service Indicator (Clean unboxed metadata) */}
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <span className="flex items-center gap-1.5 text-primary font-bold">
+                <Sparkles className="size-3.5" aria-hidden="true" />
+                Gir Somnath Roots
+              </span>
+              <span aria-hidden="true" className="text-border">·</span>
+              <span className="flex items-center gap-1.5 text-foreground/80">
+                <ShieldCheck className="size-3.5 text-emerald-600" aria-hidden="true" />
+                100% Pure Vegetarian
+              </span>
+              <span aria-hidden="true" className="text-border">·</span>
+              <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                <Clock className="size-3.5" aria-hidden="true" />
+                Daily Fresh Batches
+              </span>
+            </div>
 
             {/* Main Headline */}
-            <div className="space-y-2">
-              {/* Gujarati sub-label above main headline */}
-              <p className="font-serif italic text-[#D85820] text-base sm:text-lg tracking-wide">
-                ઘર સે દિલ તક —
+            <div className="space-y-1.5">
+              <p className="font-gujarati text-primary font-semibold text-base sm:text-lg tracking-wide">
+                ઘર જેવો સ્વાદ, માઁ ના પ્રેમ સાથે —
               </p>
 
-              <h1 className="font-display text-[2.6rem] sm:text-5xl lg:text-6xl leading-[1.1] font-bold text-foreground tracking-tight">
-                {/* Animated rotating adjective */}
-                <span className="inline-block overflow-hidden align-bottom" style={{ minWidth: '6rem' }}>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.12] font-bold text-foreground tracking-tight text-balance">
+                Authentic{' '}
+                <span className="inline-block overflow-hidden align-bottom" style={{ minWidth: '8rem' }}>
                   <AnimatePresence mode="wait">
                     <motion.span
                       key={wordIndex}
-                      initial={{ y: 32, opacity: 0 }}
+                      initial={{ y: 28, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
-                      exit={{ y: -32, opacity: 0 }}
-                      transition={{ duration: 0.35, ease: 'easeOut' }}
-                      className="block text-[#D85820]"
+                      exit={{ y: -28, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                      className="block text-primary"
                     >
                       {ROTATING_WORDS[wordIndex]}
                     </motion.span>
                   </AnimatePresence>
-                </span>{' '}
-                Food,{' '}
-                <br className="hidden sm:block" />
-                Delivered with{' '}
-                <span className="font-serif italic font-normal text-primary">Love</span>
+                </span>
+                <br />
+                Meals, Delivered Warm
               </h1>
             </div>
 
             {/* Subtitle */}
             <p className="max-w-xl text-base sm:text-lg leading-relaxed text-muted-foreground font-sans">
-              Daily homemade meals straight from our kitchen — sabji, rotlo, kadhi, dal, farsan
-              and more. Taste of{' '}
-              <span className="text-foreground font-semibold">Maa ki Rasoi</span>,
-              made fresh every day with farm-sourced goodness.{' '}
-              <span className="text-[#D85820] font-semibold not-italic">
-                ❤️ Ghar Se Dil Tak
-              </span>
+              Handcrafted Kathiyawadi &amp; Gujarati tiffins prepared daily with cold-pressed groundnut oil,
+              stone-ground grains, and fresh farm spices. No preservatives, no excess oil — just honest
+              nourishment for your everyday routine.
             </p>
 
-            {/* CTA Buttons */}
+            {/* CTAs with >= 44px touch targets */}
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Button
                 size="lg"
-                className="h-12 rounded-full bg-primary px-7 text-base font-semibold text-white shadow-md hover:bg-primary/90 transition-all pill-tap"
+                className="min-h-[48px] rounded-full bg-primary hover:bg-primary/90 text-primary-foreground px-7 text-base font-semibold shadow-md transition-all active:scale-[0.98]"
                 asChild
               >
                 <Link to={ROUTES.menu}>
-                  Explore Our Menu
+                  Explore Today&apos;s Menu
                   <ArrowRight className="ml-2 size-4" aria-hidden="true" />
                 </Link>
               </Button>
@@ -153,78 +147,86 @@ export function HeroSection() {
               <Button
                 size="lg"
                 variant="outline"
-                className="h-12 rounded-full border-2 border-[#D85820] text-[#D85820] hover:bg-[#D85820]/10 px-6 text-base font-semibold transition-all pill-tap"
+                className="min-h-[48px] rounded-full border-2 border-primary/40 text-primary hover:bg-primary/5 hover:border-primary px-6 text-base font-semibold transition-all active:scale-[0.98]"
                 asChild
               >
                 <Link to={`${ROUTES.menu}?category=thalis`}>
-                  Today&apos;s Menu
+                  Order Thali (₹80+)
                 </Link>
               </Button>
             </div>
           </motion.div>
 
-          {/* ── RIGHT COLUMN: Thali Visual ── */}
+          {/* ── RIGHT COLUMN: Traditional Kathiyawadi Thali Visual ── */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.94 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.65, delay: 0.2, ease: 'easeOut' }}
+            transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
             className="relative lg:col-span-5"
           >
             <div className="relative mx-auto max-w-md lg:max-w-none">
-              {/* Warm plate glow */}
+              {/* Warm Kansa Aura */}
               <div
                 aria-hidden="true"
-                className="absolute -inset-6 rounded-full bg-amber-400/15 blur-3xl -z-10"
+                className="absolute -inset-4 rounded-full bg-secondary/15 blur-2xl -z-10"
               />
 
-              {/* Decorative Gujarati "thali ring" border */}
+              {/* Decorative Thali Ring Frame */}
               <div
                 aria-hidden="true"
-                className="absolute inset-0 rounded-[2.8rem] border-2 border-dashed border-amber-500/25 -m-3 -z-10"
+                className="absolute inset-0 rounded-[2.5rem] border border-secondary/30 -m-2 -z-10"
               />
 
-              <div className="relative overflow-hidden rounded-[2.5rem] border border-[#EDE4D3] bg-card/60 p-2 shadow-xl shadow-amber-950/8">
-                <div className="relative aspect-[4/3] sm:aspect-square w-full overflow-hidden rounded-[2.2rem]">
+              <div className="relative overflow-hidden rounded-[2.2rem] border border-border bg-card p-2.5 shadow-xl shadow-amber-950/5">
+                <div className="relative aspect-[4/3] sm:aspect-square w-full overflow-hidden rounded-[1.8rem]">
                   <img
                     src={HERO_THALI_IMAGE}
-                    alt="Fresh Homemade Traditional Gujarati Thali - Ghar Se Dil Tak"
+                    alt="Authentic Homemade Traditional Gujarati Thali"
                     className="size-full object-cover transition-transform duration-700 hover:scale-105"
                     loading="eager"
                   />
 
-                  {/* Bottom gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                  {/* Gradient Scrim for contrast */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
 
-                  {/* Floating bottom tag */}
-                  <div className="absolute bottom-3.5 left-4 right-4 flex items-end justify-between text-white drop-shadow-md">
+                  {/* Bottom Dish Banner */}
+                  <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white drop-shadow-md">
                     <div>
-                      <p className="text-[10px] font-medium text-white/75 uppercase tracking-wider">
-                        Special Thali
+                      <p className="text-[11px] font-medium text-amber-200 uppercase tracking-wider font-sans">
+                        Saurashtra Rasoi Special
                       </p>
-                      <p className="text-sm font-bold leading-tight">
-                        Maa Ki Rasoi
+                      <p className="font-display text-base font-bold leading-tight">
+                        Kathiyawadi Dawat Thali
                       </p>
                     </div>
-                    <div className="flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-md px-2.5 py-1 text-[11px] font-medium">
+                    <div className="flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-md px-3 py-1 text-xs font-semibold text-amber-300 border border-white/10">
                       <Flame className="size-3 text-amber-400" />
-                      <span>Roj Tazu</span>
+                      <span>Tavathi Tazu</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Floating origin badge */}
+              {/* Floating Cultural Stamp with gentle floating animation */}
               <motion.div
-                initial={{ opacity: 0, x: 16 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.7, duration: 0.4 }}
-                className="absolute -top-3 -right-3 sm:-right-5 flex flex-col items-center justify-center size-20 sm:size-24 rounded-full bg-[#D85820] text-white text-center shadow-lg border-2 border-white/30"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  y: [0, -7, 0],
+                }}
+                transition={{
+                  opacity: { delay: 0.5, duration: 0.4 },
+                  scale: { delay: 0.5, duration: 0.4 },
+                  y: { repeat: Infinity, duration: 3.5, ease: 'easeInOut' },
+                }}
+                className="absolute -top-3 -right-3 sm:-right-4 flex flex-col items-center justify-center size-20 sm:size-22 rounded-full bg-primary text-white text-center shadow-lg border-2 border-background select-none cursor-default"
               >
-                <span className="text-lg font-bold leading-none">🌾</span>
-                <span className="text-[10px] font-bold leading-tight mt-0.5 px-1">
-                  Farm to
+                <span className="text-base select-none">🌾</span>
+                <span className="text-[10px] font-bold tracking-tight uppercase leading-none mt-0.5">
+                  Farm To
                 </span>
-                <span className="text-[10px] font-bold leading-tight">
+                <span className="font-display text-xs font-bold leading-none mt-0.5">
                   Thali
                 </span>
               </motion.div>
@@ -232,9 +234,9 @@ export function HeroSection() {
           </motion.div>
         </div>
 
-        {/* ── Separate Full Horizontal Line for the 4 Statements (Reference Image Style) ── */}
-        <div className="mt-12 sm:mt-16 border-t border-[#EDE4D3] pt-6 sm:pt-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#EDE4D3]">
+        {/* ── 4 STATEMENTS STRIP (Clean Modern Divider) ── */}
+        <div className="mt-12 sm:mt-16 border-t border-border pt-6 sm:pt-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
             {STATEMENTS.map((item, idx) => (
               <div
                 key={item.title}
@@ -247,9 +249,11 @@ export function HeroSection() {
                       : 'lg:px-6 sm:px-4',
                 )}
               >
-                <item.icon className="size-6 text-[#C9891F] shrink-0 stroke-[1.5]" aria-hidden="true" />
+                <div className="flex size-10 items-center justify-center rounded-xl bg-accent text-primary shrink-0">
+                  <item.icon className="size-5 stroke-[1.8]" aria-hidden="true" />
+                </div>
                 <div>
-                  <h3 className="font-serif text-base font-bold text-foreground leading-tight">
+                  <h3 className="font-display text-sm sm:text-base font-bold text-foreground leading-tight">
                     {item.title}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-snug">

@@ -57,7 +57,9 @@ export function LoginPage() {
     try {
       await signInWithEmail(values)
       toast.success('Welcome back!')
-      const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
+      const searchParams = new URLSearchParams(location.search)
+      const fromParam = searchParams.get('redirect') || searchParams.get('from')
+      const from = fromParam || (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
       navigate(from ?? ROUTES.home, { replace: true })
     } catch (error) {
       toast.error(toFriendlyAuthMessage(error))
@@ -80,7 +82,7 @@ export function LoginPage() {
         <Button
           type="button"
           variant="outline"
-          className="w-full relative flex items-center justify-center gap-2 border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+          className="w-full relative flex items-center justify-center gap-2 border-slate-300 hover:bg-slate-50"
           size="lg"
           onClick={handleGoogleSignIn}
           disabled={isGoogleSigningIn || form.formState.isSubmitting}

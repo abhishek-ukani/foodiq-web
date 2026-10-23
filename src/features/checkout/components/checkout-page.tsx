@@ -273,8 +273,8 @@ export function CheckoutPage() {
             <div className="flex items-center gap-3">
               <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
                 mealType === 'dinner' 
-                  ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400'
-                  : 'bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-400'
+                  ? 'bg-indigo-100 text-indigo-600'
+                  : 'bg-orange-100 text-orange-600'
               }`}>
                 <MealIcon className="size-5" />
               </div>
@@ -299,7 +299,7 @@ export function CheckoutPage() {
                   disabled={!timing.slots.lunch?.isOpen}
                   className={`px-3 py-1.5 rounded-md transition-all ${
                     mealType === 'lunch'
-                      ? 'bg-white dark:bg-zinc-800 shadow-sm text-foreground font-semibold'
+                      ? 'bg-white shadow-sm text-foreground font-semibold'
                       : 'text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground'
                   }`}
                 >
@@ -311,7 +311,7 @@ export function CheckoutPage() {
                   disabled={!timing.slots.dinner?.isOpen}
                   className={`px-3 py-1.5 rounded-md transition-all ${
                     mealType === 'dinner'
-                      ? 'bg-white dark:bg-zinc-800 shadow-sm text-foreground font-semibold'
+                      ? 'bg-white shadow-sm text-foreground font-semibold'
                       : 'text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground'
                   }`}
                 >
@@ -429,7 +429,7 @@ export function CheckoutPage() {
                             {item.food_item_variants && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-300"
+                                className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-800 bg-emerald-50"
                               >
                                 {item.food_item_variants.label}
                               </Badge>
@@ -580,8 +580,8 @@ export function CheckoutPage() {
                       {selectedAddress.meal_type_tag !== 'both' && (
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                           selectedAddress.meal_type_tag === 'lunch'
-                            ? 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
-                            : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                            ? 'bg-orange-100 text-orange-700'
+                            : 'bg-indigo-100 text-indigo-700'
                         }`}>
                           {selectedAddress.meal_type_tag === 'lunch' ? '☀️ Lunch Address' : '🌙 Dinner Address'}
                         </span>
@@ -618,7 +618,7 @@ export function CheckoutPage() {
               {selectedAddress && (
                 <div className="pt-2">
                   {!deliveryResolution.isOutOfZone ? (
-                    <div className="bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300 flex items-center justify-between rounded-lg border p-3.5 text-xs font-medium">
+                    <div className="bg-emerald-500/10 border-emerald-500/30 text-emerald-800 flex items-center justify-between rounded-lg border p-3.5 text-xs font-medium">
                       <div className="flex items-center gap-2">
                         <Sparkles className="size-4 text-emerald-600 shrink-0" />
                         <span>
@@ -634,7 +634,7 @@ export function CheckoutPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-300 rounded-lg border p-3.5 text-xs space-y-1">
+                    <div className="bg-amber-500/10 border-amber-500/30 text-amber-900 rounded-lg border p-3.5 text-xs space-y-1">
                       <div className="flex items-center gap-2 font-semibold">
                         <Navigation className="size-4 text-amber-600 shrink-0" />
                         <span>Request Delivery to Your Location</span>
@@ -650,7 +650,7 @@ export function CheckoutPage() {
               {/* Preferred time prompt — shown only if selected address has no preferred_time */}
               {showTimePrompt && selectedAddress && (
                 <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3.5 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-orange-800 dark:text-orange-300">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-orange-800">
                     <Clock className="size-4 text-orange-500" />
                     What time do you prefer delivery here?
                   </div>
@@ -789,8 +789,8 @@ export function CheckoutPage() {
           <Card>
             <CardContent className="space-y-3 pt-6">
               <p className="font-medium">Payment method</p>
-              <div className="flex items-center gap-3.5 rounded-xl border border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20 p-4">
-                <div className="size-9 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-3.5 rounded-xl border border-emerald-500/30 bg-emerald-50/40 p-4">
+                <div className="size-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                   <CheckCircle2 className="size-5" />
                 </div>
                 <div>

@@ -7,9 +7,14 @@ import {
   type ResolvedOptionItem,
 } from '../services/thali-customizer-service'
 
-export function isAddOnGroup(grp: { name: string }) {
+export function isAddOnGroup(grp: { name: string; target_category_type?: string }) {
   const n = grp.name.toLowerCase()
-  return n.includes('add-on') || n.includes('addon')
+  // Snack groups (like "Select Snack") are the complimentary add-on included in the thali
+  return (
+    (n.includes('add-on') || n.includes('addon') || n.includes('extra')) &&
+    !n.includes('snack') &&
+    !n.includes('farsan')
+  )
 }
 
 export interface SelectedDynamicOptionItem {

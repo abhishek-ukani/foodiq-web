@@ -66,8 +66,11 @@ export function DesktopThaliCard({ listing, onCustomize, isHolidayClosed }: Desk
     if (!isUnavailable) onCustomize?.(listing)
   }
 
-  // Ingredients from admin database
-  const ingredients = item.ingredients && Array.isArray(item.ingredients) ? item.ingredients : []
+  // Ingredients from admin database (snacks are not part of the thali by default)
+  const ingredients = (item.ingredients && Array.isArray(item.ingredients) ? item.ingredients : []).filter((ing) => {
+    const lower = ing.toLowerCase()
+    return !lower.includes('snack') && !lower.includes('farsan')
+  })
 
   return (
     <article
@@ -161,7 +164,7 @@ export function DesktopThaliCard({ listing, onCustomize, isHolidayClosed }: Desk
 
         {/* Included Items Chips */}
         <div className="flex flex-wrap gap-1.5">
-          {ingredients.slice(0, 4).map((ing, i) => (
+          {ingredients.slice(0, 3).map((ing, i) => (
             <span
               key={i}
               className="text-[11px] font-medium text-muted-foreground bg-muted/50 border border-border px-2 py-0.5 rounded-md leading-tight"
@@ -169,11 +172,15 @@ export function DesktopThaliCard({ listing, onCustomize, isHolidayClosed }: Desk
               {ing}
             </span>
           ))}
-          {ingredients.length > 4 && (
+          {ingredients.length > 3 && (
             <span className="text-[11px] font-medium text-muted-foreground/80 bg-muted/50 border border-border px-2 py-0.5 rounded-md leading-tight">
-              +{ingredients.length - 4} more
+              +{ingredients.length - 3} more
             </span>
           )}
+          <span className="text-[11px] font-semibold text-emerald-850 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 px-2 py-0.5 rounded-md leading-tight flex items-center gap-1">
+            <span>🥗</span>
+            <span>+ Free Add-ons</span>
+          </span>
         </div>
 
         {/* Bottom: Customization note & Add button */}

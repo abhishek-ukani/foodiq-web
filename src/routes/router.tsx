@@ -50,6 +50,19 @@ const CartPage = lazy(() =>
 const CheckoutPage = lazy(() =>
   import('@/features/checkout/components/checkout-page').then((m) => ({ default: m.CheckoutPage })),
 )
+const PlansPage = lazy(() =>
+  import('@/features/subscriptions/components/plans-page').then((m) => ({ default: m.PlansPage })),
+)
+const SubscriptionCheckoutPage = lazy(() =>
+  import('@/features/subscriptions/components/subscription-checkout-page').then((m) => ({
+    default: m.SubscriptionCheckoutPage,
+  })),
+)
+const MySubscriptionPage = lazy(() =>
+  import('@/features/subscriptions/components/my-subscription-page').then((m) => ({
+    default: m.MySubscriptionPage,
+  })),
+)
 const QuickOrderPage = lazy(() =>
   import('@/features/quick-order/components/quick-order-page').then((m) => ({
     default: m.QuickOrderPage,
@@ -133,6 +146,26 @@ export const router = createBrowserRouter([
         element: withSuspense(
           <ProtectedRoute>
             <CheckoutPage />
+          </ProtectedRoute>,
+        ),
+      },
+      {
+        path: ROUTES.plans,
+        element: withSuspense(<PlansPage />),
+      },
+      {
+        path: ROUTES.checkoutSubscription,
+        element: withSuspense(
+          <ProtectedRoute>
+            <SubscriptionCheckoutPage />
+          </ProtectedRoute>,
+        ),
+      },
+      {
+        path: ROUTES.mySubscription,
+        element: withSuspense(
+          <ProtectedRoute>
+            <MySubscriptionPage />
           </ProtectedRoute>,
         ),
       },

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { ChefHat, ChevronLeft, Heart, LogOut, MapPin, Menu as MenuIcon, Package, ShoppingBag, User, Zap } from 'lucide-react'
+import { ChefHat, ChevronLeft, Heart, LogOut, MapPin, Menu as MenuIcon, Package, ShoppingBag, User, Zap, CalendarCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -36,6 +36,7 @@ function CartLink({ onNavigate }: { onNavigate?: () => void }) {
 const NAV_LINKS = [
   { to: ROUTES.home, label: 'Home' },
   { to: ROUTES.menu, label: 'Menu' },
+  { to: ROUTES.plans, label: 'Meal Plans' },
   { to: ROUTES.about, label: 'About' },
   { to: ROUTES.contact, label: 'Contact' },
 ]
@@ -202,6 +203,12 @@ export function Navbar() {
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem asChild>
+                  <Link to={ROUTES.mySubscription} className="cursor-pointer">
+                    <CalendarCheck className="mr-2 size-4 text-primary" />
+                    My Subscription
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link to={ROUTES.profile} className="cursor-pointer">
                     <User className="mr-2 size-4" />
                     My Account
@@ -270,6 +277,12 @@ export function Navbar() {
                         </Link>
                       </Button>
                     ) : null}
+                    <Button variant="outline" className="w-full justify-start" asChild>
+                      <Link to={ROUTES.mySubscription} onClick={() => setMobileOpen(false)}>
+                        <CalendarCheck className="mr-2 size-4 text-primary" />
+                        My Subscription
+                      </Link>
+                    </Button>
                     <Button variant="outline" className="w-full justify-start" asChild>
                       <Link to={ROUTES.profile} onClick={() => setMobileOpen(false)}>
                         <User className="mr-2 size-4" />

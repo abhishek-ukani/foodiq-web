@@ -16,10 +16,10 @@ const THALI_ITEMS = [
   '2 Sabji',
   'Dal',
   'Rice',
-  'Salad',
-  'Papad',
   'Sweet',
-  'Pickle',
+  'Salad (Free Add-on)',
+  'Pickle (Free Add-on)',
+  'Papad',
   'Chhas',
 ]
 

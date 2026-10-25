@@ -302,24 +302,55 @@ export function ThaliCustomizerDrawer({
                 </div>
               )}
 
-              {/* Thali Composition Tags if present */}
-              {item.ingredients && item.ingredients.length > 0 && (
-                <div className="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200/70">
-                  <p className="text-[11px] font-semibold text-amber-900 mb-1.5">
-                    Included in this Thali:
+              {/* Complimentary Snack Add-on Banner for all Thalis */}
+              {item.kind === 'thali' && (
+                <div className="p-3 bg-emerald-50/80 rounded-xl border border-emerald-200/90 shadow-2xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                      <Sparkles className="size-3.5 text-emerald-600" />
+                      <span>Complimentary Snack Included</span>
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Free Add-on
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800/90 leading-snug">
+                    A delicious complimentary snack / farsan (Fryums / Snack of the day) is included free with every thali!
                   </p>
-                  <div className="flex flex-wrap gap-1">
-                    {item.ingredients.map((ing, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[10px] bg-white text-amber-900/90 font-medium px-2 py-0.5 rounded-md border border-amber-200/80 shadow-2xs"
-                      >
-                        {ing}
-                      </span>
-                    ))}
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    <span className="text-[10px] bg-white text-emerald-900 font-semibold px-2 py-0.5 rounded-md border border-emerald-200 shadow-2xs flex items-center gap-1">
+                      <span>🥟</span>
+                      <span>Complimentary Snack / Farsan</span>
+                    </span>
                   </div>
                 </div>
               )}
+
+              {/* Thali Composition Tags if present (snacks are not included by default) */}
+              {item.ingredients && item.ingredients.length > 0 && (() => {
+                const filteredIngredients = item.ingredients.filter((ing) => {
+                  const lower = ing.toLowerCase()
+                  return !lower.includes('snack') && !lower.includes('farsan')
+                })
+                if (filteredIngredients.length === 0) return null
+                return (
+                  <div className="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200/70">
+                    <p className="text-[11px] font-semibold text-amber-900 mb-1.5">
+                      Main Thali Courses:
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {filteredIngredients.map((ing, idx) => (
+                        <span
+                          key={idx}
+                          className="text-[10px] bg-white text-amber-900/90 font-medium px-2 py-0.5 rounded-md border border-amber-200/80 shadow-2xs"
+                        >
+                          {ing}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Pack Size / Variant Selector */}
               {hasVariants && (

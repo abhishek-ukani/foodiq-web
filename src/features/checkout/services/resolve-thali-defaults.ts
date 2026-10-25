@@ -10,6 +10,14 @@ export async function resolveThaliDefaults(foodItemId: string): Promise<Selected
   const defaults: SelectedCustomization[] = []
 
   for (const group of groups) {
+    // Snacks are the complimentary add-on included in every thali; skip optional paid extras
+    const groupNameLower = group.name.toLowerCase()
+    const isPaidExtra =
+      (groupNameLower.includes('add-on') || groupNameLower.includes('addon') || groupNameLower.includes('extra')) &&
+      !groupNameLower.includes('snack') &&
+      !groupNameLower.includes('farsan')
+    if (isPaidExtra) continue
+
     const availableOptions = group.options.filter((o) => o.is_available && !o.is_cutoff_closed)
     if (availableOptions.length === 0) continue
 

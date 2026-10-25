@@ -104,6 +104,10 @@ export function MenuProductCard({ listing, onCustomize, isHolidayClosed }: MenuP
     tags.push(item.categories.name)
   }
 
+  if (isThali) {
+    tags.push('Free Add-ons')
+  }
+
   if (listing.is_special) {
     tags.push('Chef Special')
   }

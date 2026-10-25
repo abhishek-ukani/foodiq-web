@@ -713,13 +713,24 @@ export function QuickOrderPage() {
         {/* ── 4. Fixed Items Included (Reassurance for customer) ─ */}
         <section aria-labelledby="included-heading">
           <Card className="rounded-2xl border-border/70 bg-card/60 shadow-xs">
-            <CardContent className="p-3.5">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground mb-2">
-                <Sparkles className="size-3.5 text-amber-500" />
-                <span id="included-heading">Also Included in your {currentThali?.name || 'Meal'}</span>
+            <CardContent className="p-3.5 space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <Sparkles className="size-3.5 text-emerald-600" />
+                  <span id="included-heading">Included in your {currentThali?.name || 'Meal'}</span>
+                </div>
+                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-800 border-emerald-200 font-semibold">
+                  Complimentary Add-ons Included
+                </Badge>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {['Gujarati Dal', 'Steamed Rice', 'Fresh Salad', 'Pickle (Aachar)'].map((name) => (
+                {[
+                  'Gujarati Dal / Kadhi',
+                  'Steamed Rice',
+                  'Fresh Salad (Free)',
+                  'Pickle / Aachar (Free)',
+                  'Special Chutney (Free)',
+                ].map((name) => (
                   <span
                     key={name}
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-100 text-[11px] text-foreground font-medium"

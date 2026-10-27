@@ -104,7 +104,7 @@ export function StarRatingInput({
           )
         })}
       </div>
-      <p className="min-h-[20px] text-xs sm:text-sm font-medium text-amber-800 dark:text-amber-300">
+      <p className="min-h-[20px] text-xs sm:text-sm font-medium text-amber-800">
         {RATING_LABELS[activeRating] ?? 'Tap a star to rate'}
       </p>
     </div>

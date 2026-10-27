@@ -9,7 +9,7 @@ export const addressSchema = z.object({
   company_name: z.string().trim().optional().or(z.literal('')),
   floor_no: z.string().trim().optional().or(z.literal('')),
   tower_block: z.string().trim().optional().or(z.literal('')),
-  unit_no: z.string().trim().optional().or(z.literal('')),
+  unit_no: z.string().trim().min(1, 'Enter office, flat, or unit number'),
   building_name: z.string().trim().min(2, 'Enter Building, Company, or Society name'),
   road_name: z.string().trim().optional().or(z.literal('')),
   landmark: z.string().trim().optional().or(z.literal('')),

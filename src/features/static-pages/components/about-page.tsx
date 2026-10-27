@@ -35,32 +35,40 @@ export function AboutPage() {
       />
 
       {/* ── 1. WHY FOODIQ? SECTION (5 Core Principles) ── */}
-      <WhyFoodIqSection />
+      <WhyFoodIqSection bgClassName="bg-[#2D0D19]" />
 
-      {/* Wave transition into Deep Earthen Clay Farm Story */}
-      <SectionDivider
-        variant="wave"
-        fromColor="text-[#2D0D19]"
-        toColor="bg-[#221610]"
-      />
+      {/* Elegant Heritage Divider: Philosophy to Roots */}
+      <div className="relative z-10 flex items-center justify-center gap-4 py-6 bg-[#2D0D19]" aria-hidden="true">
+        <span className="h-px w-20 sm:w-36 bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
+        <span className="text-amber-400/80 text-xs tracking-widest uppercase font-serif flex items-center gap-2">
+          <span>🌾</span>
+          <span className="text-[11px] font-semibold tracking-wider text-amber-300/90">SOIL TO SOUL</span>
+          <span>🌾</span>
+        </span>
+        <span className="h-px w-20 sm:w-36 bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
+      </div>
 
       {/* ── 2. FARM ROOTS & INGREDIENT INSPECTOR ── */}
-      <FarmStorySection />
+      <FarmStorySection bgClassName="bg-[#2D0D19]" />
 
-      {/* Curve transition into Deep Wine Serving Ahmedabad */}
-      <SectionDivider
-        variant="curve"
-        fromColor="text-[#221610]"
-        toColor="bg-[#380B1C]"
-      />
+      {/* Elegant Heritage Divider: Roots to Kitchen */}
+      <div className="relative z-10 flex items-center justify-center gap-4 py-6 bg-[#2D0D19]" aria-hidden="true">
+        <span className="h-px w-20 sm:w-36 bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
+        <span className="text-amber-400/80 text-xs tracking-widest uppercase font-serif flex items-center gap-2">
+          <span>📍</span>
+          <span className="text-[11px] font-semibold tracking-wider text-amber-300/90">AHMEDABAD KITCHEN</span>
+          <span>📍</span>
+        </span>
+        <span className="h-px w-20 sm:w-36 bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
+      </div>
 
       {/* ── 3. SERVING AHMEDABAD & STAY CONNECTED ── */}
-      <ServingAhmedabadSection />
+      <ServingAhmedabadSection bgClassName="bg-[#2D0D19]" />
 
       {/* Scallop transition back to warm cream backdrop */}
       <SectionDivider
         variant="scallop"
-        fromColor="text-[#380B1C]"
+        fromColor="text-[#2D0D19]"
         toColor="bg-background"
       />
 

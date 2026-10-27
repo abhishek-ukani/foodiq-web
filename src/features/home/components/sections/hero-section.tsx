@@ -91,7 +91,7 @@ export function HeroSection() {
                 100% Pure Vegetarian
               </span>
               <span aria-hidden="true" className="text-border">·</span>
-              <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+              <span className="flex items-center gap-1.5 text-amber-700">
                 <Clock className="size-3.5" aria-hidden="true" />
                 Daily Fresh Batches
               </span>

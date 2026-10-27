@@ -17,8 +17,9 @@ const THALI_ITEMS = [
   'Dal',
   'Rice',
   'Sweet',
-  'Salad (Free Add-on)',
-  'Pickle (Free Add-on)',
+  'Snack / Farsan (Free Add-on)',
+  'Salad',
+  'Pickle',
   'Papad',
   'Chhas',
 ]

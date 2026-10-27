@@ -66,11 +66,8 @@ export function DesktopThaliCard({ listing, onCustomize, isHolidayClosed }: Desk
     if (!isUnavailable) onCustomize?.(listing)
   }
 
-  // Ingredients from admin database (snacks are not part of the thali by default)
-  const ingredients = (item.ingredients && Array.isArray(item.ingredients) ? item.ingredients : []).filter((ing) => {
-    const lower = ing.toLowerCase()
-    return !lower.includes('snack') && !lower.includes('farsan')
-  })
+  // Ingredients from admin database
+  const ingredients = Array.isArray(item.ingredients) ? item.ingredients : []
 
   return (
     <article
@@ -178,8 +175,8 @@ export function DesktopThaliCard({ listing, onCustomize, isHolidayClosed }: Desk
             </span>
           )}
           <span className="text-[11px] font-semibold text-emerald-850 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 px-2 py-0.5 rounded-md leading-tight flex items-center gap-1">
-            <span>🥗</span>
-            <span>+ Free Add-ons</span>
+            <span>🥟</span>
+            <span>+ Free Snack</span>
           </span>
         </div>
 

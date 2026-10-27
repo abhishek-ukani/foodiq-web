@@ -254,7 +254,7 @@ export function SubscriptionCheckoutPage() {
               <CardContent className="p-4 pt-2 space-y-2">
                 <div className="flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/20 px-3 py-1.5 rounded-lg border border-emerald-200/50">
                   <Sparkles className="size-3.5 text-emerald-600 shrink-0" />
-                  <span>Includes complimentary add-ons in every meal (Salad, Pickle &amp; Chutney) ✨</span>
+                  <span>Includes complimentary snack in every meal (Farsan / Fryums) 🥟</span>
                 </div>
 
                 {selectedVariant.has_weekly_sweet && (
@@ -613,7 +613,7 @@ export function SubscriptionCheckoutPage() {
                     )}
 
                     <div className="flex justify-between text-muted-foreground">
-                      <span>Complimentary Add-ons</span>
+                      <span>Complimentary Snack (Farsan)</span>
                       <span className="text-emerald-600 font-semibold">Included (FREE)</span>
                     </div>
 

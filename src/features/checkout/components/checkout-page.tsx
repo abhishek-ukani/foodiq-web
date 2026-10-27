@@ -448,10 +448,10 @@ export function CheckoutPage() {
                             </p>
                           )}
 
-                          {/* Complimentary Add-ons for Thalis */}
+                          {/* Complimentary Snack for Thalis */}
                           {item.food_items?.kind === 'thali' && (
                             <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-                              ✓ Includes complimentary salad, pickle &amp; chutney
+                              ✓ Includes complimentary snack (farsan / fryums)
                             </p>
                           )}
 

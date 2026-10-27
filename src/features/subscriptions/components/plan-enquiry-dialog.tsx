@@ -79,7 +79,7 @@ export function PlanEnquiryDialog({
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
             Whether you need daily tiffins for your office team, a custom delivery schedule, or
-            special dietary preferences, let us know. All plans include complimentary add-ons (Salad, Pickle &amp; Chutney) with every meal.
+            special dietary preferences, let us know. All plans include a complimentary snack (farsan / fryums) with every meal.
           </DialogDescription>
         </DialogHeader>
 

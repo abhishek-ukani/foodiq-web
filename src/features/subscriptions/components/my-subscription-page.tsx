@@ -365,11 +365,11 @@ export function MySubscriptionPage() {
                 </div>
               )}
 
-              {/* Complimentary Add-ons Note */}
+              {/* Complimentary Snack Note */}
               <div className="flex items-center gap-2 pt-2 border-t text-xs text-emerald-700 dark:text-emerald-300">
                 <Sparkles className="size-3.5 shrink-0 text-emerald-600" />
                 <span>
-                  <strong>Complimentary Add-ons Included:</strong> Fresh salad, authentic Gujarati pickle, and chutney are delivered with every meal.
+                  <strong>Complimentary Snack Included:</strong> Daily fresh snack (farsan / fryums) is delivered free with every meal.
                 </span>
               </div>
             </CardContent>

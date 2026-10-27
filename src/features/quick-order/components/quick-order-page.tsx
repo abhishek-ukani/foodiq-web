@@ -720,16 +720,16 @@ export function QuickOrderPage() {
                   <span id="included-heading">Included in your {currentThali?.name || 'Meal'}</span>
                 </div>
                 <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-800 border-emerald-200 font-semibold">
-                  Complimentary Add-ons Included
+                  Free Complimentary Snack Included
                 </Badge>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {[
                   'Gujarati Dal / Kadhi',
                   'Steamed Rice',
-                  'Fresh Salad (Free)',
-                  'Pickle / Aachar (Free)',
-                  'Special Chutney (Free)',
+                  'Daily Snack / Farsan (Free Add-on)',
+                  'Salad',
+                  'Pickle (Aachar)',
                 ].map((name) => (
                   <span
                     key={name}

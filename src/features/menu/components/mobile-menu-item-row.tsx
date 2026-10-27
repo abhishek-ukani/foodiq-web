@@ -158,33 +158,28 @@ export function MobileMenuItemRow({
           </div>
         )}
 
-        {/* Thali composition tags (snacks not included by default) */}
-        {isThali && item.ingredients && item.ingredients.length > 0 && (() => {
-          const filtered = item.ingredients.filter((ing) => {
-            const lower = ing.toLowerCase()
-            return !lower.includes('snack') && !lower.includes('farsan')
-          })
-          return (
-            <div className="flex flex-wrap gap-1 mt-1.5">
-              {filtered.slice(0, 3).map((ing, i) => (
-                <span
-                  key={i}
-                  className="text-[10px] bg-muted/60 text-muted-foreground font-medium px-1.5 py-0.5 rounded-md border border-border"
-                >
-                  {ing}
-                </span>
-              ))}
-              {filtered.length > 3 && (
-                <span className="text-[10px] text-muted-foreground/80 font-medium px-1 py-0.5">
-                  +{filtered.length - 3} more
-                </span>
-              )}
-              <span className="text-[10px] bg-emerald-50 text-emerald-800 font-semibold px-1.5 py-0.5 rounded-md border border-emerald-200">
-                + Free Add-ons
+        {/* Thali composition tags (free complimentary snack included) */}
+        {isThali && item.ingredients && item.ingredients.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {item.ingredients.slice(0, 3).map((ing, i) => (
+              <span
+                key={i}
+                className="text-[10px] bg-muted/60 text-muted-foreground font-medium px-1.5 py-0.5 rounded-md border border-border"
+              >
+                {ing}
               </span>
-            </div>
-          )
-        })()}
+            ))}
+            {item.ingredients.length > 3 && (
+              <span className="text-[10px] text-muted-foreground/80 font-medium px-1 py-0.5">
+                +{item.ingredients.length - 3} more
+              </span>
+            )}
+            <span className="text-[10px] bg-emerald-50 text-emerald-800 font-semibold px-1.5 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+              <span>🥟</span>
+              <span>+ Free Snack</span>
+            </span>
+          </div>
+        )}
 
         {/* Description (non-thali) */}
         {!isThali && item.description && (

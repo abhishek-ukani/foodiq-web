@@ -105,7 +105,7 @@ export function MenuProductCard({ listing, onCustomize, isHolidayClosed }: MenuP
   }
 
   if (isThali) {
-    tags.push('Free Add-ons')
+    tags.push('Free Snack')
   }
 
   if (listing.is_special) {

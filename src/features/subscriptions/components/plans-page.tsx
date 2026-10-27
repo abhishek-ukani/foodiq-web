@@ -70,7 +70,7 @@ export function PlansPage() {
           <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             Nutritious, authentic Kathiyawadi thalis cooked fresh with pure ingredients. Enjoy
             hassle-free daily delivery, flexible meal skips that extend your plan, complimentary
-            add-ons with every meal, and weekly sweet treats.
+            snacks with every meal, and weekly sweet treats.
           </p>
 
           {/* Quick Nav to My Subscriptions if existing subscriber */}
@@ -204,7 +204,7 @@ export function PlansPage() {
             Select Your Standard Plan {activeThali ? `for ${activeThali.name}` : ''}
           </h2>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            All plans include generous discounts, complimentary add-ons with every meal, automated skip extensions, and zero delivery charges.
+            All plans include generous discounts, complimentary snack with every meal, automated skip extensions, and zero delivery charges.
           </p>
         </div>
 
@@ -259,9 +259,9 @@ export function PlansPage() {
               <div className="size-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
                 <Sparkles className="size-5" />
               </div>
-              <h4 className="font-bold text-sm text-foreground">Complimentary Add-ons</h4>
+              <h4 className="font-bold text-sm text-foreground">Complimentary Snack 🥟</h4>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Every thali includes fresh salad, homemade Gujarati achar (pickle), and spicy chutney free.
+                Every thali includes a complimentary daily snack (farsan / crisp fryums) at zero extra cost.
               </p>
             </div>
 
@@ -347,9 +347,8 @@ export function PlansPage() {
             <AccordionContent className="text-xs text-muted-foreground leading-relaxed pb-3">
               Every subscription thali comes with your choice of hot breads (Phulka Roti or Bhakhari),
               freshly cooked daily sabjis, authentic Kathiyawadi dal or kadhi, and steamed rice. Additionally,
-              <strong> complimentary add-ons (fresh green salad, homemade Gujarati pickle/achar, and spicy chutney)</strong> are
-              included free in every single meal! Snacks/farsan are not included by default in the thali, but are available
-              separately as add-ons, and eligible subscription plans include a complimentary handmade sweet reward every week.
+              <strong> a complimentary daily snack (farsan / crisp fryums)</strong> is included free in every single meal!
+              Fresh salad, pickle, and weekly sweets (for eligible plans) complete your hearty home-style dining experience.
             </AccordionContent>
           </AccordionItem>
 

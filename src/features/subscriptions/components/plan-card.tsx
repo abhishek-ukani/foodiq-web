@@ -31,24 +31,22 @@ export function PlanCard({ variant, selectedSlot, selectedThaliId }: PlanCardPro
     variant.schedule_type === 'every_other_day'
       ? 'Alternate Days (Every 2nd day)'
       : (variant.delivery_days || [1, 2, 3, 4, 5])
-          .map((d) => DAY_NAMES[d - 1])
-          .filter(Boolean)
-          .join(', ')
+        .map((d) => DAY_NAMES[d - 1])
+        .filter(Boolean)
+        .join(', ')
 
   const totalMeals =
     selectedSlot === 'both' ? variant.duration_meal_days * 2 : variant.duration_meal_days
 
-  const checkoutUrl = `${ROUTES.checkoutSubscription}?variant=${variant.slug}&slot=${selectedSlot}${
-    selectedThaliId ? `&thali=${selectedThaliId}` : ''
-  }`
+  const checkoutUrl = `${ROUTES.checkoutSubscription}?variant=${variant.slug}&slot=${selectedSlot}${selectedThaliId ? `&thali=${selectedThaliId}` : ''
+    }`
 
   return (
     <Card
-      className={`relative flex flex-col justify-between overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${
-        variant.badge_text
+      className={`relative flex flex-col justify-between overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${variant.badge_text
           ? 'border-primary/40 bg-gradient-to-b from-primary/5 via-card to-card'
           : 'border-border/80 bg-card'
-      }`}
+        }`}
     >
       {/* Top Banner Badge */}
       {variant.badge_text && (
@@ -165,11 +163,11 @@ export function PlanCard({ variant, selectedSlot, selectedThaliId }: PlanCardPro
               </div>
             </li>
 
-            {/* Complimentary Add-ons in EVERY subscription plan */}
+            {/* Complimentary Snack in EVERY subscription plan */}
             <li className="flex items-start gap-2.5 text-emerald-900 dark:text-emerald-200 font-medium bg-emerald-50/70 dark:bg-emerald-950/25 p-2 rounded-lg border border-emerald-200/60">
               <Sparkles className="size-4 shrink-0 text-emerald-600 mt-0.5" />
               <div>
-                <span>Complimentary add-ons included in every meal (Fresh Salad, Gujarati Achar &amp; Chutney) ✨</span>
+                <span>Complimentary snack included in every meal 🥟</span>
               </div>
             </li>
 

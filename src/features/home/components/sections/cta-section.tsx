@@ -1,30 +1,42 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, MessageCircle, Flame, ShieldCheck, Sparkles, ChefHat } from 'lucide-react'
+import {
+  ArrowRight,
+  MessageCircle,
+  UtensilsCrossed,
+  SlidersHorizontal,
+  MapPin,
+  Bike,
+  Sparkles,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/common/reveal'
 import { ROUTES } from '@/constants'
 
-const HIGHLIGHT_POINTS = [
+const ORDER_STEPS = [
   {
-    icon: Flame,
-    title: 'Kathiyawadi Dawat',
-    desc: 'Authentic Saurashtra flavors',
+    step: '1',
+    icon: UtensilsCrossed,
+    title: 'Choose Your Meal',
+    desc: 'Explore daily rotating Kathiyawadi thalis, specials & Jain options.',
   },
   {
-    icon: ShieldCheck,
-    title: 'Satvik & Jain Food Available',
-    desc: 'No onion, garlic or root veg',
+    step: '2',
+    icon: SlidersHorizontal,
+    title: 'Customize Your Thali',
+    desc: 'Select ghee rotli or bajra rotla, fresh sabjis, kathod & chaas.',
   },
   {
-    icon: Sparkles,
-    title: 'Fresh Clay-Tava Rotla',
-    desc: 'Made with pure cow ghee',
+    step: '3',
+    icon: MapPin,
+    title: 'Enter Delivery Address',
+    desc: 'Quick checkout for any home or office across Ahmedabad.',
   },
   {
-    icon: ChefHat,
-    title: 'Pure Groundnut Oil & Amul Ghee',
-    desc: '100% wholesome homemade food',
+    step: '4',
+    icon: Bike,
+    title: 'Enjoy Fresh & Hot',
+    desc: 'Delivered warm in spill-proof packing right on time for your meal.',
   },
 ]
 
@@ -63,6 +75,11 @@ export function CtaSection() {
           <div className="relative z-10 flex flex-col items-center text-center max-w-4xl mx-auto space-y-8 sm:space-y-10">
             {/* Header Content */}
             <div className="space-y-3 sm:space-y-4">
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold uppercase tracking-wider text-amber-200">
+                <Sparkles className="size-3.5 text-amber-300" />
+                <span>How To Order • 4 Simple Steps</span>
+              </span>
+
               <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-tight">
                 Good Food Brings People{' '}
                 <span className="font-serif italic font-normal text-amber-200 underline decoration-amber-400/40 underline-offset-6 decoration-wavy">
@@ -71,30 +88,37 @@ export function CtaSection() {
               </h2>
 
               <p className="text-sm sm:text-base lg:text-lg font-sans text-white/85 leading-relaxed max-w-2xl mx-auto">
-                Order now and bring the authentic taste of freshly prepared, homemade Kathiyawadi food right to your table.
+                Order your wholesome homemade tiffin in 4 quick steps and enjoy genuine Kathiyawadi taste every day.
               </p>
             </div>
 
-            {/* Highlight Points: Kathiyawadi Dawat, Satvik & Jain Food Available */}
+            {/* 4 Simple Steps to Place Order */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 w-full">
-              {HIGHLIGHT_POINTS.map((item, idx) => {
+              {ORDER_STEPS.map((item, idx) => {
                 const Icon = item.icon
                 return (
                   <motion.div
                     key={idx}
-                    whileHover={{ y: -3 }}
+                    whileHover={{ y: -4 }}
                     transition={{ duration: 0.2 }}
-                    className="flex flex-col items-center sm:items-start text-center sm:text-left rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 p-4 sm:p-5 space-y-1.5 transition-all shadow-xs"
+                    className="relative flex flex-col items-center sm:items-start text-center sm:text-left rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 p-4 sm:p-5 space-y-2.5 transition-all shadow-xs group"
                   >
-                    <div className="size-9 rounded-xl bg-white/15 flex items-center justify-center text-amber-300 mb-1">
-                      <Icon className="size-5" />
+                    <div className="flex items-center justify-between w-full">
+                      <div className="size-10 rounded-xl bg-white/15 flex items-center justify-center text-amber-300 group-hover:scale-105 transition-transform">
+                        <Icon className="size-5" />
+                      </div>
+                      <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30">
+                        Step {item.step}
+                      </span>
                     </div>
-                    <span className="font-display text-sm sm:text-base font-bold text-white">
-                      {item.title}
-                    </span>
-                    <span className="text-xs text-white/75 font-sans leading-relaxed">
-                      {item.desc}
-                    </span>
+                    <div className="space-y-1">
+                      <h3 className="font-display text-sm sm:text-base font-bold text-white leading-tight">
+                        {item.title}
+                      </h3>
+                      <p className="text-xs text-white/80 font-sans leading-relaxed">
+                        {item.desc}
+                      </p>
+                    </div>
                   </motion.div>
                 )
               })}

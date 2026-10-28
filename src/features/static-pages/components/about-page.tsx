@@ -72,7 +72,7 @@ export function AboutPage() {
         toColor="bg-background"
       />
 
-      {/* ── 4. CTA BANNER: Order Today's Tiffin ── */}
+      {/* ── 4. HOW TO ORDER & CTA BANNER ── */}
       <CtaSection />
     </div>
   )

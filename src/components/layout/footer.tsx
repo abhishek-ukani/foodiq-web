@@ -13,6 +13,7 @@ const QUICK_LINKS = [
 const LEGAL_LINKS = [
   { to: ROUTES.privacy, label: 'Privacy Policy' },
   { to: ROUTES.terms, label: 'Terms & Conditions' },
+  { to: ROUTES.refund, label: 'Refund Policy' },
 ]
 
 interface FooterProps {

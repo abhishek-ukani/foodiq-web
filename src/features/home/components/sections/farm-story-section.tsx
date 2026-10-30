@@ -87,12 +87,20 @@ const INGREDIENTS: IngredientPillar[] = [
   },
 ]
 
-export function FarmStorySection() {
+interface FarmStorySectionProps {
+  className?: string
+  bgClassName?: string
+}
+
+export function FarmStorySection({
+  className,
+  bgClassName = 'bg-[#221610]',
+}: FarmStorySectionProps = {}) {
   const [activeIngredientId, setActiveIngredientId] = useState(INGREDIENTS[0].id)
   const activeIngredient = INGREDIENTS.find((i) => i.id === activeIngredientId) || INGREDIENTS[0]
 
   return (
-    <section id="farm-roots" className="relative overflow-hidden bg-[#221610] text-[#FAF6EE] py-16 sm:py-24">
+    <section id="farm-roots" className={cn('relative overflow-hidden text-[#FAF6EE] py-16 sm:py-24', bgClassName, className)}>
       {/* ── Ambient Background Accents ── */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute top-1/4 right-0 size-96 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(229,138,19,0.12)_0%,transparent_70%)]" />

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { AtSign, ChefHat, Mail, MapPin, Phone, Heart } from 'lucide-react'
 import { ROUTES } from '@/constants'
+import { cn } from '@/lib/utils'
 
 const QUICK_LINKS = [
   { to: ROUTES.menu, label: "Today's Menu" },
@@ -15,9 +16,13 @@ const LEGAL_LINKS = [
   { to: ROUTES.refund, label: 'Refund Policy' },
 ]
 
-export function Footer() {
+interface FooterProps {
+  className?: string
+}
+
+export function Footer({ className }: FooterProps = {}) {
   return (
-    <footer className="relative bg-[#19110b] text-[#FAF4E6] mt-16 sm:mt-24 border-t border-[#2e1d13] overflow-hidden">
+    <footer className={cn("relative bg-[#19110b] text-[#FAF4E6] mt-16 sm:mt-24 border-t border-[#2e1d13] overflow-hidden", className)}>
       {/* Subtle Warm Amber Ambient Glow in Corner */}
       <div
         aria-hidden="true"

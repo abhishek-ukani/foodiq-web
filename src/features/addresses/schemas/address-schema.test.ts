@@ -12,6 +12,7 @@ const validCommercial = {
   building_name: 'Mondeal Heights',
   sublocality: 'Bodakdev',
   pincode: '380015',
+  meal_type_tag: 'both' as const,
 }
 
 const validResidential = {
@@ -24,6 +25,7 @@ const validResidential = {
   building_name: 'Goyal Intercity',
   sublocality: 'Drive In Road',
   pincode: '380054',
+  meal_type_tag: 'both' as const,
 }
 
 describe('addressSchema', () => {

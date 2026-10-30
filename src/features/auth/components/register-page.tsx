@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { UserPlus } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2, UserPlus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { AuthLayout } from '@/layouts/auth-layout'
 import { Button } from '@/components/ui/button'
@@ -18,7 +18,13 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { registerSchema, type RegisterInput } from '@/features/auth/schemas/auth-schemas'
-import { signUpWithEmail, signInWithGoogle, toFriendlyAuthMessage } from '@/features/auth/services/auth-service'
+import {
+  signUpWithEmail,
+  signInWithGoogle,
+  checkCredentialAvailability,
+  normalizePhone,
+  toFriendlyAuthMessage,
+} from '@/features/auth/services/auth-service'
 import { ROUTES } from '@/constants'
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -47,6 +53,10 @@ function GoogleIcon({ className }: { className?: string }) {
 export function RegisterPage() {
   const navigate = useNavigate()
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false)
+  const [checkingEmail, setCheckingEmail] = useState(false)
+  const [checkingPhone, setCheckingPhone] = useState(false)
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'available' | 'taken'>('idle')
+  const [phoneStatus, setPhoneStatus] = useState<'idle' | 'available' | 'taken'>('idle')
 
   const form = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
@@ -58,14 +68,148 @@ export function RegisterPage() {
       confirmPassword: '',
       acceptTerms: false,
     },
+    mode: 'onTouched',
   })
 
-  const onSubmit = async (values: RegisterInput) => {
+  // Individual Email Verification on Blur
+  const handleEmailBlur = async () => {
+    const emailVal = form.getValues('email')?.trim()
+    if (!emailVal || !emailVal.includes('@')) {
+      setEmailStatus('idle')
+      return
+    }
+
     try {
-      await signUpWithEmail(values)
-      navigate(ROUTES.verifyEmail, { state: { email: values.email }, replace: true })
-    } catch (error) {
-      toast.error(toFriendlyAuthMessage(error))
+      setCheckingEmail(true)
+      const res = await checkCredentialAvailability({ email: emailVal })
+      if (!res.emailAvailable) {
+        setEmailStatus('taken')
+        form.setError('email', {
+          type: 'manual',
+          message: 'An account with this email address already exists. Please sign in.',
+        })
+      } else if (res.isVerified) {
+        setEmailStatus('available')
+        form.clearErrors('email')
+      } else {
+        // Unverified fallback: when RPC is missing and RLS blocks anon, do NOT display false "Available"
+        setEmailStatus('idle')
+      }
+    } catch {
+      setEmailStatus('idle')
+    } finally {
+      setCheckingEmail(false)
+    }
+  }
+
+  // Individual Mobile Number Verification on Blur
+  const handlePhoneBlur = async () => {
+    const rawPhone = form.getValues('phone')
+    const cleanPhone = normalizePhone(rawPhone)
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      setPhoneStatus('idle')
+      return
+    }
+
+    try {
+      setCheckingPhone(true)
+      const res = await checkCredentialAvailability({ phone: cleanPhone })
+      if (!res.phoneAvailable) {
+        setPhoneStatus('taken')
+        form.setError('phone', {
+          type: 'manual',
+          message: 'This mobile number is already registered to an account. Please sign in.',
+        })
+      } else if (res.isVerified) {
+        setPhoneStatus('available')
+        form.clearErrors('phone')
+      } else {
+        // Unverified fallback: when RPC is missing and RLS blocks anon, do NOT display false "Available"
+        setPhoneStatus('idle')
+      }
+    } catch {
+      setPhoneStatus('idle')
+    } finally {
+      setCheckingPhone(false)
+    }
+  }
+
+  const onSubmit = async (values: RegisterInput) => {
+    const cleanPhone = normalizePhone(values.phone)
+    const cleanEmail = values.email.trim().toLowerCase()
+
+    // 1. Strict pre-validation: check individual uniqueness for BOTH email and phone
+    try {
+      const availability = await checkCredentialAvailability({
+        email: cleanEmail,
+        phone: cleanPhone,
+      })
+
+      let hasConflict = false
+
+      if (!availability.emailAvailable) {
+        hasConflict = true
+        setEmailStatus('taken')
+        form.setError('email', {
+          type: 'manual',
+          message: 'An account with this email address already exists. Please sign in.',
+        })
+      }
+
+      if (!availability.phoneAvailable) {
+        hasConflict = true
+        setPhoneStatus('taken')
+        form.setError('phone', {
+          type: 'manual',
+          message: 'This mobile number is already registered to an account. Please sign in.',
+        })
+      }
+
+      if (hasConflict) {
+        toast.error('Account details already exist. Please sign in or use different details.')
+        return
+      }
+
+      // 2. Perform Account Registration
+      const result = await signUpWithEmail({
+        fullName: values.fullName,
+        email: cleanEmail,
+        phone: cleanPhone,
+        password: values.password,
+      })
+
+      // 3. Handle post-registration flow
+      // If Supabase returned an active session, user is already confirmed and logged in
+      if (result.session) {
+        toast.success('Account created successfully! Welcome to FoodIQ.')
+        navigate(ROUTES.home, { replace: true })
+        return
+      }
+
+      // If no session returned, email confirmation is required by Supabase settings
+      toast.success('Account registered! Please check your email inbox to verify.')
+      navigate(ROUTES.verifyEmail, { state: { email: cleanEmail }, replace: true })
+    } catch (error: any) {
+      const msg = error?.message || 'Failed to create account.'
+      const lower = msg.toLowerCase()
+
+      if (lower.includes('email') && (lower.includes('already') || lower.includes('exists'))) {
+        setEmailStatus('taken')
+        form.setError('email', {
+          type: 'manual',
+          message: 'An account with this email address already exists. Please sign in.',
+        })
+        toast.error('An account with this email address already exists.')
+      } else if (lower.includes('phone') || lower.includes('mobile')) {
+        setPhoneStatus('taken')
+        form.setError('phone', {
+          type: 'manual',
+          message: 'This mobile number is already registered to an account.',
+        })
+        toast.error('This mobile number is already registered to an account.')
+      } else {
+        toast.error(toFriendlyAuthMessage(error))
+      }
     }
   }
 
@@ -88,7 +232,7 @@ export function RegisterPage() {
         <Button
           type="button"
           variant="outline"
-          className="w-full relative flex items-center justify-center gap-2 border-slate-300 hover:bg-slate-50"
+          className="w-full relative flex items-center justify-center gap-2 border-slate-300 hover:bg-slate-50 min-h-[44px]"
           size="lg"
           onClick={handleGoogleSignIn}
           disabled={isGoogleSigningIn || form.formState.isSubmitting}
@@ -104,8 +248,10 @@ export function RegisterPage() {
           </span>
         </div>
       </div>
+
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          {/* Full Name */}
           <FormField
             control={form.control}
             name="fullName"
@@ -113,41 +259,127 @@ export function RegisterPage() {
               <FormItem>
                 <FormLabel>Full name</FormLabel>
                 <FormControl>
-                  <Input autoComplete="name" placeholder="Your name" {...field} />
+                  <Input autoComplete="name" placeholder="Your name" className="min-h-[44px]" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
+          {/* Email with Individual Validation */}
           <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Email</FormLabel>
+                  {checkingEmail ? (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="size-3 animate-spin" /> Checking...
+                    </span>
+                  ) : emailStatus === 'available' ? (
+                    <span className="text-[11px] text-emerald-600 flex items-center gap-1 font-medium">
+                      <CheckCircle2 className="size-3" /> Available
+                    </span>
+                  ) : emailStatus === 'taken' ? (
+                    <span className="text-[11px] text-destructive flex items-center gap-1 font-medium">
+                      <AlertCircle className="size-3" /> Already registered
+                    </span>
+                  ) : null}
+                </div>
                 <FormControl>
-                  <Input type="email" autoComplete="email" placeholder="you@example.com" {...field} />
+                  <Input
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    className="min-h-[44px]"
+                    {...field}
+                    onBlur={() => {
+                      field.onBlur()
+                      handleEmailBlur()
+                    }}
+                    onChange={(e) => {
+                      field.onChange(e)
+                      if (emailStatus !== 'idle') setEmailStatus('idle')
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
+                {emailStatus === 'taken' ? (
+                  <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200 mt-1 flex items-center justify-between">
+                    <span>Already have an account?</span>
+                    <Link to={ROUTES.login} className="font-semibold underline ml-1 text-primary">
+                      Sign in here →
+                    </Link>
+                  </p>
+                ) : null}
               </FormItem>
             )}
           />
 
+          {/* Mobile Number with Individual Validation */}
           <FormField
             control={form.control}
             name="phone"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Mobile number</FormLabel>
-                <FormControl>
-                  <Input type="tel" autoComplete="tel" placeholder="98765 43210" {...field} />
-                </FormControl>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Mobile number (India)</FormLabel>
+                  {checkingPhone ? (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="size-3 animate-spin" /> Checking...
+                    </span>
+                  ) : phoneStatus === 'available' ? (
+                    <span className="text-[11px] text-emerald-600 flex items-center gap-1 font-medium">
+                      <CheckCircle2 className="size-3" /> Available
+                    </span>
+                  ) : phoneStatus === 'taken' ? (
+                    <span className="text-[11px] text-destructive flex items-center gap-1 font-medium">
+                      <AlertCircle className="size-3" /> Mobile already registered
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center px-3 min-h-[44px] rounded-lg border border-border bg-neutral-100 text-sm font-semibold text-muted-foreground select-none">
+                    +91
+                  </span>
+                  <FormControl>
+                    <Input
+                      type="tel"
+                      autoComplete="tel"
+                      placeholder="98765 43210"
+                      className="min-h-[44px] flex-1"
+                      {...field}
+                      onBlur={() => {
+                        field.onBlur()
+                        handlePhoneBlur()
+                      }}
+                      onChange={(e) => {
+                        field.onChange(e)
+                        if (phoneStatus !== 'idle') setPhoneStatus('idle')
+                      }}
+                    />
+                  </FormControl>
+                </div>
                 <FormMessage />
+                {phoneStatus === 'taken' ? (
+                  <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200 mt-1 flex items-center justify-between">
+                    <span>Mobile number is already registered.</span>
+                    <Link to={ROUTES.login} className="font-semibold underline ml-1 text-primary">
+                      Sign in instead →
+                    </Link>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    Must be a unique 10-digit mobile number for daily delivery updates.
+                  </p>
+                )}
               </FormItem>
             )}
           />
 
+          {/* Password */}
           <FormField
             control={form.control}
             name="password"
@@ -157,7 +389,8 @@ export function RegisterPage() {
                 <FormControl>
                   <PasswordInput
                     autoComplete="new-password"
-                    placeholder="At least 8 characters"
+                    placeholder="At least 8 characters (with letter and number)"
+                    className="min-h-[44px]"
                     {...field}
                   />
                 </FormControl>
@@ -166,6 +399,7 @@ export function RegisterPage() {
             )}
           />
 
+          {/* Confirm Password */}
           <FormField
             control={form.control}
             name="confirmPassword"
@@ -176,6 +410,7 @@ export function RegisterPage() {
                   <PasswordInput
                     autoComplete="new-password"
                     placeholder="Re-enter your password"
+                    className="min-h-[44px]"
                     {...field}
                   />
                 </FormControl>
@@ -184,20 +419,21 @@ export function RegisterPage() {
             )}
           />
 
+          {/* Accept Terms */}
           <FormField
             control={form.control}
             name="acceptTerms"
             render={({ field }) => (
               <FormItem>
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 pt-1">
                   <FormControl>
                     <Checkbox
                       checked={field.value}
                       onCheckedChange={field.onChange}
-                      className="mt-0.5"
+                      className="mt-0.5 size-5"
                     />
                   </FormControl>
-                  <FormLabel className="text-muted-foreground text-sm font-normal">
+                  <FormLabel className="text-muted-foreground text-sm font-normal leading-snug">
                     I agree to the{' '}
                     <Link to={ROUTES.terms} className="text-primary hover:underline">
                       Terms & Conditions
@@ -213,16 +449,30 @@ export function RegisterPage() {
             )}
           />
 
-          <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting || isGoogleSigningIn}>
-            <UserPlus className="size-4" aria-hidden />
-            {form.formState.isSubmitting ? 'Creating account…' : 'Create account'}
+          <Button
+            type="submit"
+            className="w-full min-h-[48px] rounded-xl text-base font-bold shadow-md"
+            size="lg"
+            disabled={form.formState.isSubmitting || isGoogleSigningIn || checkingEmail || checkingPhone}
+          >
+            {form.formState.isSubmitting ? (
+              <>
+                <Loader2 className="size-4 mr-2 animate-spin" />
+                <span>Creating account…</span>
+              </>
+            ) : (
+              <>
+                <UserPlus className="size-4 mr-2" aria-hidden />
+                <span>Create account</span>
+              </>
+            )}
           </Button>
         </form>
       </Form>
 
-      <p className="text-muted-foreground text-center text-sm">
+      <p className="text-muted-foreground text-center text-sm pt-2">
         Already have an account?{' '}
-        <Link to={ROUTES.login} className="text-primary font-medium hover:underline">
+        <Link to={ROUTES.login} className="text-primary font-bold hover:underline">
           Sign in
         </Link>
       </p>

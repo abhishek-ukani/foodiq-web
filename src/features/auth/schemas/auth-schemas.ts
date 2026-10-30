@@ -11,7 +11,8 @@ const password = z
 const phone = z
   .string()
   .trim()
-  .regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number')
+  .transform((val) => val.replace(/\D/g, '').slice(-10))
+  .pipe(z.string().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9'))
 
 export const loginSchema = z.object({
   email,

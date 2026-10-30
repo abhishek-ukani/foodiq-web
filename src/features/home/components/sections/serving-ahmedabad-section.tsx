@@ -1,5 +1,6 @@
 import { MapPin, Bike } from 'lucide-react'
 import { Reveal } from '@/components/common/reveal'
+import { cn } from '@/lib/utils'
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -19,17 +20,25 @@ function FacebookIcon({ className }: { className?: string }) {
   )
 }
 
-export function ServingAhmedabadSection() {
+interface ServingAhmedabadSectionProps {
+  className?: string
+  bgClassName?: string
+}
+
+export function ServingAhmedabadSection({
+  className,
+  bgClassName = 'bg-[#380B1C]',
+}: ServingAhmedabadSectionProps = {}) {
   return (
-    <section className="relative overflow-hidden bg-[#380B1C] py-14 sm:py-20 lg:py-24 text-white">
-      {/* Ambient Lighting */}
+    <section className={cn('relative overflow-hidden py-14 sm:py-20 lg:py-24 text-white', bgClassName, className)}>
+      {/* Ambient Lighting - safely centered away from section borders */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-40 right-0 size-96 rounded-full bg-[#5E1430]/35 blur-3xl"
+        className="pointer-events-none absolute top-1/2 -translate-y-1/2 -right-20 size-96 rounded-full bg-[#5E1430]/25 blur-3xl"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-40 left-0 size-96 rounded-full bg-black/40 blur-3xl"
+        className="pointer-events-none absolute top-1/2 -translate-y-1/2 -left-20 size-80 rounded-full bg-amber-500/10 blur-3xl"
       />
 
       <div className="relative z-10 mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10 xl:px-12">
@@ -44,10 +53,10 @@ export function ServingAhmedabadSection() {
                 </h3>
 
                 <div className="space-y-1 text-sm sm:text-base text-[#FAF0DC]/80 font-sans leading-relaxed pt-2">
-                  <p>Shop No 5, Ground Floor,</p>
-                  <p>Skywalk Luxuria,</p>
-                  <p>Vandematram Rd,</p>
-                  <p>Gota, Ahmedabad – 382481.</p>
+                  <p>B-5, First Floor,</p>
+                  <p>Sarita Appartment,</p>
+                  <p>Satya Marg, Judges Bunglow Cross Road</p>
+                  <p>Bodakdev, Ahmedabad – 380015.</p>
                 </div>
               </div>
 

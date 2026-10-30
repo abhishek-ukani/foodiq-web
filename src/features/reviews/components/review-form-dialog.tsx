@@ -97,8 +97,8 @@ export function ReviewFormDialog({
 
         <div className="space-y-3.5 py-1">
           {/* Overall Rating */}
-          <div className="rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 p-3.5 text-center space-y-1">
-            <p className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
+          <div className="rounded-2xl bg-amber-50/70 border border-amber-200/70 p-3.5 text-center space-y-1">
+            <p className="text-xs font-bold text-amber-900 uppercase tracking-wider">
               Overall Experience
             </p>
             <StarRatingInput

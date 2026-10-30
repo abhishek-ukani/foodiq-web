@@ -5,12 +5,26 @@ import { placeOrder } from '@/features/checkout/services/checkout-service'
 import { resolveDeliveryCharge, type DeliveryResolutionResult } from '@/features/checkout/services/delivery-charge-resolver'
 import { fetchAddresses } from '@/features/addresses/services/addresses-service'
 import { fetchDeliveryAreas, fetchDeliveryFeeRules, fetchKitchenLocation } from '@/features/addresses/services/delivery-zone-service'
-import type { MealType, Tables } from '@/types/database.types'
+import type { Json, MealType, Tables } from '@/types/database.types'
 
 export interface ThaliFoodItem extends Tables<'food_items'> {
   food_item_variants?: Tables<'food_item_variants'>[]
   categories?: Tables<'categories'> | null
 }
+
+type JoinedFoodItem = Tables<'food_items'> & {
+  categories?: Tables<'categories'> | null
+}
+
+export interface QuickAddonItem {
+  id: string
+  name: string
+  price: number
+  description?: string | null
+  category?: string
+  image_url?: string | null
+}
+
 
 export interface QuickOrderContext {
   profile: Tables<'profiles'>
@@ -26,31 +40,77 @@ export interface QuickOrderContext {
   sabjiGroups: ResolvedOptionGroup[]
   breadGroups: ResolvedOptionGroup[]
   otherGroups: ResolvedOptionGroup[]
+  availableAddOns: QuickAddonItem[]
   todayDate: string
-}
-
-export function isSabjiOptionGroup(group: { name: string; target_category_type?: string | null }): boolean {
-  const name = group.name.toLowerCase()
-  return (
-    group.target_category_type === 'sabji' ||
-    name.includes('sabji') ||
-    name.includes('shabji') ||
-    name.includes('sabzi') ||
-    name.includes('subji') ||
-    name.includes('curry')
-  )
 }
 
 export function isBreadOptionGroup(group: { name: string; target_category_type?: string | null }): boolean {
   const name = group.name.toLowerCase()
-  return (
-    group.target_category_type === 'bread' ||
+  if (
     name.includes('bread') ||
     name.includes('roti') ||
+    name.includes('rotli') ||
     name.includes('bhakhri') ||
+    name.includes('bhakhari') ||
     name.includes('rotla') ||
-    name.includes('puri')
-  )
+    name.includes('puri') ||
+    name.includes('thepla') ||
+    name.includes('paratha')
+  ) {
+    return true
+  }
+  return group.target_category_type === 'bread'
+}
+
+export function isAddOnOptionGroup(group: { name: string; group_type?: string | null }): boolean {
+  if (group.group_type === 'optional_addon') return true
+  const name = group.name.toLowerCase()
+  return name.includes('add-on') || name.includes('addon') || name.includes('extra')
+}
+
+export function isSabjiOptionGroup(group: {
+  name: string
+  target_category_type?: string | null
+  group_type?: string | null
+}): boolean {
+  // Bread and Add-on groups must NEVER be classified as Sabji groups
+  if (isBreadOptionGroup(group) || isAddOnOptionGroup(group)) {
+    return false
+  }
+
+  const name = group.name.toLowerCase()
+
+  // Explicit non-sabji categories
+  if (
+    name.includes('accompaniment') ||
+    name.includes('snack') ||
+    name.includes('farsan') ||
+    name.includes('sweet') ||
+    name.includes('mithai') ||
+    name.includes('dessert') ||
+    name.includes('rice') ||
+    name.includes('bhat') ||
+    name.includes('dal') ||
+    name.includes('beverage') ||
+    name.includes('chaas') ||
+    name.includes('chhas')
+  ) {
+    return false
+  }
+
+  if (
+    name.includes('sabji') ||
+    name.includes('shabji') ||
+    name.includes('sabzi') ||
+    name.includes('subji') ||
+    name.includes('shaak') ||
+    name.includes('curry') ||
+    name.includes('bhaji')
+  ) {
+    return true
+  }
+
+  return group.target_category_type === 'sabji'
 }
 
 type OrderWithRawItems = {
@@ -192,7 +252,111 @@ export async function fetchQuickOrderContext(
 
   const sabjiGroups = resolvedGroups.filter((g) => isSabjiOptionGroup(g))
   const breadGroups = resolvedGroups.filter((g) => isBreadOptionGroup(g))
-  const otherGroups = resolvedGroups.filter((g) => !isSabjiOptionGroup(g) && !isBreadOptionGroup(g))
+  const otherGroups = resolvedGroups.filter(
+    (g) => !isSabjiOptionGroup(g) && !isBreadOptionGroup(g) && !isAddOnOptionGroup(g),
+  )
+
+  // Fetch Add-ons dynamically from admin sources (NO static defaults)
+  const availableAddOns: QuickAddonItem[] = []
+  const seenIds = new Set<string>()
+  const seenNames = new Set<string>()
+
+  // 1. Add-on option groups configured for this Thali in Admin (e.g. "Add-Ons", "Extras")
+  const addonGroups = resolvedGroups.filter((g) => isAddOnOptionGroup(g))
+  for (const grp of addonGroups) {
+    for (const opt of grp.options) {
+      if (!opt.is_available || opt.is_cutoff_closed) continue
+      const nameKey = opt.label.toLowerCase().trim()
+      if (seenNames.has(nameKey)) continue
+
+      seenIds.add(opt.id)
+      seenNames.add(nameKey)
+      availableAddOns.push({
+        id: opt.id,
+        name: opt.label,
+        price: Number(opt.price_delta || 0),
+        description: opt.cutoff_note || null,
+        category: 'Thali Extras',
+      })
+    }
+  }
+
+  // 2. Global Thali Components configured by Admin (beverage, sweet, snack, accompaniment)
+  try {
+    const { data: components } = await supabase
+      .from('thali_components')
+      .select('*, food_items(*, categories(*))')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+
+    if (components && components.length > 0) {
+      for (const comp of components) {
+        const fi = comp.food_items as unknown as JoinedFoodItem | null
+        if (!fi || !fi.is_available || fi.kind === 'thali') continue
+
+        const nameKey = fi.name.toLowerCase().trim()
+        if (seenNames.has(nameKey)) continue
+
+        if (
+          comp.category_type === 'beverage' ||
+          comp.category_type === 'sweet' ||
+          comp.category_type === 'snack' ||
+          comp.category_type === 'accompaniment'
+        ) {
+          seenIds.add(fi.id)
+          seenNames.add(nameKey)
+          const catLabel =
+            fi.categories?.name ||
+            (comp.category_type ? comp.category_type.charAt(0).toUpperCase() + comp.category_type.slice(1) : 'Extras')
+          availableAddOns.push({
+            id: fi.id,
+            name: fi.name,
+            price: Number(fi.price || 0),
+            description: fi.description || null,
+            category: catLabel,
+            image_url: fi.image_url || null,
+          })
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Could not load thali components for add-ons:', err)
+  }
+
+  // 3. Standalone daily menu items for today published by admin
+  try {
+    const { data: standaloneItems } = await supabase
+      .from('daily_menu_items')
+      .select('*, food_items(*, categories(*)), daily_menus!inner(menu_date, is_published, meal_type)')
+      .eq('daily_menus.menu_date', todayDate)
+      .eq('daily_menus.meal_type', mealType)
+      .eq('daily_menus.is_published', true)
+      .eq('is_available', true)
+      .eq('is_standalone_sale', true)
+
+    if (standaloneItems && standaloneItems.length > 0) {
+      for (const item of standaloneItems) {
+        const fi = item.food_items as unknown as JoinedFoodItem | null
+        if (!fi || !fi.is_available || fi.kind === 'thali') continue
+
+        const nameKey = fi.name.toLowerCase().trim()
+        if (seenNames.has(nameKey)) continue
+
+        seenIds.add(fi.id)
+        seenNames.add(nameKey)
+        availableAddOns.push({
+          id: fi.id,
+          name: fi.name,
+          price: Number(item.price_override ?? fi.price ?? 0),
+          description: fi.description || null,
+          category: fi.categories?.name || 'Today’s Special',
+          image_url: fi.image_url || null,
+        })
+      }
+    }
+  } catch (err) {
+    console.warn('Could not load standalone daily items for add-ons:', err)
+  }
 
   return {
     profile,
@@ -208,6 +372,7 @@ export async function fetchQuickOrderContext(
     sabjiGroups,
     breadGroups,
     otherGroups,
+    availableAddOns,
     todayDate,
   }
 }
@@ -251,7 +416,7 @@ export async function submitQuickOrder(input: SubmitQuickOrderInput): Promise<Ta
     variant_id: input.variantId ?? null,
     quantity: input.quantity,
     special_instructions: input.specialInstructions?.trim() || null,
-    customizations: input.customizations as any,
+    customizations: input.customizations as unknown as Json,
   })
 
   if (insertErr) {

@@ -113,3 +113,52 @@ export const CURRENCY_SYMBOL = '₹'
 export const DATE_FORMAT = 'DD MMM YYYY'
 export const DATE_TIME_FORMAT = 'DD MMM YYYY, h:mm A'
 export const API_DATE_FORMAT = 'YYYY-MM-DD'
+
+export const CONTACT_INFO = {
+  brandName: 'FoodIQ',
+  taglineGujarati: 'શુદ્ધ ઘરનો સ્વાદ, પ્રેમથી પીરસાયેલું જમણ',
+  email: 'hello@foodiq.in',
+  phone: '+91 99999 99999',
+  phoneRaw: '919999999999',
+  whatsappUrl: (message = 'Hello FoodIQ! I would like to inquire about your homemade tiffin service.') =>
+    `https://wa.me/919999999999?text=${encodeURIComponent(message)}`,
+  address: {
+    line1: 'B-5, First Floor, Sarita Appartment',
+    line2: 'Satya Marg, Judges Bunglow Cross Road',
+    landmark: 'Near Judges Bunglow',
+    area: 'Bodakdev',
+    city: 'Ahmedabad',
+    pincode: '380015',
+    state: 'Gujarat',
+    full: 'B-5, First Floor, Sarita Appartment, Satya Marg, Judges Bunglow Cross Road, Bodakdev, Ahmedabad – 380015',
+    googleMapsUrl: 'https://maps.google.com/?q=Sarita+Apartments+Bodakdev',
+  },
+  hours: {
+    lunchSupport: '7:30 AM – 3:00 PM',
+    dinnerSupport: '5:00 PM – 9:30 PM',
+    days: 'All 7 Days (Mon – Sun)',
+  },
+  cutoffs: {
+    lunchTime: '10:00 AM',
+    lunchDelivery: '11:00 AM – 1:30 PM',
+    dinnerTime: '6:00 PM',
+    dinnerDelivery: '7:30 PM – 9:00 PM',
+  },
+  deliveryAreas: [
+    'Bodakdev',
+    'Satellite',
+    'SG Highway',
+    'Iscon - Ambli Road',
+    'Sindhu Bhavan Road',
+    'Thaltej',
+    'Vastrapur',
+    'Prahladnagar',
+    'Navrangpura',
+    'Ambawadi',
+  ],
+  socials: {
+    instagram: 'https://instagram.com',
+    facebook: 'https://facebook.com',
+  },
+} as const
+

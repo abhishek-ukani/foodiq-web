@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { Reveal } from '@/components/common/reveal'
 import { cn } from '@/lib/utils'
+import { HeritageCorner } from '@/components/common/heritage-corner'
 
 interface IngredientPillar {
   id: string
@@ -28,17 +29,17 @@ const INGREDIENTS: IngredientPillar[] = [
   {
     id: 'oil',
     icon: '🥜',
-    title: 'Cold-Pressed Groundnut Oil',
-    gujaratiTitle: 'કાચી ઘાણીનું સીંગતેલ',
+    title: 'Double Filtered Groundnut Oil',
+    gujaratiTitle: 'ગુલાબ ડબલ ફિલ્ટર્ડ સીંગતેલ',
     shortTag: 'Zero Palm Oil',
-    origin: 'Native Gir Somnath Magfali Fields',
-    highlight: 'Slow-pressed without high heat or chemical refining solvents.',
+    origin: 'Native Saurashtra & Gulab Groundnut Oil',
+    highlight: 'Naturally double filtered for pure nutty flavor without chemical refining solvents.',
     benefits: [
       'Authentic nutty aroma and digestive lightness',
       'Naturally rich in monounsaturated good fats & Vitamin E',
       'Zero refined palm, cottonseed, or synthetic blends',
     ],
-    traditionalMethod: 'Slow cold expeller press (Kachi Ghani)',
+    traditionalMethod: 'Natural double filtration (Gulab Singtel)',
   },
   {
     id: 'ghee',
@@ -101,6 +102,9 @@ export function FarmStorySection({
 
   return (
     <section id="farm-roots" className={cn('relative overflow-hidden text-[#FAF6EE] py-16 sm:py-24', bgClassName, className)}>
+      {/* ── Asian / Kathiyawadi Paisley Ornamental Watermark in Corner ── */}
+      <HeritageCorner position="bottom-left" size={260} className="text-amber-400/14" />
+
       {/* ── Ambient Background Accents ── */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute top-1/4 right-0 size-96 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(229,138,19,0.12)_0%,transparent_70%)]" />

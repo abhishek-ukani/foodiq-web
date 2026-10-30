@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { AtSign, ChefHat, Mail, MapPin, Phone, Heart } from 'lucide-react'
-import { ROUTES } from '@/constants'
+import { ROUTES, CONTACT_INFO } from '@/constants'
 import { cn } from '@/lib/utils'
 
 const QUICK_LINKS = [
@@ -45,7 +45,7 @@ export function Footer({ className }: FooterProps = {}) {
             </div>
 
             <p className="text-[#FAF4E6]/70 max-w-sm text-sm leading-relaxed font-sans">
-              Pure homemade Kathiyawadi tiffin, prepared daily with cold-pressed groundnut oil, Amul ghee, and delivered fresh across Ahmedabad.
+              Pure homemade Kathiyawadi tiffin, prepared daily with Gulab double filtered groundnut oil, Amul ghee, and delivered fresh across Ahmedabad.
             </p>
 
             <div className="flex items-center gap-3 pt-2">
@@ -102,36 +102,39 @@ export function Footer({ className }: FooterProps = {}) {
             </ul>
           </div>
 
-          {/* Contact Column */}
-          <div className="space-y-3 lg:col-span-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-amber-200/90">
-              Get in Touch
-            </p>
-            <ul className="space-y-2.5 text-sm">
-              <li className="text-[#FAF4E6]/75 flex items-start gap-2.5">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden />
-                <span>Ahmedabad, Gujarat, India</span>
-              </li>
-              <li className="text-[#FAF4E6]/75 flex items-center gap-2.5">
-                <Phone className="size-4 shrink-0 text-amber-300" aria-hidden />
-                <a
-                  href="tel:+919999999999"
-                  className="hover:text-white transition-colors"
-                >
-                  +91 99999 99999
-                </a>
-              </li>
-              <li className="text-[#FAF4E6]/75 flex items-center gap-2.5">
-                <Mail className="size-4 shrink-0 text-amber-300" aria-hidden />
-                <a
-                  href="mailto:hello@foodiq.in"
-                  className="hover:text-white transition-colors"
-                >
-                  hello@foodiq.in
-                </a>
-              </li>
-            </ul>
-          </div>
+            {/* Contact Column */}
+            <div className="space-y-3 lg:col-span-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-amber-200/90">
+                Get in Touch
+              </p>
+              <ul className="space-y-2.5 text-sm">
+                <li className="text-[#FAF4E6]/75 flex items-start gap-2.5">
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden />
+                  <div>
+                    <span className="block">Bodakdev, Ahmedabad, Gujarat</span>
+                    <span className="text-[11px] text-[#FAF4E6]/55 block">Single Kitchen • No Branches</span>
+                  </div>
+                </li>
+                <li className="text-[#FAF4E6]/75 flex items-center gap-2.5">
+                  <Phone className="size-4 shrink-0 text-amber-300" aria-hidden />
+                  <a
+                    href={`tel:${CONTACT_INFO.phoneRaw}`}
+                    className="hover:text-white transition-colors"
+                  >
+                    {CONTACT_INFO.phone}
+                  </a>
+                </li>
+                <li className="text-[#FAF4E6]/75 flex items-center gap-2.5">
+                  <Mail className="size-4 shrink-0 text-amber-300" aria-hidden />
+                  <a
+                    href={`mailto:${CONTACT_INFO.email}`}
+                    className="hover:text-white transition-colors"
+                  >
+                    {CONTACT_INFO.email}
+                  </a>
+                </li>
+              </ul>
+            </div>
         </div>
 
         {/* Bottom Bar */}

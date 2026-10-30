@@ -84,7 +84,7 @@ export function useMealTiming(targetDate?: string): MealTimingState {
   const { data: timingRaw, refetch: refetchTimingQuery } = useQuery({
     queryKey: ['meal-timing-data', todayStr, tomorrowStr],
     queryFn: async () => {
-      const [menusRes, slotsRes, holidaysRes] = await Promise.all([
+      const [menusRes, slotsRes, configRes] = await Promise.all([
         supabase
           .from('daily_menus')
           .select('id, menu_date, meal_type, cutoff_time, is_published, note, title')
@@ -96,12 +96,28 @@ export function useMealTiming(targetDate?: string): MealTimingState {
           .order('display_order'),
         supabase
           .from('system_config')
-          .select('value')
-          .eq('key', 'kitchen_holidays')
-          .maybeSingle(),
+          .select('key, value')
+          .in('key', ['kitchen_holidays', 'order_settings']),
       ])
 
-      const holidayRaw = holidaysRes.data?.value as any
+      const sysRows = configRes.data as { key: string; value: any }[] | null
+      const holidayRaw = sysRows?.find((r) => r.key === 'kitchen_holidays')?.value
+      const orderSettingsRaw = sysRows?.find((r) => r.key === 'order_settings')?.value
+
+      const defaultLunchCutoff =
+        orderSettingsRaw?.default_lunch_cutoff_time
+          ? (String(orderSettingsRaw.default_lunch_cutoff_time).length === 5
+              ? `${orderSettingsRaw.default_lunch_cutoff_time}:00`
+              : String(orderSettingsRaw.default_lunch_cutoff_time))
+          : '10:00:00'
+
+      const defaultDinnerCutoff =
+        orderSettingsRaw?.default_dinner_cutoff_time
+          ? (String(orderSettingsRaw.default_dinner_cutoff_time).length === 5
+              ? `${orderSettingsRaw.default_dinner_cutoff_time}:00`
+              : String(orderSettingsRaw.default_dinner_cutoff_time))
+          : '18:00:00'
+
       const holidaySettings: HolidaySettings = {
         enabled: typeof holidayRaw?.enabled === 'boolean' ? holidayRaw.enabled : true,
         holidays: Array.isArray(holidayRaw?.holidays) ? holidayRaw.holidays : [],
@@ -120,6 +136,8 @@ export function useMealTiming(targetDate?: string): MealTimingState {
           }[]) || [],
         deliverySlots: (slotsRes.data as Tables<'delivery_slots'>[]) || [],
         holidaySettings,
+        defaultLunchCutoff,
+        defaultDinnerCutoff,
       }
     },
     staleTime: 0,
@@ -130,6 +148,8 @@ export function useMealTiming(targetDate?: string): MealTimingState {
   const rawMenus = timingRaw?.rawMenus || []
   const deliverySlots = timingRaw?.deliverySlots || []
   const holidaySettings = timingRaw?.holidaySettings || { enabled: true, holidays: [] }
+  const defaultLunchCutoff = timingRaw?.defaultLunchCutoff || '10:00:00'
+  const defaultDinnerCutoff = timingRaw?.defaultDinnerCutoff || '18:00:00'
 
   const refetchTiming = useCallback(async () => {
     await refetchTimingQuery()
@@ -150,12 +170,12 @@ export function useMealTiming(targetDate?: string): MealTimingState {
 
     const lunchMatch = rawMenus.find((m) => m.menu_date === todayStr && m.meal_type === 'lunch')
     const lunchSlot = deliverySlots.find((s) => s.meal_type === 'lunch')
-    const lunchCutoff = lunchMatch?.cutoff_time || lunchSlot?.cutoff_time || '11:30:00'
+    const lunchCutoff = lunchMatch?.cutoff_time || lunchSlot?.cutoff_time || defaultLunchCutoff
     const isLunchPassed = nowStr >= lunchCutoff.substring(0, 5)
 
     const dinnerMatch = rawMenus.find((m) => m.menu_date === todayStr && m.meal_type === 'dinner')
     const dinnerSlot = deliverySlots.find((s) => s.meal_type === 'dinner')
-    const dinnerCutoff = dinnerMatch?.cutoff_time || dinnerSlot?.cutoff_time || '20:00:00'
+    const dinnerCutoff = dinnerMatch?.cutoff_time || dinnerSlot?.cutoff_time || defaultDinnerCutoff
     const isDinnerPassed = nowStr >= dinnerCutoff.substring(0, 5)
 
     return {
@@ -164,7 +184,7 @@ export function useMealTiming(targetDate?: string): MealTimingState {
       lunchCutoff,
       dinnerCutoff,
     }
-  }, [rawMenus, deliverySlots, todayStr, tick])
+  }, [rawMenus, deliverySlots, defaultLunchCutoff, defaultDinnerCutoff, todayStr, tick])
 
   // Auto-calculated default date and slot according to clock time
   const autoDateAndSlot = useMemo<{ date: string; slot: MealType }>(() => {
@@ -219,7 +239,8 @@ export function useMealTiming(targetDate?: string): MealTimingState {
         (m) => m.menu_date === effectiveDate && m.meal_type === type,
       )
       const slotDef = deliverySlots.find((s) => s.meal_type === type)
-      const rawCutoff = menuMatch?.cutoff_time || slotDef?.cutoff_time || (type === 'lunch' ? '11:30:00' : '20:00:00')
+      const defaultCutoff = type === 'lunch' ? defaultLunchCutoff : defaultDinnerCutoff
+      const rawCutoff = menuMatch?.cutoff_time || slotDef?.cutoff_time || defaultCutoff
       const cutoffShort = rawCutoff.substring(0, 5)
 
       let isCutoffPassed = false
@@ -266,7 +287,7 @@ export function useMealTiming(targetDate?: string): MealTimingState {
     }
 
     return result
-  }, [rawMenus, deliverySlots, effectiveDate, todayStr, tick, activeHoliday])
+  }, [rawMenus, deliverySlots, defaultLunchCutoff, defaultDinnerCutoff, effectiveDate, todayStr, tick, activeHoliday])
 
   const isLunchOpen = slots.lunch?.isOpen ?? false
   const isDinnerOpen = slots.dinner?.isOpen ?? false

@@ -16,12 +16,32 @@ export async function fetchPolicy(slug: PolicySlug): Promise<Tables<'policies'> 
 export interface ContactMessageInput {
   name: string
   email: string
-  phone?: string
-  subject?: string
+  phone?: string | null
+  subject?: string | null
   message: string
+  user_id?: string | null
 }
 
 export async function submitContactMessage(input: ContactMessageInput): Promise<void> {
-  const { error } = await supabase.from('contact_messages').insert(input)
+  const payload: {
+    name: string
+    email: string
+    message: string
+    phone: string | null
+    subject: string | null
+    user_id?: string | null
+  } = {
+    name: input.name.trim(),
+    email: input.email.trim().toLowerCase(),
+    message: input.message.trim(),
+    phone: input.phone?.trim() ? input.phone.trim() : null,
+    subject: input.subject?.trim() ? input.subject.trim() : null,
+  }
+
+  if (input.user_id) {
+    payload.user_id = input.user_id
+  }
+
+  const { error } = await supabase.from('contact_messages').insert(payload)
   if (error) throw error
 }

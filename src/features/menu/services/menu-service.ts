@@ -52,7 +52,7 @@ export function isCutoffPassed(listing: MenuListing): boolean {
 
   // 3. Today: evaluate cutoff time
   const mealType = listing.daily_menus?.meal_type
-  const defaultCutoff = mealType === 'lunch' ? '11:30:00' : '20:00:00'
+  const defaultCutoff = mealType === 'lunch' ? '10:00:00' : '18:00:00'
   const cutoff = listing.cutoff_time || listing.daily_menus?.cutoff_time || defaultCutoff
 
   const nowStr = dayjs().format('HH:mm')
@@ -109,7 +109,7 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
     for (const slot of targetSlots) {
       const menuRecord = dateMenus?.find((m) => m.meal_type === slot)
       const isSlotPublished = menuRecord?.is_published ?? false
-      const cutoffTime = menuRecord?.cutoff_time ?? (slot === 'lunch' ? '11:30:00' : '20:00:00')
+      const cutoffTime = menuRecord?.cutoff_time ?? (slot === 'lunch' ? '10:00:00' : '18:00:00')
       const menuId = menuRecord?.id || `synthetic-${slot}-${date}`
 
       for (const thali of thaliFoods) {

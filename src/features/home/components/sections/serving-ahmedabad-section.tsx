@@ -63,11 +63,11 @@ export function ServingAhmedabadSection({
               <div className="pt-4 flex flex-wrap items-center gap-3">
                 <span className="inline-flex items-center gap-2 rounded-full bg-[#3D0A1E] border border-[#631836] px-4 py-2 text-xs font-semibold text-[#E5AC55]">
                   <Bike className="size-4 text-[#E5AC55]" />
-                  <span>Delivery only • Ahmedabad</span>
+                  <span>Only 1 Location • No Branches</span>
                 </span>
 
                 <a
-                  href="https://maps.google.com/?q=Skywalk+Luxuria+Gota+Ahmedabad"
+                  href="https://maps.google.com/?q=Sarita+Apartments+Bodakdev"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs text-[#FAF0DC]/70 hover:text-white transition-colors py-2 px-3 hover:underline underline-offset-4"

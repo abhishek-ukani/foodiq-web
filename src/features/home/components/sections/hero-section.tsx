@@ -5,11 +5,13 @@ import { ArrowRight, Flame, Sparkles, Clock, HeartHandshake, ShieldCheck, Truck,
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/constants'
 import { cn } from '@/lib/utils'
+import { HeritageCorner } from '@/components/common/heritage-corner'
+import { ThaliSunburstHalo } from '@/components/common/thali-sunburst-halo'
 
 const HERO_THALI_IMAGE = '/images/hero-thali.jpg'
 
 // Rotating adjectives for dynamic appetite appeal
-const ROTATING_WORDS = ['Kathiyawadi', 'Fresh', 'Pure Desi', 'Homestyle']
+const ROTATING_WORDS = ['Kathiyawadi', 'Fresh', 'Pure Desi', 'Homesmade']
 
 // 4 core promises for the clean divider bar
 const STATEMENTS = [
@@ -20,8 +22,8 @@ const STATEMENTS = [
   },
   {
     icon: HeartHandshake,
-    title: 'Cold-Pressed Oil & Ghee',
-    description: '100% pure kachi ghani singtel & Amul cow ghee.',
+    title: 'Double Filtered Oil & Ghee',
+    description: '100% pure Gulab groundnut oil & Amul cow ghee.',
   },
   {
     icon: Flame,
@@ -50,12 +52,16 @@ export function HeroSection() {
       id="hero"
       className="relative overflow-hidden bg-background min-h-[85svh] flex flex-col justify-center"
     >
+      {/* ── Rich Traditional Indian Paisley Corner Watermarks (Asian Heritage Design) ── */}
+      <HeritageCorner position="top-left" size={300} className="text-primary/22" />
+      <HeritageCorner position="bottom-right" size={300} className="text-primary/22" />
+
       {/* ── Subtle Warm Kathiyawadi Ambient Background ── */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -top-32 -left-20 size-[34rem] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(229,138,19,0.12)_0%,transparent_70%)]" />
         <div className="absolute -bottom-24 -right-16 size-96 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(196,85,37,0.1)_0%,transparent_70%)]" />
         <div
-          className="absolute inset-0 opacity-[0.02]"
+          className="absolute inset-0 opacity-[0.03]"
           style={{
             backgroundImage: `radial-gradient(circle, #735B47 1px, transparent 1px)`,
             backgroundSize: '24px 24px',
@@ -126,7 +132,7 @@ export function HeroSection() {
 
             {/* Subtitle */}
             <p className="max-w-xl text-base sm:text-lg leading-relaxed text-muted-foreground font-sans">
-              Handcrafted Kathiyawadi &amp; Gujarati tiffins prepared daily with cold-pressed groundnut oil,
+              Handcrafted Kathiyawadi &amp; Gujarati tiffins prepared daily with Gulab double filtered groundnut oil,
               stone-ground grains, and fresh farm spices. No preservatives, no excess oil — just honest
               nourishment for your everyday routine.
             </p>
@@ -164,7 +170,10 @@ export function HeroSection() {
             transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
             className="relative lg:col-span-5"
           >
-            <div className="relative mx-auto max-w-md lg:max-w-none">
+            <div className="relative mx-auto max-w-md lg:max-w-none flex items-center justify-center">
+              {/* Radiating Sunburst Mandala Ring Halo behind Thali (Reference Image 1) */}
+              <ThaliSunburstHalo className="scale-115 sm:scale-125 lg:scale-135" />
+
               {/* Warm Kansa Aura */}
               <div
                 aria-hidden="true"
@@ -269,3 +278,4 @@ export function HeroSection() {
     </section>
   )
 }
+

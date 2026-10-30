@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/common/reveal'
 import { cn } from '@/lib/utils'
+import { HeritageCorner } from '@/components/common/heritage-corner'
 
 // 8 Minimalist Occasion Cards (No images, generous empty space, clean typography)
 const OCCASIONS = [
@@ -111,10 +112,8 @@ export function OccasionsSection() {
         aria-hidden="true"
         className="pointer-events-none absolute -top-40 right-0 size-[32rem] rounded-full bg-primary/5 blur-3xl"
       />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-40 left-0 size-[32rem] rounded-full bg-secondary/10 blur-3xl"
-      />
+      {/* ── Asian / Kathiyawadi Paisley Ornamental Watermark in Corner (Reference Image 2) ── */}
+      <HeritageCorner position="top-right" size={260} className="text-primary/18" />
 
       {/* Expansive Full-Width Container occupying full horizontal screen space */}
       <div className="relative mx-auto max-w-[1440px] w-full px-4 sm:px-6 lg:px-10 xl:px-12">

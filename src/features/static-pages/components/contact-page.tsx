@@ -43,6 +43,7 @@ import { submitContactMessage } from '@/features/static-pages/services/content-s
 import { useAuth } from '@/hooks/use-auth'
 import { CONTACT_INFO } from '@/constants'
 import { Reveal } from '@/components/common/reveal'
+import { useDeliverySettings, useDeliveryAreas } from '@/features/addresses/hooks/use-delivery-zones'
 
 const INQUIRY_CATEGORIES = [
   'Monthly Tiffin Subscription',
@@ -55,6 +56,8 @@ const INQUIRY_CATEGORIES = [
 export function ContactPage() {
   const [submitted, setSubmitted] = useState(false)
   const { user, profile } = useAuth()
+  const { data: deliverySettings } = useDeliverySettings()
+  const { data: dbAreas = [] } = useDeliveryAreas()
 
   const form = useForm<ContactInput>({
     resolver: zodResolver(contactSchema),
@@ -305,10 +308,12 @@ export function ContactPage() {
                 </h3>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Free delivery within 3 km of Bodakdev. We also serve:
+                {deliverySettings?.free_delivery_radius_km
+                  ? `Free delivery within ${deliverySettings.free_delivery_radius_km} km of our kitchen. We also serve:`
+                  : 'Delivering fresh homemade meals across our active areas:'}
               </p>
               <div className="flex flex-wrap gap-1.5 pt-1">
-                {CONTACT_INFO.deliveryAreas.map((area) => (
+                {(dbAreas && dbAreas.length > 0 ? dbAreas.map((a) => a.name) : CONTACT_INFO.deliveryAreas).map((area) => (
                   <span
                     key={area}
                     className="rounded-lg bg-muted px-2.5 py-1 text-[11px] font-medium text-foreground/80"

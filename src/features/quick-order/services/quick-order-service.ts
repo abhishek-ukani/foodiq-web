@@ -4,7 +4,7 @@ import { fetchThaliOptionGroups, type ResolvedOptionGroup } from '@/features/men
 import { placeOrder } from '@/features/checkout/services/checkout-service'
 import { resolveDeliveryCharge, type DeliveryResolutionResult } from '@/features/checkout/services/delivery-charge-resolver'
 import { fetchAddresses } from '@/features/addresses/services/addresses-service'
-import { fetchDeliveryAreas, fetchDeliveryFeeRules, fetchKitchenLocation } from '@/features/addresses/services/delivery-zone-service'
+import { fetchDeliveryAreas, fetchDeliveryFeeRules, fetchKitchenLocation, fetchDeliverySettings } from '@/features/addresses/services/delivery-zone-service'
 import type { Json, MealType, Tables } from '@/types/database.types'
 
 export interface ThaliFoodItem extends Tables<'food_items'> {
@@ -212,11 +212,12 @@ export async function fetchQuickOrderContext(
   }
 
   // 2. Fetch Addresses & Delivery Resolution
-  const [addresses, areas, feeRules, kitchenLoc, thalis, preferences] = await Promise.all([
+  const [addresses, areas, feeRules, kitchenLoc, deliverySettings, thalis, preferences] = await Promise.all([
     fetchAddresses(),
     fetchDeliveryAreas(),
     fetchDeliveryFeeRules(),
     fetchKitchenLocation(),
+    fetchDeliverySettings(),
     fetchActiveThalis(),
     getCustomerThaliPreferences(session.user.id),
   ])
@@ -230,7 +231,12 @@ export async function fetchQuickOrderContext(
     activeAddress = addresses.find((a) => a.is_default) || addresses[0] || null
   }
 
-  const deliveryResolution = resolveDeliveryCharge(activeAddress, areas, feeRules, kitchenLoc)
+  const deliveryResolution = resolveDeliveryCharge(activeAddress, {
+    settings: deliverySettings,
+    kitchenLocation: kitchenLoc,
+    areas,
+    feeRules,
+  })
 
   // Determine active Thali
   const effectiveThaliId =

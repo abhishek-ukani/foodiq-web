@@ -12,6 +12,7 @@ import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
+import { DEFAULT_KITCHEN_LOCATION } from '@/constants'
 import {
   useGooglePlaces,
   type GooglePlacePrediction,
@@ -38,7 +39,7 @@ export function MapLocationPicker({
   onCancel?: () => void
   onManualAddressFallback?: () => void
 }) {
-  const defaultCenter = initialLocation || { lat: 23.0392, lng: 72.5085 } // Bodakdev / Sindhubhavan Road, Ahmedabad
+  const defaultCenter = initialLocation || { ...DEFAULT_KITCHEN_LOCATION }
   const [center, setCenter] = useState(defaultCenter)
   const mapRef = useRef<google.maps.Map | null>(null)
   const geocoderRef = useRef<google.maps.Geocoder | null>(null)
@@ -228,7 +229,14 @@ export function MapLocationPicker({
       (pos) => {
         setIsLocatingGPS(false)
         toast.dismiss(toastId)
-        toast.success('Location updated!')
+        if (pos.coords.accuracy > 1000) {
+          toast(
+            `Desktop Wi-Fi location is approximate (~${Math.round(pos.coords.accuracy / 1000)} km). Drag the pin to your exact building.`,
+            { id: 'wifi-accuracy-toast', duration: 4000, icon: '📍' },
+          )
+        } else {
+          toast.success('Location updated!', { id: 'wifi-accuracy-toast' })
+        }
         const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude }
         setCenter(newPos)
         if (mapRef.current) {
@@ -243,13 +251,26 @@ export function MapLocationPicker({
         toast.dismiss(toastId)
         console.warn('Geolocation error:', err.message)
         if (err.code === err.PERMISSION_DENIED) {
-          toast.error('Location permission was denied. Please select location on the map.')
+          toast.error('Location permission was denied. Please select location on the map.', { id: 'wifi-accuracy-toast' })
         } else {
-          toast.error('Could not fetch location. Please drag the pin on map.')
+          toast.error('Could not fetch location. Please drag the pin on map.', { id: 'wifi-accuracy-toast' })
         }
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
+  }, [runReverseGeocode])
+
+  // Quick snap to Bodakdev Kitchen for kitchen testing / staff usage
+  const handleSnapToKitchen = useCallback(() => {
+    const kitchenPos = { ...DEFAULT_KITCHEN_LOCATION }
+    setCenter(kitchenPos)
+    if (mapRef.current) {
+      isProgrammaticMoveRef.current = true
+      mapRef.current.panTo(kitchenPos)
+      mapRef.current.setZoom(17)
+    }
+    runReverseGeocode(kitchenPos.lat, kitchenPos.lng)
+    toast.success('Centered on Bodakdev Kitchen', { id: 'wifi-accuracy-toast' })
   }, [runReverseGeocode])
 
   // Handle Search input typing
@@ -406,8 +427,8 @@ export function MapLocationPicker({
           <div className="size-2 rounded-full bg-slate-900 mt-0.5 shadow-md" />
         </div>
 
-        {/* Floating Bottom Left Control: Current Location Button */}
-        <div className="absolute bottom-4 left-4 z-20">
+        {/* Floating Bottom Left Controls: GPS & Kitchen Snap Buttons */}
+        <div className="absolute bottom-4 left-4 z-20 flex flex-wrap items-center gap-2">
           <Button
             type="button"
             size="sm"
@@ -417,6 +438,17 @@ export function MapLocationPicker({
           >
             <Navigation className={`size-4 mr-2 text-emerald-600 ${isLocatingGPS ? 'animate-spin' : ''}`} />
             Use my current location
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleSnapToKitchen}
+            className="bg-white/95 text-slate-700 hover:bg-slate-50 font-semibold shadow-xl border border-slate-200 rounded-full h-10 px-3.5 text-xs"
+            title="Snap to Kitchen (Sarita Apartments, Bodakdev)"
+          >
+            <MapPin className="size-3.5 mr-1.5 text-amber-600" />
+            Kitchen (Bodakdev)
           </Button>
         </div>
 

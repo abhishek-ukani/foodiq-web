@@ -12,15 +12,16 @@ import {
   MapPin,
   Moon,
   Navigation,
-  PhoneCall,
   Search,
   Sparkles,
   Sun,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import toast from 'react-hot-toast'
 import { Input } from '@/components/ui/input'
 import { FloatingInput } from '@/components/ui/floating-input'
+import { DEFAULT_KITCHEN_LOCATION } from '@/constants'
 import {
   Form,
   FormControl,
@@ -35,8 +36,11 @@ import {
   useDeliveryAreas,
   useDeliveryFeeRules,
   useKitchenLocation,
+  useDeliverySettings,
 } from '@/features/addresses/hooks/use-delivery-zones'
 import { resolveDeliveryCharge } from '@/features/checkout/services/delivery-charge-resolver'
+import { calculateGoogleRoadDistance } from '@/services/google-routes-service'
+import { OutOfDeliveryAreaNotice } from '@/features/addresses/components/out-of-delivery-area-notice'
 import {
   useGooglePlaces,
   inferPlaceCategory,
@@ -142,6 +146,7 @@ export function AddressForm({
   const { data: areas = [] } = useDeliveryAreas()
   const { data: feeRules = [] } = useDeliveryFeeRules()
   const { data: kitchenLoc } = useKitchenLocation()
+  const { data: deliverySettings } = useDeliverySettings()
 
   // Google Places SDK
   const { isLoaded: isGoogleLoaded, getPredictions, getPlaceDetails } = useGooglePlaces()
@@ -185,6 +190,8 @@ export function AddressForm({
   const watchRoadName = form.watch('road_name')
   const watchSublocality = form.watch('sublocality')
   const watchPincode = form.watch('pincode')
+  const watchLat = form.watch('latitude')
+  const watchLng = form.watch('longitude')
 
   // Helper to trigger map picker centered on current place or pinned coords
   const handleOpenMapWithCurrentLocation = () => {
@@ -257,16 +264,16 @@ export function AddressForm({
 
       // 3. Update form values with the newly confirmed pinned location from map
       form.setValue('building_name', resolvedTitle)
-      form.setValue('latitude', pinnedLocation.latitude)
-      form.setValue('longitude', pinnedLocation.longitude)
+      form.setValue('latitude', pinnedLocation.latitude, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+      form.setValue('longitude', pinnedLocation.longitude, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
       if (pinnedLocation.roadName) {
         form.setValue('road_name', pinnedLocation.roadName)
       }
       if (pinnedLocation.sublocality) {
         form.setValue('sublocality', pinnedLocation.sublocality)
       }
-      if (pinnedLocation.pincode && pinnedLocation.pincode.startsWith('380')) {
-        form.setValue('pincode', pinnedLocation.pincode)
+      if (pinnedLocation.pincode && /^\d{6}$/.test(pinnedLocation.pincode.trim())) {
+        form.setValue('pincode', pinnedLocation.pincode.trim())
       }
 
       // 4. Update company name and label according to new category
@@ -394,10 +401,26 @@ export function AddressForm({
       const details = await getPlaceDetails(pred.placeId, pred.description)
       if (!details) return
 
+      if (!details.latitude || !details.longitude) {
+        toast.error('Could not get coordinates for this place. Please choose on map.')
+      }
+
       setSelectedPlace(details)
 
       const category: PlaceCategory = details.category || pred.category || 'general'
       form.setValue('place_category', category)
+
+      console.log(
+        `%c[FoodIQ:AddressForm] 🔍 Google Place Selected: "${details.name || pred.mainText}"`,
+        'color: #3b82f6; font-weight: bold;',
+        {
+          name: details.name || pred.mainText,
+          address: details.formattedAddress,
+          pincode: details.pincode,
+          coordinates: { lat: details.latitude, lng: details.longitude },
+          category,
+        }
+      )
 
       // Always populate building_name with resolved place name so validation never fails
       const resolvedName = details.name || details.buildingName || pred.mainText
@@ -427,12 +450,12 @@ export function AddressForm({
       // Set base location fields
       if (details.roadName) form.setValue('road_name', details.roadName)
       if (details.sublocality) form.setValue('sublocality', details.sublocality)
-      if (details.pincode && details.pincode.startsWith('380')) {
-        form.setValue('pincode', details.pincode)
+      if (details.pincode && /^\d{6}$/.test(details.pincode.trim())) {
+        form.setValue('pincode', details.pincode.trim())
       }
       if (details.latitude && details.longitude) {
-        form.setValue('latitude', details.latitude)
-        form.setValue('longitude', details.longitude)
+        form.setValue('latitude', details.latitude, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+        form.setValue('longitude', details.longitude, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
       }
     } finally {
       setIsSearching(false)
@@ -449,8 +472,14 @@ export function AddressForm({
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords
-        form.setValue('latitude', latitude)
-        form.setValue('longitude', longitude)
+        if (pos.coords.accuracy > 1000) {
+          toast(
+            `Desktop Wi-Fi location is approximate (~${Math.round(pos.coords.accuracy / 1000)} km accuracy). Adjust pin on map if needed.`,
+            { id: 'wifi-accuracy-toast', duration: 4000, icon: '📍' },
+          )
+        }
+        form.setValue('latitude', latitude, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+        form.setValue('longitude', longitude, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
 
         if (window.google?.maps?.Geocoder) {
           const geocoder = new window.google.maps.Geocoder()
@@ -469,7 +498,7 @@ export function AddressForm({
               }
 
               if (sublocality) form.setValue('sublocality', sublocality)
-              if (pincode?.startsWith('380')) form.setValue('pincode', pincode)
+              if (pincode && /^\d{6}$/.test(pincode.trim())) form.setValue('pincode', pincode.trim())
               if (road) form.setValue('road_name', road)
 
               setSelectedPlace({
@@ -503,14 +532,51 @@ export function AddressForm({
     )
   }
 
+  // Exact Google Routes driving distance
+  const [googleRoadDistance, setGoogleRoadDistance] = useState<number | null>(null)
+
+  const activeLat = selectedPlace?.latitude != null ? selectedPlace.latitude : watchLat
+  const activeLng = selectedPlace?.longitude != null ? selectedPlace.longitude : watchLng
+
+  useEffect(() => {
+    const lat = activeLat != null && !isNaN(Number(activeLat)) ? Number(activeLat) : null
+    const lng = activeLng != null && !isNaN(Number(activeLng)) ? Number(activeLng) : null
+
+    if (lat && lng && lat !== 0 && lng !== 0) {
+      let isMounted = true
+      setGoogleRoadDistance(null) // Reset while resolving new coordinates
+      calculateGoogleRoadDistance(lat, lng, kitchenLoc?.lat, kitchenLoc?.lng)
+        .then((res) => {
+          if (isMounted) {
+            if (res && res.km > 0) {
+              setGoogleRoadDistance(res.km)
+            } else {
+              setGoogleRoadDistance(null)
+            }
+          }
+        })
+        .catch(() => {
+          if (isMounted) setGoogleRoadDistance(null)
+        })
+      return () => {
+        isMounted = false
+      }
+    } else {
+      setGoogleRoadDistance(null)
+    }
+  }, [activeLat, activeLng, kitchenLoc?.lat, kitchenLoc?.lng])
+
   // Calculate delivery charge and serviceability dynamically via distance from kitchen
   const resolvedDelivery = useMemo(() => {
-    const lat = form.watch('latitude') ?? selectedPlace?.latitude ?? null
-    const lng = form.watch('longitude') ?? selectedPlace?.longitude ?? null
-    const sublocality = form.watch('sublocality') || selectedPlace?.sublocality || ''
-    const pincode = form.watch('pincode') || selectedPlace?.pincode || ''
-    const road = form.watch('road_name') || selectedPlace?.roadName || ''
-    const building = form.watch('building_name') || selectedPlace?.name || ''
+    // Search result coordinates and pincode take immediate precedence over form state
+    const rawLat = selectedPlace?.latitude != null ? selectedPlace.latitude : watchLat
+    const rawLng = selectedPlace?.longitude != null ? selectedPlace.longitude : watchLng
+    const lat = rawLat != null && !isNaN(Number(rawLat)) ? Number(rawLat) : null
+    const lng = rawLng != null && !isNaN(Number(rawLng)) ? Number(rawLng) : null
+    const sublocality = selectedPlace?.sublocality || watchSublocality || ''
+    const pincode = selectedPlace?.pincode || watchPincode || ''
+    const road = selectedPlace?.roadName || watchRoadName || ''
+    const building = selectedPlace?.name || selectedPlace?.buildingName || watchBuildingName || ''
 
     return resolveDeliveryCharge(
       {
@@ -521,25 +587,31 @@ export function AddressForm({
         address_line1: building,
         address_line2: road,
       },
-      areas,
-      feeRules,
-      kitchenLoc ?? { lat: 23.0392, lng: 72.5085 },
+      {
+        settings: deliverySettings,
+        kitchenLocation: kitchenLoc ?? { ...DEFAULT_KITCHEN_LOCATION },
+        areas,
+        feeRules,
+        overrideDistanceKm: googleRoadDistance,
+      },
     )
   }, [
     watchSublocality,
     watchBuildingName,
     watchRoadName,
     watchPincode,
-    form.watch('latitude'),
-    form.watch('longitude'),
+    watchLat,
+    watchLng,
     selectedPlace,
+    deliverySettings,
     areas,
     feeRules,
     kitchenLoc,
+    googleRoadDistance,
   ])
 
   // Submit Handler: Compiles into standard database schema
-  const onSubmit = (values: AddressInput) => {
+  const onSubmit = async (values: AddressInput) => {
     let line1 = values.unit_no
 
     if (values.place_category === 'commercial') {
@@ -559,6 +631,14 @@ export function AddressForm({
       line1 = values.unit_no ? `${values.unit_no}, ${values.building_name}` : values.building_name
     }
 
+    const lat = selectedPlace?.latitude ?? values.latitude
+    const lng = selectedPlace?.longitude ?? values.longitude
+
+    if (lat == null || lng == null || isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+      toast.error('Please select your location via search or choose on map to confirm delivery location.')
+      return
+    }
+
     const payload = {
       label:
         values.label === 'other' && values.custom_label
@@ -572,12 +652,18 @@ export function AddressForm({
       city: 'Ahmedabad',
       state: 'Gujarat',
       pincode: values.pincode,
-      latitude: values.latitude ?? null,
-      longitude: values.longitude ?? null,
+      latitude: lat,
+      longitude: lng,
       sublocality: values.sublocality || (resolvedDelivery.isOutOfZone ? null : resolvedDelivery.zoneLabel.split(' ')[0]),
       meal_type_tag: values.meal_type_tag,
       preferred_time: values.preferred_time ? `${values.preferred_time}:00` : null,
     }
+
+    console.log(
+      `%c[FoodIQ:AddressForm] 💾 Saving Address Payload (${isEditing ? 'UPDATE' : 'CREATE'}):`,
+      'color: #06b6d4; font-weight: bold;',
+      payload
+    )
 
     if (isEditing && address) {
       updateAddress.mutate({ id: address.id, input: payload }, { onSuccess: () => onSaved(null) })
@@ -755,25 +841,40 @@ export function AddressForm({
 
                   {/* Delivery Fee Notice */}
                   <div className="mt-2 text-xs font-semibold">
-                    {!resolvedDelivery.isOutOfZone ? (
+                    {resolvedDelivery.zoneClassification === 'zone_a' && !resolvedDelivery.isOutOfZone ? (
                       <div className="flex items-center gap-1.5 text-emerald-600">
                         <Sparkles className="size-3.5 shrink-0" />
                         <span>
-                          Serviceable Area: {resolvedDelivery.zoneLabel} • Delivery Fee: {resolvedDelivery.fee === 0 ? 'Free Delivery' : `₹${resolvedDelivery.fee}`}
-                          {resolvedDelivery.distanceKm !== null ? ` (${resolvedDelivery.distanceKm} km from kitchen)` : ''}
+                          Standard Delivery Zone • Delivery Fee:{' '}
+                          {resolvedDelivery.fee === 0
+                            ? deliverySettings?.free_delivery_radius_km
+                              ? `Free (within ${deliverySettings.free_delivery_radius_km} km)`
+                              : 'Free'
+                            : `₹${resolvedDelivery.fee}`}
+                          {resolvedDelivery.distanceKm !== null ? ` (${resolvedDelivery.distanceKm} km)` : ''}
                         </span>
                       </div>
-                    ) : (
+                    ) : resolvedDelivery.zoneClassification === 'zone_b' ? (
                       <div className="flex items-start gap-2 text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2.5 mt-2">
-                        <PhoneCall className="size-4 shrink-0 mt-0.5 text-amber-600" />
+                        <Navigation className="size-4 shrink-0 mt-0.5 text-amber-600" />
                         <div className="space-y-0.5 text-left">
-                          <p className="font-semibold text-xs text-amber-900">
-                            Extended Zone ({watchSublocality || selectedPlace?.sublocality || 'Selected Area'}) • Subject to Confirmation
+                          <p className="font-semibold text-xs text-amber-900 dark:text-amber-200">
+                            Extended Delivery Zone {resolvedDelivery.distanceKm !== null ? `(${resolvedDelivery.distanceKm} km)` : ''} • Delivery Fee: ₹{resolvedDelivery.fee}
                           </p>
                           <p className="text-[11px] text-muted-foreground font-normal leading-relaxed">
-                            This location is outside our core delivery zone. You can place your order, and our team will call you to confirm order acceptance, delivery timing, and applicable delivery charges.
+                            {resolvedDelivery.isZoneBDisabled
+                              ? 'Delivery to extended zones is currently paused due to peak kitchen rush.'
+                              : 'Takes 50–65 mins. Order is subject to kitchen & rider availability during peak rush.'}
                           </p>
                         </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2.5">
+                        <OutOfDeliveryAreaNotice
+                          pincode={selectedPlace.pincode || form.getValues('pincode')}
+                          formattedAddress={selectedPlace.formattedAddress}
+                          partyPhone={deliverySettings?.party_order_phone}
+                        />
                       </div>
                     )}
                   </div>
@@ -1081,7 +1182,7 @@ export function AddressForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <FloatingInput label="Pincode * (Ahmedabad: 380xxx)" maxLength={6} {...field} />
+                      <FloatingInput label="Pincode *" maxLength={6} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

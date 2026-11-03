@@ -97,6 +97,7 @@ export const QUERY_KEYS = {
   deliveryAreas: ['delivery-areas'] as const,
   deliveryFeeRules: ['delivery-fee-rules'] as const,
   kitchenLocation: ['kitchen-location'] as const,
+  deliverySettings: ['delivery-settings'] as const,
   quickOrder: (mealType?: string) => ['quick-order', mealType ?? 'active'] as const,
   orders: (filters?: Record<string, unknown>) => ['orders', filters ?? {}] as const,
   order: (id: string) => ['order', id] as const,
@@ -160,5 +161,14 @@ export const CONTACT_INFO = {
     instagram: 'https://instagram.com',
     facebook: 'https://facebook.com',
   },
+} as const
+
+/**
+ * Canonical kitchen coordinates (Sarita Apartments, Satya Marg, Bodakdev, Ahmedabad - 380015).
+ * Single authoritative source of truth across the application.
+ */
+export const DEFAULT_KITCHEN_LOCATION = {
+  lat: 23.0347092,
+  lng: 72.5153523,
 } as const
 

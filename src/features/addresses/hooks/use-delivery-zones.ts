@@ -4,6 +4,7 @@ import {
   fetchDeliveryAreas,
   fetchDeliveryFeeRules,
   fetchKitchenLocation,
+  fetchDeliverySettings,
 } from '@/features/addresses/services/delivery-zone-service'
 
 export function useDeliveryAreas() {
@@ -29,3 +30,12 @@ export function useKitchenLocation() {
     staleTime: 10 * 60 * 1000,
   })
 }
+
+export function useDeliverySettings() {
+  return useQuery({
+    queryKey: QUERY_KEYS.deliverySettings,
+    queryFn: fetchDeliverySettings,
+    staleTime: 3 * 60 * 1000,
+  })
+}
+

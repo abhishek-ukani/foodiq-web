@@ -254,17 +254,6 @@ type SubscriptionDailyDeliveryRow = {
   created_at: string
 }
 
-type ItemCustomizationRow = {
-  id: string
-  food_item_id: string
-  name: string
-  price_delta: number
-  is_default: boolean
-  display_order: number
-  is_active: boolean
-  created_at: string
-}
-
 type DailyMenuRow = {
   id: string
   branch_id: string
@@ -697,10 +686,6 @@ export interface Database {
       subscription_plans: TableOf<SubscriptionPlanRow, 'discount_percentage' | 'is_active'>
       user_subscriptions: TableOf<UserSubscriptionRow, 'status'>
       subscription_daily_deliveries: TableOf<SubscriptionDailyDeliveryRow, 'status'>
-      item_customizations: TableOf<
-        ItemCustomizationRow,
-        'price_delta' | 'is_default' | 'display_order' | 'is_active'
-      >
       daily_menus: TableOf<DailyMenuRow>
       daily_menu_items: TableOf<DailyMenuItemRow, 'display_order' | 'is_available' | 'is_special'>
       price_history: TableOf<PriceHistoryRow>

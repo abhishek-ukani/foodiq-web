@@ -248,37 +248,7 @@ export function useGooglePlaces() {
         return []
       }
 
-      // Check if new Places AutocompleteSuggestion API is available
-      const placesLib = window.google?.maps?.places as any
-      if (placesLib?.AutocompleteSuggestion?.fetchAutocompleteSuggestions) {
-        try {
-          const response = await placesLib.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-            input: input.trim(),
-            componentRestrictions: { country: 'in' },
-            locationBias: new window.google.maps.LatLngBounds(
-              { lat: 22.9, lng: 72.4 },
-              { lat: 23.2, lng: 72.7 }
-            ),
-          })
-
-          if (response?.suggestions?.length > 0) {
-            return response.suggestions.map((s: any) => {
-              const rawPlace = s.placePrediction?.placeId || s.placePrediction?.place || ''
-              const cleanId = typeof rawPlace === 'string' ? rawPlace.replace(/^places\//, '') : ''
-              return {
-                placeId: cleanId,
-                mainText: s.placePrediction?.text?.text || s.placePrediction?.structuredFormat?.mainText?.text || '',
-                secondaryText: s.placePrediction?.structuredFormat?.secondaryText?.text || '',
-                description: s.placePrediction?.text?.text || '',
-              }
-            })
-          }
-        } catch (e) {
-          console.warn('AutocompleteSuggestion failed, falling back to AutocompleteService:', e)
-        }
-      }
-
-      // Legacy fallback (AutocompleteService)
+      // AutocompleteService strictly restricted to Ahmedabad city bounds
       if (!autocompleteServiceRef.current && window.google?.maps?.places?.AutocompleteService) {
         autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
       }
@@ -510,33 +480,8 @@ export function useGooglePlaces() {
                 isCompanyOrOffice: category === 'commercial',
                 isResidentialSociety: category === 'residential',
               })
-            } else if (description && geocoder) {
-              geocoder.geocode({ address: description }, (fallbackResults, fallbackStatus) => {
-                if (fallbackStatus === window.google.maps.GeocoderStatus.OK && fallbackResults?.[0]) {
-                  const place = fallbackResults[0]
-                  const lat = place.geometry.location.lat()
-                  const lng = place.geometry.location.lng()
-                  const placeTypes = place.types || []
-                  const fallbackName = description.split(',')[0].trim()
-                  const category = inferPlaceCategory(placeTypes, description)
-                  resolve({
-                    name: fallbackName,
-                    buildingName: fallbackName,
-                    roadName: '',
-                    sublocality: '',
-                    pincode: '',
-                    latitude: lat,
-                    longitude: lng,
-                    formattedAddress: place.formatted_address,
-                    placeTypes,
-                    category,
-                    isCompanyOrOffice: category === 'commercial',
-                    isResidentialSociety: category === 'residential',
-                  })
-                } else {
-                  resolve(null)
-                }
-              })
+            } else if (cleanPlaceId && description && geocoder) {
+              geocoder.geocode({ address: description }, handleGeocodeResult)
             } else {
               resolve(null)
             }

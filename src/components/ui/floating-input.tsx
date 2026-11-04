@@ -3,12 +3,10 @@ import { cn } from '@/lib/utils'
 
 export interface FloatingInputProps extends React.ComponentProps<'input'> {
   label: string
-  /** @deprecated no longer used — kept for API compatibility */
-  labelBg?: string
 }
 
 export const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
-  ({ className, label, labelBg: _labelBg, id, value, ...props }, ref) => {
+  ({ className, label, id, value, ...props }, ref) => {
     const generatedId = React.useId()
     const inputId = id || generatedId
 

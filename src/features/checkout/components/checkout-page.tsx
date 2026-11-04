@@ -36,8 +36,6 @@ import { AddressFlowDialog } from '@/features/addresses/components/address-flow-
 import { useAddresses } from '@/features/addresses/hooks/use-addresses'
 import { usePlaceOrder } from '@/features/checkout/hooks/use-checkout'
 import {
-  useDeliveryAreas,
-  useDeliveryFeeRules,
   useKitchenLocation,
   useDeliverySettings,
 } from '@/features/addresses/hooks/use-delivery-zones'
@@ -79,9 +77,6 @@ export function CheckoutPage() {
   }
   const { data: addresses, isPending: addressesPending } = useAddresses()
   
-  // Zone Data Hooks (Standard delivery_areas + distance fee rules + dynamic delivery settings)
-  const { data: areas = [] } = useDeliveryAreas()
-  const { data: feeRules = [] } = useDeliveryFeeRules()
   const { data: kitchenLoc } = useKitchenLocation()
   const { data: deliverySettings } = useDeliverySettings()
 
@@ -183,12 +178,9 @@ export function CheckoutPage() {
   const deliveryResolution: DeliveryResolutionResult = useMemo(() => {
     return resolveDeliveryCharge(selectedAddress, {
       settings: deliverySettings,
-      kitchenLocation: kitchenLoc,
-      areas,
-      feeRules,
       overrideDistanceKm: googleRoadDistance,
     })
-  }, [selectedAddress, deliverySettings, kitchenLoc, areas, feeRules, googleRoadDistance])
+  }, [selectedAddress, deliverySettings, googleRoadDistance])
 
   const deliveryFee = deliveryResolution.fee
   const total = subtotal + deliveryFee
@@ -247,7 +239,6 @@ export function CheckoutPage() {
       {
         addressId: selectedAddressId,
         deliveryDate,
-        deliverySlotId: null, // No more slot picker — kept for backward compat
         paymentMethod,
         specialInstructions: instructions.trim() || null,
         paymentReference: null,

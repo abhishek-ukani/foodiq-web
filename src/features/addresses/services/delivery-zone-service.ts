@@ -1,29 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_KITCHEN_LOCATION } from '@/constants'
-import type { Tables } from '@/types/database.types'
 import type { DeliverySettings } from '@/types/delivery'
 
 export type KitchenLocation = { lat: number; lng: number }
-
-export async function fetchDeliveryAreas(): Promise<Tables<'delivery_areas'>[]> {
-  const { data, error } = await supabase
-    .from('delivery_areas')
-    .select('*')
-    .eq('is_active', true)
-    .order('name')
-  if (error) throw error
-  return data
-}
-
-export async function fetchDeliveryFeeRules(): Promise<Tables<'delivery_fee_rules'>[]> {
-  const { data, error } = await supabase
-    .from('delivery_fee_rules')
-    .select('*')
-    .eq('is_active', true)
-    .order('min_distance_km', { ascending: true })
-  if (error) throw error
-  return data
-}
 
 export async function fetchKitchenLocation(): Promise<KitchenLocation> {
   const { data, error } = await supabase
@@ -40,20 +19,7 @@ export async function fetchKitchenLocation(): Promise<KitchenLocation> {
   const lat = Number(val.lat)
   const lng = Number(val.lng)
 
-  // Legacy kitchen check: If coordinates are invalid or point to the old Gota location (lat > 23.08),
-  // immediately use the canonical Bodakdev kitchen (Sarita Apartments, 380015) and sync system_config
-  if (!lat || !lng || isNaN(lat) || isNaN(lng) || (lat > 23.08 && lat < 23.15)) {
-    console.warn('[FoodIQ:Kitchen] Legacy or invalid kitchen coordinates in system_config. Using Sarita Apts, Bodakdev:', DEFAULT_KITCHEN_LOCATION)
-    Promise.resolve(
-      supabase
-        .from('system_config')
-        .update({ value: { lat: DEFAULT_KITCHEN_LOCATION.lat, lng: DEFAULT_KITCHEN_LOCATION.lng } })
-        .eq('key', 'kitchen_location')
-    ).then(() => {
-      console.log('[FoodIQ:Kitchen] Successfully updated system_config to Bodakdev kitchen.')
-    }).catch((err: unknown) => {
-      console.debug('[FoodIQ:Kitchen] Could not update system_config:', err)
-    })
+  if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
     return { ...DEFAULT_KITCHEN_LOCATION }
   }
 

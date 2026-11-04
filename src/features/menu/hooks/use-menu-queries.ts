@@ -4,7 +4,6 @@ import {
   fetchFoodItemBySlug,
   fetchMenuForDate,
   fetchActiveCategories,
-  fetchDailyMenuSlots,
 } from '@/features/menu/services/menu-service'
 import type { MealType } from '@/types/database.types'
 
@@ -19,13 +18,6 @@ export function useActiveCategories() {
   return useQuery({
     queryKey: QUERY_KEYS.categories,
     queryFn: () => fetchActiveCategories(),
-  })
-}
-
-export function useDailyMenuSlots(date: string) {
-  return useQuery({
-    queryKey: ['daily-menu-slots', date],
-    queryFn: () => fetchDailyMenuSlots(date),
   })
 }
 

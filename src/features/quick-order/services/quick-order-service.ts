@@ -5,7 +5,7 @@ import { placeOrder } from '@/features/checkout/services/checkout-service'
 import { resolveDeliveryCharge, type DeliveryResolutionResult } from '@/features/checkout/services/delivery-charge-resolver'
 import { calculateGoogleRoadDistance } from '@/services/google-routes-service'
 import { fetchAddresses } from '@/features/addresses/services/addresses-service'
-import { fetchDeliveryAreas, fetchDeliveryFeeRules, fetchKitchenLocation, fetchDeliverySettings } from '@/features/addresses/services/delivery-zone-service'
+import { fetchKitchenLocation, fetchDeliverySettings } from '@/features/addresses/services/delivery-zone-service'
 import type { Json, MealType, Tables } from '@/types/database.types'
 
 export interface ThaliFoodItem extends Tables<'food_items'> {
@@ -213,10 +213,8 @@ export async function fetchQuickOrderContext(
   }
 
   // 2. Fetch Addresses & Delivery Resolution
-  const [addresses, areas, feeRules, kitchenLoc, deliverySettings, thalis, preferences] = await Promise.all([
+  const [addresses, kitchenLoc, deliverySettings, thalis, preferences] = await Promise.all([
     fetchAddresses(),
-    fetchDeliveryAreas(),
-    fetchDeliveryFeeRules(),
     fetchKitchenLocation(),
     fetchDeliverySettings(),
     fetchActiveThalis(),
@@ -250,9 +248,6 @@ export async function fetchQuickOrderContext(
 
   const deliveryResolution = resolveDeliveryCharge(activeAddress, {
     settings: deliverySettings,
-    kitchenLocation: kitchenLoc,
-    areas,
-    feeRules,
     overrideDistanceKm,
   })
 
@@ -451,7 +446,6 @@ export async function submitQuickOrder(input: SubmitQuickOrderInput): Promise<Ta
   const createdOrder = await placeOrder({
     addressId: input.addressId,
     deliveryDate: input.deliveryDate,
-    deliverySlotId: null,
     paymentMethod: 'cash',
     deliveryCharge: input.deliveryCharge,
     specialInstructions: input.specialInstructions?.trim() || null,

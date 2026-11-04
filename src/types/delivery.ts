@@ -15,7 +15,7 @@ export type DeliveryResolutionResult = {
   fee: number
   isOutOfZone: boolean
   zoneClassification: ZoneClassification
-  zoneType: 'zone_a' | 'zone_b' | 'out_of_zone' | 'building' | 'road' | 'area'
+  zoneType: 'zone_a' | 'zone_b' | 'out_of_zone'
   zoneLabel: string
   distanceKm: number | null
   isZoneBDisabled?: boolean

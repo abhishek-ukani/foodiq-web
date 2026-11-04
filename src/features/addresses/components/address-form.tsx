@@ -23,7 +23,6 @@ import { Button } from '@/components/ui/button'
 import toast from 'react-hot-toast'
 import { Input } from '@/components/ui/input'
 import { FloatingInput } from '@/components/ui/floating-input'
-import { DEFAULT_KITCHEN_LOCATION } from '@/constants'
 import {
   Form,
   FormControl,
@@ -35,8 +34,6 @@ import { addressSchema, type AddressInput } from '@/features/addresses/schemas/a
 import { useCreateAddress, useUpdateAddress } from '@/features/addresses/hooks/use-addresses'
 import { useAuth } from '@/hooks/use-auth'
 import {
-  useDeliveryAreas,
-  useDeliveryFeeRules,
   useKitchenLocation,
   useDeliverySettings,
 } from '@/features/addresses/hooks/use-delivery-zones'
@@ -154,9 +151,6 @@ export function AddressForm({
     ''
   const userPhone = rawPhone.replace(/^\+91/, '').replace(/\D/g, '').slice(-10)
 
-  // Delivery areas dataset (Standard list of serviceable areas)
-  const { data: areas = [] } = useDeliveryAreas()
-  const { data: feeRules = [] } = useDeliveryFeeRules()
   const { data: kitchenLoc } = useKitchenLocation()
   const { data: deliverySettings } = useDeliverySettings()
 
@@ -679,9 +673,6 @@ export function AddressForm({
       },
       {
         settings: deliverySettings,
-        kitchenLocation: kitchenLoc ?? { ...DEFAULT_KITCHEN_LOCATION },
-        areas,
-        feeRules,
         overrideDistanceKm: googleRoadDistance,
       },
     )
@@ -694,9 +685,6 @@ export function AddressForm({
     watchLng,
     selectedPlace,
     deliverySettings,
-    areas,
-    feeRules,
-    kitchenLoc,
     googleRoadDistance,
   ])
 

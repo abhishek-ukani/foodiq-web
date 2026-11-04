@@ -283,17 +283,6 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
   return listings
 }
 
-export async function fetchDailyMenuSlots(date: string) {
-  const { data, error } = await supabase
-    .from('daily_menus')
-    .select('id, menu_date, is_published, meal_type, cutoff_time, title, note')
-    .eq('menu_date', date)
-    .eq('is_published', true)
-
-  if (error) throw error
-  return data || []
-}
-
 /** Active categories from admin, ordered by display_order. */
 export async function fetchActiveCategories(): Promise<Tables<'categories'>[]> {
   const { data, error } = await supabase

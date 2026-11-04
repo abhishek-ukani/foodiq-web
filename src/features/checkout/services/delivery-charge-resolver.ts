@@ -19,9 +19,6 @@ export function extractPincode(address: Partial<Tables<'addresses'>> | null): st
 
 export interface ResolveDeliveryOptions {
   settings?: DeliverySettings | null
-  kitchenLocation?: KitchenLocation
-  areas?: Tables<'delivery_areas'>[]
-  feeRules?: Tables<'delivery_fee_rules'>[]
   /** Exact road driving distance (e.g. from Google Routes API) override */
   overrideDistanceKm?: number | null
 }
@@ -32,10 +29,7 @@ export interface ResolveDeliveryOptions {
  */
 export function resolveDeliveryCharge(
   address: Partial<Tables<'addresses'>> | null,
-  optionsOrAreas?: ResolveDeliveryOptions | Tables<'delivery_areas'>[],
-  _feeRulesOrKitchen?: Tables<'delivery_fee_rules'>[] | KitchenLocation,
-  _legacyKitchen?: KitchenLocation,
-  legacySettings?: DeliverySettings,
+  options?: ResolveDeliveryOptions,
 ): DeliveryResolutionResult {
   if (!address) {
     return {
@@ -48,18 +42,11 @@ export function resolveDeliveryCharge(
     }
   }
 
-  // Parse arguments to support both new options object and legacy signature
-  let settings: DeliverySettings | null = null
-  let overrideDistanceKm: number | null = null
-
-  if (optionsOrAreas && !Array.isArray(optionsOrAreas) && typeof optionsOrAreas === 'object') {
-    const opts = optionsOrAreas as ResolveDeliveryOptions
-    if (opts.settings) settings = opts.settings
-    if (opts.overrideDistanceKm != null) overrideDistanceKm = opts.overrideDistanceKm
-  } else {
-    // Legacy positional arguments
-    if (legacySettings) settings = legacySettings
-  }
+  const settings = options?.settings ?? null
+  const overrideDistanceKm =
+    options?.overrideDistanceKm != null && options.overrideDistanceKm > 0
+      ? options.overrideDistanceKm
+      : null
 
   // 1. Extract and normalize pincode
   const pincode = extractPincode(address)

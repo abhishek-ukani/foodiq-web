@@ -3,8 +3,9 @@ import dayjs from 'dayjs'
 import { fetchThaliOptionGroups, type ResolvedOptionGroup } from '@/features/menu/services/thali-customizer-service'
 import { placeOrder } from '@/features/checkout/services/checkout-service'
 import { resolveDeliveryCharge, type DeliveryResolutionResult } from '@/features/checkout/services/delivery-charge-resolver'
+import { calculateGoogleRoadDistance } from '@/services/google-routes-service'
 import { fetchAddresses } from '@/features/addresses/services/addresses-service'
-import { fetchDeliveryAreas, fetchDeliveryFeeRules, fetchKitchenLocation } from '@/features/addresses/services/delivery-zone-service'
+import { fetchKitchenLocation, fetchDeliverySettings } from '@/features/addresses/services/delivery-zone-service'
 import type { Json, MealType, Tables } from '@/types/database.types'
 
 export interface ThaliFoodItem extends Tables<'food_items'> {
@@ -212,11 +213,10 @@ export async function fetchQuickOrderContext(
   }
 
   // 2. Fetch Addresses & Delivery Resolution
-  const [addresses, areas, feeRules, kitchenLoc, thalis, preferences] = await Promise.all([
+  const [addresses, kitchenLoc, deliverySettings, thalis, preferences] = await Promise.all([
     fetchAddresses(),
-    fetchDeliveryAreas(),
-    fetchDeliveryFeeRules(),
     fetchKitchenLocation(),
+    fetchDeliverySettings(),
     fetchActiveThalis(),
     getCustomerThaliPreferences(session.user.id),
   ])
@@ -230,7 +230,26 @@ export async function fetchQuickOrderContext(
     activeAddress = addresses.find((a) => a.is_default) || addresses[0] || null
   }
 
-  const deliveryResolution = resolveDeliveryCharge(activeAddress, areas, feeRules, kitchenLoc)
+  // Calculate driving distance via Google Routes API if coordinates exist
+  let overrideDistanceKm: number | null = null
+  const destLat = activeAddress?.latitude != null ? Number(activeAddress.latitude) : null
+  const destLng = activeAddress?.longitude != null ? Number(activeAddress.longitude) : null
+
+  if (destLat && destLng && !isNaN(destLat) && !isNaN(destLng) && destLat !== 0 && destLng !== 0) {
+    try {
+      const roadRes = await calculateGoogleRoadDistance(destLat, destLng, kitchenLoc.lat, kitchenLoc.lng)
+      if (roadRes && roadRes.km > 0) {
+        overrideDistanceKm = roadRes.km
+      }
+    } catch (err) {
+      console.debug('[QuickOrder] Road distance calculation:', err)
+    }
+  }
+
+  const deliveryResolution = resolveDeliveryCharge(activeAddress, {
+    settings: deliverySettings,
+    overrideDistanceKm,
+  })
 
   // Determine active Thali
   const effectiveThaliId =
@@ -427,7 +446,6 @@ export async function submitQuickOrder(input: SubmitQuickOrderInput): Promise<Ta
   const createdOrder = await placeOrder({
     addressId: input.addressId,
     deliveryDate: input.deliveryDate,
-    deliverySlotId: null,
     paymentMethod: 'cash',
     deliveryCharge: input.deliveryCharge,
     specialInstructions: input.specialInstructions?.trim() || null,

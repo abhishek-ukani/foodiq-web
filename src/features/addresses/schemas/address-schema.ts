@@ -13,9 +13,13 @@ export const addressSchema = z.object({
   building_name: z.string().trim().min(2, 'Enter Building, Company, or Society name'),
   road_name: z.string().trim().optional().or(z.literal('')),
   landmark: z.string().trim().optional().or(z.literal('')),
-  pincode: z.string().trim().regex(/^380\d{3}$/, 'Enter a valid Ahmedabad pincode (380xxx)'),
-  latitude: z.number().nullable().optional(),
-  longitude: z.number().nullable().optional(),
+  pincode: z.string().trim().regex(/^[1-9]\d{5}$/, 'Enter a valid 6-digit pincode'),
+  latitude: z.number().nullable().refine((val) => val !== null && !isNaN(val) && val !== 0, {
+    message: 'Please select your location via search or choose on map',
+  }),
+  longitude: z.number().nullable().refine((val) => val !== null && !isNaN(val) && val !== 0, {
+    message: 'Please select your location via search or choose on map',
+  }),
   sublocality: z.string().trim().min(2, 'Enter Area / Locality'),
   delivery_instructions: z.string().trim().optional().or(z.literal('')),
   meal_type_tag: z.enum(['lunch', 'dinner', 'both']),

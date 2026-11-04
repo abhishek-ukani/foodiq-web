@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Link } from 'react-router-dom'
 import { ROUTES } from '@/constants'
 import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
+import { useDeliverySettings } from '@/features/addresses/hooks/use-delivery-zones'
 
 export function DeliveryTimingsSection() {
   const { slots } = useMealTiming()
+  const { data: deliverySettings } = useDeliverySettings()
 
   const lunchDisplay = slots.lunch?.formattedCutoff ?? '10:00 AM'
   const [lunchTime, lunchMeridiem] = lunchDisplay.split(' ')
@@ -138,10 +140,12 @@ export function DeliveryTimingsSection() {
                 </div>
                 <div>
                   <h4 className="font-display text-base font-bold text-foreground">
-                    Free Home Delivery
+                    {deliverySettings?.free_delivery_radius_km ? 'Free Home Delivery' : 'Direct Home Delivery'}
                   </h4>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    Zero delivery charge within 3 km of our local kitchen.
+                    {deliverySettings?.free_delivery_radius_km
+                      ? `Zero delivery charge within ${deliverySettings.free_delivery_radius_km} km of our local kitchen.`
+                      : 'Affordable, transparent distance-based delivery across Ahmedabad.'}
                   </p>
                 </div>
               </div>

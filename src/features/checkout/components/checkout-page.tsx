@@ -20,7 +20,6 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -34,17 +33,18 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { AddressFlowDialog } from '@/features/addresses/components/address-flow-dialog'
-import { useAddresses, useUpdateAddress } from '@/features/addresses/hooks/use-addresses'
+import { useAddresses } from '@/features/addresses/hooks/use-addresses'
 import { usePlaceOrder } from '@/features/checkout/hooks/use-checkout'
 import {
-  useDeliveryAreas,
-  useDeliveryFeeRules,
   useKitchenLocation,
+  useDeliverySettings,
 } from '@/features/addresses/hooks/use-delivery-zones'
 import {
   resolveDeliveryCharge,
   type DeliveryResolutionResult,
 } from '@/features/checkout/services/delivery-charge-resolver'
+import { OutOfDeliveryAreaNotice } from '@/features/addresses/components/out-of-delivery-area-notice'
+import { calculateGoogleRoadDistance } from '@/services/google-routes-service'
 import {
   useCartSummary,
   useRemoveCartItem,
@@ -77,13 +77,10 @@ export function CheckoutPage() {
   }
   const { data: addresses, isPending: addressesPending } = useAddresses()
   
-  // Zone Data Hooks (Standard delivery_areas + distance fee rules)
-  const { data: areas = [] } = useDeliveryAreas()
-  const { data: feeRules = [] } = useDeliveryFeeRules()
   const { data: kitchenLoc } = useKitchenLocation()
+  const { data: deliverySettings } = useDeliverySettings()
 
   const placeOrder = usePlaceOrder()
-  const updateAddress = useUpdateAddress()
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
@@ -91,9 +88,6 @@ export function CheckoutPage() {
   // Payment method is always Cash on Delivery (COD)
   const paymentMethod: PaymentMethod = 'cash'
   const [instructions, setInstructions] = useState('')
-  // Prompt for preferred time if address doesn't have one set
-  const [showTimePrompt, setShowTimePrompt] = useState(false)
-  const [promptedTime, setPromptedTime] = useState('')
 
   const selectedAddress = useMemo(
     () => addresses?.find((a) => a.id === selectedAddressId) ?? null,
@@ -125,25 +119,58 @@ export function CheckoutPage() {
     }
   }, [mealType]) // intentionally only re-run when mealType changes
 
-  // Check if selected address needs preferred time prompt
+  // Exact Google Routes road driving distance
+  const [googleRoadDistance, setGoogleRoadDistance] = useState<number | null>(null)
+
   useEffect(() => {
-    if (selectedAddress && !selectedAddress.preferred_time) {
-      setShowTimePrompt(true)
-    } else {
-      setShowTimePrompt(false)
-      setPromptedTime('')
+    if (!selectedAddress) {
+      setGoogleRoadDistance(null)
+      return
     }
-  }, [selectedAddress])
+
+    const destLat = selectedAddress.latitude != null ? Number(selectedAddress.latitude) : null
+    const destLng = selectedAddress.longitude != null ? Number(selectedAddress.longitude) : null
+
+    if (destLat !== null && destLng !== null && !isNaN(destLat) && !isNaN(destLng) && destLat !== 0) {
+      let isMounted = true
+      setGoogleRoadDistance(null) // Reset while resolving new address coordinates
+      calculateGoogleRoadDistance(destLat, destLng, kitchenLoc?.lat, kitchenLoc?.lng)
+        .then((res) => {
+          if (isMounted) {
+            if (res && res.km > 0) {
+              setGoogleRoadDistance(res.km)
+            } else {
+              setGoogleRoadDistance(null)
+            }
+          }
+        })
+        .catch((err) => {
+          console.debug('[FoodIQ:Checkout] Google Routes calculation error:', err)
+          if (isMounted) setGoogleRoadDistance(null)
+        })
+
+      return () => {
+        isMounted = false
+      }
+    } else {
+      setGoogleRoadDistance(null)
+    }
+  }, [
+    selectedAddress?.id,
+    selectedAddress?.latitude,
+    selectedAddress?.longitude,
+    selectedAddress?.pincode,
+    kitchenLoc?.lat,
+    kitchenLoc?.lng,
+  ])
 
   // Resolve delivery charge based on selected address
   const deliveryResolution: DeliveryResolutionResult = useMemo(() => {
-    return resolveDeliveryCharge(
-      selectedAddress,
-      areas,
-      feeRules,
-      kitchenLoc,
-    )
-  }, [selectedAddress, areas, feeRules, kitchenLoc])
+    return resolveDeliveryCharge(selectedAddress, {
+      settings: deliverySettings,
+      overrideDistanceKm: googleRoadDistance,
+    })
+  }, [selectedAddress, deliverySettings, googleRoadDistance])
 
   const deliveryFee = deliveryResolution.fee
   const total = subtotal + deliveryFee
@@ -172,40 +199,36 @@ export function CheckoutPage() {
     return mealTiming ? !mealTiming.isOpen : false
   }, [isOnly24x7Items, isToday, mealType, timing.slots])
 
+  const isVerifyingRoute = Boolean(
+    selectedAddress?.latitude &&
+      selectedAddress?.longitude &&
+      !deliveryResolution.isOutOfZone &&
+      googleRoadDistance === null,
+  )
+
   const canSubmit = Boolean(
     selectedAddressId &&
       items.length &&
       !hasUnavailableItems &&
       !isTimingCutoffPassed &&
+      !deliveryResolution.isZoneBDisabled &&
+      !deliveryResolution.isOutOfZone &&
+      !isVerifyingRoute &&
       !placeOrder.isPending,
   )
-
-  const handleSavePreferredTime = () => {
-    if (!selectedAddressId || !promptedTime) return
-    updateAddress.mutate(
-      { id: selectedAddressId, input: { preferred_time: `${promptedTime}:00` } },
-      {
-        onSuccess: () => {
-          setShowTimePrompt(false)
-          toast.success('Preferred time saved to your address')
-        },
-      },
-    )
-  }
 
   const handlePlaceOrder = () => {
     if (!selectedAddressId) return
 
-    // Snapshot preferred time from address (or from prompt if just entered)
+    // Snapshot preferred time from address (configured when address was added)
     const preferredTime = selectedAddress?.preferred_time
       ? selectedAddress.preferred_time.slice(0, 5)
-      : promptedTime || null
+      : null
 
     placeOrder.mutate(
       {
         addressId: selectedAddressId,
         deliveryDate,
-        deliverySlotId: null, // No more slot picker — kept for backward compat
         paymentMethod,
         specialInstructions: instructions.trim() || null,
         paymentReference: null,
@@ -617,73 +640,79 @@ export function CheckoutPage() {
               {/* Delivery Resolution Status Banner */}
               {selectedAddress && (
                 <div className="pt-2">
-                  {!deliveryResolution.isOutOfZone ? (
-                    <div className="bg-emerald-500/10 border-emerald-500/30 text-emerald-800 flex items-center justify-between rounded-lg border p-3.5 text-xs font-medium">
+                  {deliveryResolution.zoneClassification === 'zone_a' && !deliveryResolution.isOutOfZone ? (
+                    <div className="bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300 flex items-center justify-between rounded-xl border p-3.5 text-xs font-medium">
                       <div className="flex items-center gap-2">
                         <Sparkles className="size-4 text-emerald-600 shrink-0" />
                         <span>
                           {deliveryResolution.fee === 0 ? (
-                            '🎉 Free Delivery for this address!'
+                            deliverySettings?.free_delivery_radius_km ? (
+                              `🎉 Free Delivery for your address (within ${deliverySettings.free_delivery_radius_km} km)!`
+                            ) : (
+                              '🎉 Free Delivery for your address!'
+                            )
                           ) : (
                             <>
-                              Verified Delivery Zone ({deliveryResolution.zoneLabel}): Delivery Fee{' '}
-                              <strong className="font-semibold">{CURRENCY_SYMBOL}{deliveryResolution.fee}</strong>
+                              Verified Standard Zone
+                              {deliveryResolution.distanceKm !== null
+                                ? ` (${deliveryResolution.distanceKm} km)`
+                                : ''}
+                              : Delivery Fee{' '}
+                              <strong className="font-semibold text-foreground">
+                                {CURRENCY_SYMBOL}{deliveryResolution.fee}
+                              </strong>
                             </>
                           )}
                         </span>
                       </div>
                     </div>
-                  ) : (
-                    <div className="bg-amber-500/10 border-amber-500/30 text-amber-900 rounded-lg border p-3.5 text-xs space-y-1">
-                      <div className="flex items-center gap-2 font-semibold">
-                        <Navigation className="size-4 text-amber-600 shrink-0" />
-                        <span>Request Delivery to Your Location</span>
+                  ) : deliveryResolution.zoneClassification === 'zone_b' && !deliveryResolution.isZoneBDisabled ? (
+                    <div className="bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200 rounded-xl border p-3.5 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-300">
+                          <Navigation className="size-4 text-amber-600 shrink-0" />
+                          <span>
+                            Extended Delivery Zone
+                            {deliveryResolution.distanceKm !== null
+                              ? ` (${deliveryResolution.distanceKm} km)`
+                              : ''}
+                          </span>
+                        </div>
+                        <Badge variant="outline" className="border-amber-400 text-amber-800 dark:text-amber-300 font-bold text-xs bg-amber-500/10">
+                          Delivery Fee: {CURRENCY_SYMBOL}{deliveryResolution.fee}
+                        </Badge>
                       </div>
                       <p className="text-muted-foreground text-[11px] leading-relaxed">
-                        We don't have a fixed delivery charge for this area yet, but we will reach out to you as soon as your order is placed to confirm delivery details!
+                        This location is outside our standard core area. We will do our best to deliver your meal; delivery takes 50–65 mins and order acceptance is subject to rider availability during peak rush.
                       </p>
                     </div>
+                  ) : deliveryResolution.isZoneBDisabled ? (
+                    <div className="bg-destructive/10 border-destructive/30 text-destructive rounded-xl border p-3.5 text-xs space-y-1.5">
+                      <div className="flex items-center gap-2 font-semibold">
+                        <AlertTriangle className="size-4 text-destructive shrink-0" />
+                        <span>Extended Delivery Temporarily Paused</span>
+                      </div>
+                      <p className="text-muted-foreground text-[11px] leading-relaxed">
+                        Due to high kitchen rush, deliveries to extended areas (Pincode: {selectedAddress.pincode || 'your area'}) are currently paused to protect on-time deliveries. Please try again after peak hours.
+                      </p>
+                    </div>
+                  ) : (
+                    <OutOfDeliveryAreaNotice
+                      pincode={selectedAddress.pincode}
+                      formattedAddress={[
+                        selectedAddress.address_line1,
+                        selectedAddress.address_line2,
+                        selectedAddress.sublocality,
+                        selectedAddress.city,
+                      ]
+                        .filter(Boolean)
+                        .join(', ')}
+                      partyPhone={deliverySettings?.party_order_phone}
+                    />
                   )}
                 </div>
               )}
 
-              {/* Preferred time prompt — shown only if selected address has no preferred_time */}
-              {showTimePrompt && selectedAddress && (
-                <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3.5 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-orange-800">
-                    <Clock className="size-4 text-orange-500" />
-                    What time do you prefer delivery here?
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    This helps us plan our delivery route. You only need to set it once — it'll be saved to this address.
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="time"
-                      value={promptedTime}
-                      onChange={(e) => setPromptedTime(e.target.value)}
-                      className="max-w-[140px] text-sm"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSavePreferredTime}
-                      disabled={!promptedTime || updateAddress.isPending}
-                      className="text-xs"
-                    >
-                      {updateAddress.isPending ? <Loader2 className="size-3.5 animate-spin" /> : 'Save'}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowTimePrompt(false)}
-                      className="text-xs text-muted-foreground"
-                    >
-                      Skip
-                    </Button>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -837,7 +866,7 @@ export function CheckoutPage() {
                   <span className="text-muted-foreground">Delivery charge</span>
                   <span>
                     {deliveryResolution.isOutOfZone ? (
-                      <span className="text-amber-600 font-medium text-xs">To be confirmed</span>
+                      <span className="text-muted-foreground font-medium text-xs">Not Available</span>
                     ) : deliveryFee === 0 ? (
                       <span className="font-medium text-emerald-600">Free</span>
                     ) : (
@@ -872,8 +901,17 @@ export function CheckoutPage() {
                     <Loader2 className="mr-2 size-4 animate-spin" />
                     Placing order…
                   </>
+                ) : isVerifyingRoute ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Verifying route…
+                  </>
+                ) : deliveryResolution.isZoneBDisabled ? (
+                  'Delivery Paused Due to Rush'
                 ) : deliveryResolution.isOutOfZone ? (
-                  'Request Delivery & Place Order'
+                  'Outside Delivery Area'
+                ) : deliveryResolution.zoneClassification === 'zone_b' ? (
+                  `Request Order · ${CURRENCY_SYMBOL}${total}`
                 ) : (
                   `Place order · ${CURRENCY_SYMBOL}${total}`
                 )}
@@ -912,8 +950,12 @@ export function CheckoutPage() {
                 <Loader2 className="mr-2 size-4 animate-spin" />
                 Placing…
               </>
+            ) : deliveryResolution.isZoneBDisabled ? (
+              'Rush Paused'
             ) : deliveryResolution.isOutOfZone ? (
-              'Request Delivery'
+              'Out of Area'
+            ) : deliveryResolution.zoneClassification === 'zone_b' ? (
+              'Request Order'
             ) : (
               'Place order'
             )}

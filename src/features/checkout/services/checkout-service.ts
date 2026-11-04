@@ -1,21 +1,9 @@
 import { supabase } from '@/lib/supabase'
 import type { PaymentMethod, Tables } from '@/types/database.types'
 
-export async function fetchActiveDeliverySlots(): Promise<Tables<'delivery_slots'>[]> {
-  const { data, error } = await supabase
-    .from('delivery_slots')
-    .select('*')
-    .eq('is_active', true)
-    .order('display_order')
-  if (error) throw error
-  return data
-}
-
-
 export async function placeOrder(input: {
   addressId: string
   deliveryDate: string
-  deliverySlotId?: string | null
   paymentMethod: PaymentMethod
   specialInstructions?: string | null
   paymentReference?: string | null
@@ -65,7 +53,7 @@ export async function placeOrder(input: {
   const args: any = {
     p_address_id: input.addressId,
     p_delivery_date: input.deliveryDate,
-    p_delivery_slot_id: input.deliverySlotId ?? null,
+    p_delivery_slot_id: null,
     p_payment_method: input.paymentMethod,
     p_special_instructions: input.specialInstructions ?? null,
     p_payment_reference: input.paymentReference ?? null,

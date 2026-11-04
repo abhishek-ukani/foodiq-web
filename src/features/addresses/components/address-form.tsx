@@ -8,8 +8,10 @@ import {
   ChevronUp,
   Clock,
   Home,
+  Info,
   Loader2,
   MapPin,
+  MapPinOff,
   Moon,
   Navigation,
   Search,
@@ -56,12 +58,20 @@ interface ExtractedAddressMetadata {
   unit?: string
 }
 
+export function isPlusCode(text?: string | null): boolean {
+  if (!text) return false
+  return /^[2-9CFGHJMRPVX]{4,8}\+[2-9CFGHJMRPVX]{2,3}$/i.test(text.trim())
+}
+
 function extractDetailsFromAddress(formattedAddress: string): ExtractedAddressMetadata {
   if (!formattedAddress) return {}
   const result: ExtractedAddressMetadata = {}
 
+  // Strip leading Plus Codes (e.g. "2CCV+HMX, Ahmedabad...") before parsing to prevent "2C" from being misidentified as unit
+  const cleanedAddress = formattedAddress.replace(/^[2-9CFGHJMRPVX]{4,8}\+[2-9CFGHJMRPVX]{2,3},?\s*/i, '')
+
   // 1. Detect floor (e.g. "9th Floor", "Floor 9", "Ground Floor", "Basement")
-  const floorMatch = formattedAddress.match(
+  const floorMatch = cleanedAddress.match(
     /\b(\d{1,2}(?:st|nd|rd|th)?\s+floor|floor\s+\d{1,2}|ground\s+floor|basement)\b/i
   )
   if (floorMatch) {
@@ -70,9 +80,9 @@ function extractDetailsFromAddress(formattedAddress: string): ExtractedAddressMe
 
   // 2. Detect unit/office/block/flat (e.g. "Office 702", "Unit 401", "Suite B", "Block A", "Flat 402", "Plot 12", or starting with "901, BLOCK-A")
   const unitMatch =
-    formattedAddress.match(
+    cleanedAddress.match(
       /\b((?:office|unit|cabin|desk|suite|flat|room|block|plot|shop|bldg|house|no\.?)\s*#?[\w-]+(?:\s*,\s*block-?[a-z0-9]+)?)/i
-    ) || formattedAddress.match(/^(\d{1,4}[a-z]?(?:\s*,\s*block-?[a-z0-9]+)?)/i)
+    ) || cleanedAddress.match(/^(\d{1,4}[a-z]?(?:\s*,\s*block-?[a-z0-9]+)?)/i)
 
   if (unitMatch) {
     result.unit = unitMatch[0].trim()
@@ -107,6 +117,7 @@ export function AddressForm({
   address,
   pinnedLocation,
   onOpenMap,
+  onClearLocation,
   onSaved,
   onCancel,
 }: {
@@ -121,6 +132,7 @@ export function AddressForm({
     pincode?: string
     formattedAddress?: string
   }) => void
+  onClearLocation?: () => void
   onSaved: (address: Tables<'addresses'> | null) => void
   onCancel?: () => void
 }) {
@@ -167,24 +179,23 @@ export function AddressForm({
     resolver: zodResolver(addressSchema),
     defaultValues: pinnedLocation
       ? {
-          ...DEFAULT_VALUES,
-          contact_name: userFullName,
-          contact_phone: userPhone,
-          building_name: pinnedLocation.buildingName || '',
-          road_name: pinnedLocation.roadName || '',
-          sublocality: pinnedLocation.sublocality || '',
-          pincode: pinnedLocation.pincode || '',
-          latitude: pinnedLocation.latitude ?? null,
-          longitude: pinnedLocation.longitude ?? null,
-        }
+        ...DEFAULT_VALUES,
+        contact_name: userFullName,
+        contact_phone: userPhone,
+        building_name: pinnedLocation.buildingName || '',
+        road_name: pinnedLocation.roadName || '',
+        sublocality: pinnedLocation.sublocality || '',
+        pincode: pinnedLocation.pincode || '',
+        latitude: pinnedLocation.latitude ?? null,
+        longitude: pinnedLocation.longitude ?? null,
+      }
       : {
-          ...DEFAULT_VALUES,
-          contact_name: userFullName,
-          contact_phone: userPhone,
-        },
+        ...DEFAULT_VALUES,
+        contact_name: userFullName,
+        contact_phone: userPhone,
+      },
   })
 
-  const watchCategory = form.watch('place_category')
   const watchLabel = form.watch('label')
   const watchBuildingName = form.watch('building_name')
   const watchRoadName = form.watch('road_name')
@@ -249,8 +260,12 @@ export function AddressForm({
       setIsDropdownOpen(false)
       setPredictions([])
 
-      const resolvedTitle =
-        pinnedLocation.buildingName || pinnedLocation.sublocality || 'Pinned Location'
+      const rawTitle = pinnedLocation.buildingName || pinnedLocation.sublocality || ''
+      const resolvedTitle = isPlusCode(rawTitle)
+        ? (pinnedLocation.sublocality && !isPlusCode(pinnedLocation.sublocality)
+            ? pinnedLocation.sublocality
+            : pinnedLocation.roadName || 'Pinned Location')
+        : (rawTitle || 'Pinned Location')
 
       // 1. Dynamically infer the place category based on the pinned place name and full address
       const fullText = `${pinnedLocation.buildingName} ${pinnedLocation.roadName} ${pinnedLocation.sublocality} ${pinnedLocation.formattedAddress || ''}`
@@ -260,10 +275,23 @@ export function AddressForm({
       // 2. Extract unit/floor details from the new pinned address string (clears old place units like 501)
       const extracted = extractDetailsFromAddress(pinnedLocation.formattedAddress || '')
       form.setValue('floor_no', extracted.floor || '')
-      form.setValue('unit_no', extracted.unit || '')
+
+      // Prevent unit_no from being polluted with Block name or duplicating building name
+      if (extracted.unit) {
+        if (/^(?:block|tower)\b/i.test(extracted.unit)) {
+          form.setValue('tower_block', extracted.unit)
+          form.setValue('unit_no', '')
+        } else if (extracted.unit.toLowerCase() !== resolvedTitle.toLowerCase()) {
+          form.setValue('unit_no', extracted.unit)
+        } else {
+          form.setValue('unit_no', '')
+        }
+      } else {
+        form.setValue('unit_no', '')
+      }
 
       // 3. Update form values with the newly confirmed pinned location from map
-      form.setValue('building_name', resolvedTitle)
+      form.setValue('building_name', isPlusCode(resolvedTitle) ? '' : resolvedTitle)
       form.setValue('latitude', pinnedLocation.latitude, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
       form.setValue('longitude', pinnedLocation.longitude, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
       if (pinnedLocation.roadName) {
@@ -278,23 +306,18 @@ export function AddressForm({
 
       // 4. Update company name and label according to new category
       if (newCategory === 'commercial') {
-        form.setValue('company_name', resolvedTitle)
+        form.setValue('company_name', isPlusCode(resolvedTitle) ? '' : resolvedTitle)
         form.setValue('label', 'work')
-      } else if (newCategory === 'residential') {
-        form.setValue('company_name', '')
-        form.setValue('label', 'home')
       } else {
         form.setValue('company_name', '')
-        if (form.getValues('label') === 'work') {
-          form.setValue('label', 'home')
-        }
+        form.setValue('label', 'home')
       }
 
-      setSearchInput(resolvedTitle)
+      setSearchInput(isPlusCode(resolvedTitle) ? '' : resolvedTitle)
 
       const updatedPlace: ParsedPlaceDetails = {
-        name: resolvedTitle,
-        buildingName: pinnedLocation.buildingName || resolvedTitle,
+        name: isPlusCode(resolvedTitle) ? (pinnedLocation.sublocality || 'Pinned Location') : resolvedTitle,
+        buildingName: isPlusCode(pinnedLocation.buildingName) ? '' : (pinnedLocation.buildingName || resolvedTitle),
         roadName: pinnedLocation.roadName || '',
         sublocality: pinnedLocation.sublocality || 'Ahmedabad',
         pincode: pinnedLocation.pincode || '',
@@ -314,28 +337,53 @@ export function AddressForm({
       const parts = (address.address_line1 || '').split(', ')
       const unit = parts.length > 1 ? parts[0] : ''
       const bName = parts.length > 1 ? parts.slice(1).join(', ') : address.address_line1
+      const lat = address.latitude ? Number(address.latitude) : null
+      const lng = address.longitude ? Number(address.longitude) : null
 
       form.reset({
         label: (address.label as any) || 'home',
         custom_label: address.custom_label || '',
         contact_name: address.contact_name,
         contact_phone: address.contact_phone,
-        place_category: address.label === 'work' ? 'commercial' : 'general',
+        place_category: address.label === 'work' ? 'commercial' : 'residential',
         company_name: '',
         floor_no: '',
         tower_block: '',
         unit_no: unit,
-        building_name: bName,
+        building_name: isPlusCode(bName) ? '' : (bName || ''),
         road_name: address.address_line2 ?? '',
         landmark: address.landmark ?? '',
         pincode: address.pincode,
-        latitude: address.latitude ?? null,
-        longitude: address.longitude ?? null,
+        latitude: lat,
+        longitude: lng,
         sublocality: address.sublocality ?? '',
         delivery_instructions: '',
         meal_type_tag: address.meal_type_tag || 'both',
         preferred_time: address.preferred_time ? address.preferred_time.slice(0, 5) : '',
       })
+
+      if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+        const placeTitle = isPlusCode(bName)
+          ? (address.sublocality || address.address_line2 || 'Saved Location')
+          : (bName || address.sublocality || 'Saved Location')
+
+        setSelectedPlace({
+          name: placeTitle,
+          buildingName: isPlusCode(bName) ? '' : (bName || ''),
+          roadName: address.address_line2 || '',
+          sublocality: address.sublocality || 'Ahmedabad',
+          city: address.city || 'Ahmedabad',
+          state: address.state || 'Gujarat',
+          pincode: address.pincode || '',
+          latitude: lat,
+          longitude: lng,
+          formattedAddress: [address.address_line1, address.address_line2, address.sublocality, address.city, address.pincode].filter(Boolean).join(', '),
+          placeTypes: [],
+          category: address.label === 'work' ? 'commercial' : 'residential',
+          isCompanyOrOffice: address.label === 'work',
+          isResidentialSociety: address.label !== 'work',
+        })
+      }
       setShowAdvancedFields(true)
     } else {
       form.reset({
@@ -378,7 +426,7 @@ export function AddressForm({
       try {
         const preds = await getPredictions(searchInput)
         setPredictions(preds)
-        setIsDropdownOpen(preds.length > 0)
+        setIsDropdownOpen(true)
       } catch (err) {
         console.error('Failed to get predictions:', err)
       } finally {
@@ -423,28 +471,39 @@ export function AddressForm({
       )
 
       // Always populate building_name with resolved place name so validation never fails
-      const resolvedName = details.name || details.buildingName || pred.mainText
-      form.setValue('building_name', resolvedName)
+      const rawName = details.name || details.buildingName || pred.mainText
+      const resolvedName = isPlusCode(rawName)
+        ? (details.sublocality && !isPlusCode(details.sublocality) ? details.sublocality : details.roadName || '')
+        : rawName
+      form.setValue('building_name', isPlusCode(resolvedName) ? '' : resolvedName)
 
       // Auto-extract floor and unit/office from address string
       const fullAddr = details.formattedAddress || pred.description || ''
       const extracted = extractDetailsFromAddress(fullAddr)
 
       form.setValue('floor_no', extracted.floor || '')
-      form.setValue('unit_no', extracted.unit || (category === 'commercial' ? 'Main Office' : ''))
+      if (extracted.unit) {
+        if (/^(?:block|tower)\b/i.test(extracted.unit)) {
+          form.setValue('tower_block', extracted.unit)
+          form.setValue('unit_no', '')
+        } else if (extracted.unit.toLowerCase() !== resolvedName.toLowerCase()) {
+          form.setValue('unit_no', extracted.unit)
+        } else {
+          form.setValue('unit_no', category === 'commercial' ? 'Main Office' : '')
+        }
+      } else {
+        form.setValue('unit_no', category === 'commercial' ? 'Main Office' : '')
+      }
 
       // Auto-set label chip & company details
       if (category === 'commercial') {
         form.setValue('label', 'work')
+        form.setValue('place_category', 'commercial')
         form.setValue('company_name', resolvedName)
-      } else if (category === 'residential') {
-        form.setValue('label', 'home')
-        form.setValue('company_name', '')
       } else {
+        form.setValue('label', 'home')
+        form.setValue('place_category', 'residential')
         form.setValue('company_name', '')
-        if (form.getValues('label') === 'work') {
-          form.setValue('label', 'home')
-        }
       }
 
       // Set base location fields
@@ -490,11 +549,16 @@ export function AddressForm({
               let sublocality = ''
               let pincode = ''
               let road = ''
+              let city = ''
+              let state = ''
 
               for (const c of place.address_components) {
                 if (c.types.includes('sublocality')) sublocality = c.long_name
                 if (c.types.includes('postal_code')) pincode = c.long_name
                 if (c.types.includes('route')) road = c.long_name
+                if (c.types.includes('locality')) city = c.long_name
+                if (!city && c.types.includes('administrative_area_level_2')) city = c.long_name
+                if (c.types.includes('administrative_area_level_1')) state = c.long_name
               }
 
               if (sublocality) form.setValue('sublocality', sublocality)
@@ -506,6 +570,8 @@ export function AddressForm({
                 buildingName: '',
                 roadName: road,
                 sublocality: sublocality || 'Ahmedabad',
+                city: city || 'Ahmedabad',
+                state: state || 'Gujarat',
                 pincode: pincode || '',
                 latitude,
                 longitude,
@@ -537,6 +603,30 @@ export function AddressForm({
 
   const activeLat = selectedPlace?.latitude != null ? selectedPlace.latitude : watchLat
   const activeLng = selectedPlace?.longitude != null ? selectedPlace.longitude : watchLng
+
+  const hasValidLocation = useMemo(() => {
+    const lat = activeLat != null && !isNaN(Number(activeLat)) ? Number(activeLat) : null
+    const lng = activeLng != null && !isNaN(Number(activeLng)) ? Number(activeLng) : null
+    return Boolean(lat && lng && lat !== 0 && lng !== 0 && (selectedPlace || pinnedLocation || (isEditing && address)))
+  }, [activeLat, activeLng, selectedPlace, pinnedLocation, isEditing, address])
+
+  // Fully resets location state from form and clears parent dialog state
+  const handleResetLocation = () => {
+    setSelectedPlace(null)
+    setSearchInput('')
+    setPredictions([])
+    setIsDropdownOpen(false)
+    form.setValue('latitude', null, { shouldValidate: true, shouldDirty: true })
+    form.setValue('longitude', null, { shouldValidate: true, shouldDirty: true })
+    form.setValue('building_name', '', { shouldValidate: true, shouldDirty: true })
+    form.setValue('road_name', '', { shouldDirty: true })
+    form.setValue('sublocality', '', { shouldDirty: true })
+    form.setValue('pincode', '', { shouldValidate: true, shouldDirty: true })
+    form.setValue('unit_no', '', { shouldDirty: true })
+    form.setValue('tower_block', '', { shouldDirty: true })
+    form.setValue('company_name', '', { shouldDirty: true })
+    onClearLocation?.()
+  }
 
   useEffect(() => {
     const lat = activeLat != null && !isNaN(Number(activeLat)) ? Number(activeLat) : null
@@ -634,10 +724,27 @@ export function AddressForm({
     const lat = selectedPlace?.latitude ?? values.latitude
     const lng = selectedPlace?.longitude ?? values.longitude
 
-    if (lat == null || lng == null || isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
-      toast.error('Please select your location via search or choose on map to confirm delivery location.')
+    if (!hasValidLocation || lat == null || lng == null || isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+      toast.error('Delivery location is compulsory. Please select your location on the map.')
+      handleOpenMapWithCurrentLocation()
       return
     }
+
+    if (resolvedDelivery.isOutOfZone) {
+      toast.error('This address is outside our delivery area. Please select a deliverable location in Ahmedabad.')
+      return
+    }
+
+    const resolvedCity =
+      pinnedLocation?.city ||
+      selectedPlace?.city ||
+      address?.city ||
+      'Ahmedabad'
+    const resolvedState =
+      pinnedLocation?.state ||
+      selectedPlace?.state ||
+      address?.state ||
+      'Gujarat'
 
     const payload = {
       label:
@@ -649,8 +756,8 @@ export function AddressForm({
       address_line1: line1,
       address_line2: values.road_name || null,
       landmark: values.delivery_instructions || values.landmark || null,
-      city: 'Ahmedabad',
-      state: 'Gujarat',
+      city: resolvedCity,
+      state: resolvedState,
       pincode: values.pincode,
       latitude: lat,
       longitude: lng,
@@ -759,6 +866,19 @@ export function AddressForm({
             )}
           </div>
 
+          {/* Service Area Clarification Notice */}
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-left">
+            <Info className="size-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="text-xs font-semibold text-amber-950 dark:text-amber-200">
+                Service Area Notice
+              </p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Daily individual meal delivery is currently available across select <strong className="text-foreground">West Ahmedabad zones</strong>. For <strong className="text-foreground">bulk & party orders, we deliver across all of Ahmedabad</strong>! Non-Ahmedabad cities are excluded from search.
+              </p>
+            </div>
+          </div>
+
           {/* Autocomplete Predictions Dropdown: Hidden when a place is already confirmed */}
           {!selectedPlace && isDropdownOpen && predictions.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1.5 bg-popover border rounded-xl shadow-xl overflow-hidden z-50 divide-y max-h-72 overflow-y-auto">
@@ -786,19 +906,18 @@ export function AddressForm({
                           {pred.mainText}
                         </span>
                         <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
-                            cat === 'commercial'
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${cat === 'commercial'
                               ? 'bg-blue-100 text-blue-700'
                               : cat === 'residential'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-muted text-muted-foreground'
-                          }`}
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
                         >
                           {cat === 'commercial'
                             ? '🏢 Office / Tech Park'
                             : cat === 'residential'
-                            ? '🏡 Society / Home'
-                            : '📍 Landmark'}
+                              ? '🏡 Society / Home'
+                              : '📍 Landmark'}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
@@ -808,6 +927,42 @@ export function AddressForm({
                   </button>
                 )
               })}
+            </div>
+          )}
+
+          {/* Zero results state when search has no predictions in boundary */}
+          {!selectedPlace && isDropdownOpen && !isSearching && searchInput.trim().length >= 3 && predictions.length === 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1.5 bg-popover border border-amber-500/20 rounded-xl shadow-xl p-4 z-50 animate-in fade-in-50 text-left">
+              <div className="flex items-start gap-3">
+                <div className="size-8 rounded-lg bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <MapPinOff className="size-4" />
+                </div>
+                <div className="space-y-1">
+                  <h5 className="font-bold text-xs text-foreground">
+                    No daily meal delivery in this area
+                  </h5>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Daily fresh meal delivery is currently limited to select <strong className="text-foreground">West Ahmedabad zones</strong>. However, for <strong className="text-foreground">bulk and party orders, we deliver across all of Ahmedabad!</strong>
+                  </p>
+                  <div className="flex items-center gap-3 pt-1">
+                    {onOpenMap && (
+                      <button
+                        type="button"
+                        onClick={handleOpenMapWithCurrentLocation}
+                        className="text-xs text-primary font-bold hover:underline inline-flex items-center gap-1"
+                      >
+                        <MapPin className="size-3" /> Pin on map
+                      </button>
+                    )}
+                    <a
+                      href="/contact"
+                      className="text-xs text-amber-700 dark:text-amber-400 font-bold hover:underline"
+                    >
+                      Inquire for Party Order →
+                    </a>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -828,11 +983,11 @@ export function AddressForm({
                       {selectedPlace.name || selectedPlace.buildingName || 'Location Confirmed'}
                     </h4>
                     <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary/15 text-primary">
-                      {watchCategory === 'commercial'
+                      {watchLabel === 'work'
                         ? 'Corporate Office'
-                        : watchCategory === 'residential'
-                        ? 'Residential Society'
-                        : 'Verified Location'}
+                        : watchLabel === 'home'
+                          ? 'Residential Society'
+                          : 'Verified Location'}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -899,10 +1054,13 @@ export function AddressForm({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    setSelectedPlace(null)
-                    setSearchInput('')
+                    if (onOpenMap) {
+                      handleOpenMapWithCurrentLocation()
+                    } else {
+                      handleResetLocation()
+                    }
                   }}
-                  className="text-xs h-7 px-2 rounded-lg"
+                  className="text-xs h-7 px-2.5 rounded-lg font-semibold"
                 >
                   Change
                 </Button>
@@ -912,10 +1070,35 @@ export function AddressForm({
         )}
 
         {/* ================================================================= */}
+        {/* 2b. LOCATION REQUIRED BANNER: Shown when NO location is confirmed */}
+        {/* ================================================================= */}
+        {!hasValidLocation && (
+          <div className="rounded-xl border-2 border-dashed border-amber-500/50 bg-amber-500/10 p-5 text-center space-y-3 animate-in fade-in-50">
+            <div className="flex items-center justify-center gap-2 text-amber-800 dark:text-amber-200 font-bold text-sm">
+              <MapPin className="size-4 text-amber-600 animate-bounce" />
+              Delivery Location Required
+            </div>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              Please choose your delivery location on the map. We use your exact map coordinates to calculate road distance and ensure we can deliver fresh to you.
+            </p>
+            {onOpenMap && (
+              <Button
+                type="button"
+                onClick={handleOpenMapWithCurrentLocation}
+                className="h-10 px-5 rounded-xl font-bold text-xs gap-1.5 shadow-sm"
+              >
+                <MapPin className="size-3.5" />
+                Select Location on Map
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* ================================================================= */}
         {/* 3. ADDRESS LABEL SELECTOR                                          */}
         {/* ================================================================= */}
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">
             Save Address As
           </label>
           <div className="flex items-center gap-2">
@@ -930,12 +1113,26 @@ export function AddressForm({
                 <button
                   key={chip.id}
                   type="button"
-                  onClick={() => form.setValue('label', chip.id as any)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                    isSelected
+                  onClick={() => {
+                    form.setValue('label', chip.id as any)
+                    if (chip.id === 'home') {
+                      form.setValue('place_category', 'residential')
+                    } else if (chip.id === 'work') {
+                      form.setValue('place_category', 'commercial')
+                      if (!form.getValues('company_name')) {
+                        const bName = form.getValues('building_name')
+                        if (bName && bName !== 'Pinned Location') {
+                          form.setValue('company_name', bName)
+                        }
+                      }
+                    } else {
+                      form.setValue('place_category', 'general')
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${isSelected
                       ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                       : 'bg-background hover:bg-accent text-foreground border-input'
-                  }`}
+                    }`}
                 >
                   <Icon className="size-3.5" />
                   {chip.label}
@@ -943,29 +1140,93 @@ export function AddressForm({
               )
             })}
           </div>
+        </div>
 
-          {watchLabel === 'other' && (
-            <div className="mt-3">
+        {/* ================================================================= */}
+        {/* 4. ADAPTIVE TAILORED INPUTS BASED ON LABEL (HOME vs WORK vs OTHER) */}
+        {/* ================================================================= */}
+        {watchLabel === 'home' && (
+          <div className="space-y-4 rounded-xl border bg-card/60 p-4 shadow-sm animate-in fade-in-50">
+            <div className="flex items-center gap-2 border-b pb-2">
+              <Home className="size-4 text-emerald-500" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                Home / Residential Delivery Details
+              </h4>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField
                 control={form.control}
-                name="custom_label"
+                name="unit_no"
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <FloatingInput label="Custom Label (e.g. Gym, Friend's Place)" {...field} />
+                      <FloatingInput
+                        label="Flat / House / Door No. *"
+                        placeholder="e.g. Flat 402, House 12"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="tower_block"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <FloatingInput
+                        label="Tower / Block / Floor (Optional)"
+                        placeholder="e.g. Tower B, Block 4, 3rd Floor"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-          )}
-        </div>
 
-        {/* ================================================================= */}
-        {/* 4. ADAPTIVE MINIMAL INPUTS BASED ON PLACE CATEGORY               */}
-        {/* ================================================================= */}
-        {watchCategory === 'commercial' && (
+            <FormField
+              control={form.control}
+              name="building_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <FloatingInput
+                      label="Society / Apartment / Building Name *"
+                      placeholder="e.g. Goyal Intercity, Godrej Garden City"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="delivery_instructions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <FloatingInput
+                      label="Delivery Instructions / Gate Landmark (Optional)"
+                      placeholder="e.g. Ring bell, leave with security guard, Gate 2"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
+
+        {watchLabel === 'work' && (
           <div className="space-y-4 rounded-xl border bg-card/60 p-4 shadow-sm animate-in fade-in-50">
             <div className="flex items-center justify-between border-b pb-2">
               <div className="flex items-center gap-2">
@@ -974,16 +1235,7 @@ export function AddressForm({
                   Office & Work Delivery Details
                 </h4>
               </div>
-              {selectedPlace && (
-                <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                  <Sparkles className="size-3" /> Auto-filled from place
-                </span>
-              )}
             </div>
-
-            <p className="text-xs text-muted-foreground">
-              We deliver to the reception / main entrance by default. Add your floor or desk number only if you want delivery directly to your desk.
-            </p>
 
             <FormField
               control={form.control}
@@ -991,7 +1243,11 @@ export function AddressForm({
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <FloatingInput label="Company / Organization Name *" {...field} />
+                    <FloatingInput
+                      label="Company / Office Name *"
+                      placeholder="e.g. Tech Mahindra, DevX, Simform"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -999,121 +1255,40 @@ export function AddressForm({
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="unit_no"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <FloatingInput
+                        label="Office / Unit / Desk No. *"
+                        placeholder="e.g. Office 702, Desk 12, Reception"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="floor_no"
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <FloatingInput label="Floor No. (Optional)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="unit_no"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <FloatingInput label="Office / Unit / Desk No. (Optional)" {...field} />
+                      <FloatingInput
+                        label="Floor No. (Optional)"
+                        placeholder="e.g. 7th Floor, Ground Floor"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="delivery_instructions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <FloatingInput
-                      label="Delivery Instruction (e.g. Drop at reception, Call upon arrival)"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        )}
-
-        {watchCategory === 'residential' && (
-          <div className="space-y-4 rounded-xl border bg-card/60 p-4 shadow-sm animate-in fade-in-50">
-            <div className="flex items-center gap-2 border-b pb-2">
-              <Home className="size-4 text-emerald-500" />
-              <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                Society & Flat Delivery Details
-              </h4>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="tower_block"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <FloatingInput label="Block / Tower (e.g. Tower B) *" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="unit_no"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <FloatingInput label="Flat / House / Door No. *" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="delivery_instructions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <FloatingInput
-                      label="Entry Instruction / Gate Landmark (Optional)"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        )}
-
-        {/* General / Unlisted manual fields (only when not commercial or residential) */}
-        {watchCategory === 'general' && (
-          <div className="space-y-4">
-            <FormField
-              control={form.control}
-              name="unit_no"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <FloatingInput label="House / Flat / Office / Door No. *" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <FormField
               control={form.control}
@@ -1121,7 +1296,28 @@ export function AddressForm({
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <FloatingInput label="Building, Society, or Landmark Name *" {...field} />
+                    <FloatingInput
+                      label="Building / Tech Park Name *"
+                      placeholder="e.g. Zion Z1, Mondeal Heights"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="delivery_instructions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <FloatingInput
+                      label="Delivery Instructions (Optional)"
+                      placeholder="e.g. Drop at reception, call when rider reaches entrance"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -1130,18 +1326,44 @@ export function AddressForm({
           </div>
         )}
 
-        {/* Road & Area fields: shown if general, or collapsible if commercial/residential */}
-        {(watchCategory === 'general' || showAdvancedFields) && (
-          <div className="space-y-4">
+        {watchLabel === 'other' && (
+          <div className="space-y-4 rounded-xl border bg-card/60 p-4 shadow-sm animate-in fade-in-50">
+            <div className="flex items-center gap-2 border-b pb-2">
+              <MapPin className="size-4 text-purple-500" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                Other Delivery Location Details
+              </h4>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="custom_label"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <FloatingInput
+                      label="Save Address As (e.g. Gym, Friend's Place) *"
+                      placeholder="e.g. Gym, Clubhouse, Friend's Flat"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField
                 control={form.control}
-                name="road_name"
+                name="unit_no"
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <FloatingInput label="Road / Main Avenue (Optional)" {...field} />
+                      <FloatingInput
+                        label="House / Flat / Unit No. *"
+                        placeholder="e.g. Flat 101, Room 5"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1150,11 +1372,15 @@ export function AddressForm({
 
               <FormField
                 control={form.control}
-                name="sublocality"
+                name="building_name"
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <FloatingInput label="Area / Locality (Ahmedabad) *" {...field} />
+                      <FloatingInput
+                        label="Building / Premise / Society Name *"
+                        placeholder="e.g. Platinum Fitness, Sunrise Tower"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1162,54 +1388,102 @@ export function AddressForm({
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="landmark"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <FloatingInput label="Landmark (Optional)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="pincode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <FloatingInput label="Pincode *" maxLength={6} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="delivery_instructions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <FloatingInput
+                      label="Delivery Instructions (Optional)"
+                      placeholder="e.g. Wait near main lobby, call on arrival"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
         )}
 
-        {/* Collapsible toggle for viewing/fine-tuning all address parts */}
-        {selectedPlace && watchCategory !== 'general' && (
+        {/* ================================================================= */}
+        {/* 4b. COLLAPSIBLE ROAD, AREA & PINCODE (AUTO-FILLED FROM MAP)       */}
+        {/* ================================================================= */}
+        <div className="pt-0.5">
           <button
             type="button"
             onClick={() => setShowAdvancedFields(!showAdvancedFields)}
-            className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+            className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors py-1 group"
           >
             {showAdvancedFields ? (
               <>
-                <ChevronUp className="size-3.5" /> Hide resolved road & area details
+                <ChevronUp className="size-3.5 text-primary shrink-0" />
+                <span>Hide Road, Area & Pincode</span>
               </>
             ) : (
               <>
-                <ChevronDown className="size-3.5" /> View / Edit resolved road & area details
+                <ChevronDown className="size-3.5 text-muted-foreground group-hover:text-foreground shrink-0" />
+                <span className="truncate text-left">
+                  Road, Area & Pincode:{' '}
+                  <span className="font-normal text-muted-foreground">
+                    {[watchRoadName, watchSublocality || 'Ahmedabad', watchPincode].filter(Boolean).join(', ')} (Auto-filled from map)
+                  </span>
+                </span>
               </>
             )}
           </button>
-        )}
+
+          {showAdvancedFields && (
+            <div className="mt-2.5 p-3.5 rounded-xl border bg-muted/20 space-y-3 animate-in fade-in-50">
+              <p className="text-[11px] text-muted-foreground">
+                These details were auto-detected from your map pin. You can adjust them here if needed.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="road_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <FloatingInput label="Road / Main Avenue (Optional)" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="sublocality"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <FloatingInput label="Area / Locality (Ahmedabad) *" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="max-w-[200px]">
+                <FormField
+                  control={form.control}
+                  name="pincode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <FloatingInput label="Pincode *" maxLength={6} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          )}
+        </div>
         {/* ================================================================= */}
         {/* 4b. MEAL DELIVERY PREFERENCES                                      */}
         {/* ================================================================= */}
@@ -1238,11 +1512,10 @@ export function AddressForm({
                     key={chip.id}
                     type="button"
                     onClick={() => form.setValue('meal_type_tag', chip.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                      isSelected
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isSelected
                         ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
                         : 'bg-background hover:bg-accent text-foreground border-input'
-                    }`}
+                      }`}
                   >
                     <Icon className="size-3.5" />
                     {chip.label}
@@ -1314,13 +1587,17 @@ export function AddressForm({
         <div className="flex items-center gap-2 pt-2">
           <Button
             type="submit"
-            disabled={isPending}
-            className="flex-1 sm:flex-none font-bold text-sm h-11 px-8 rounded-xl shadow-md"
+            disabled={isPending || !hasValidLocation || resolvedDelivery.isOutOfZone}
+            className="flex-1 sm:flex-none font-bold text-sm h-11 px-8 rounded-xl shadow-md disabled:opacity-60"
           >
             {isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin mr-2" /> Saving…
               </>
+            ) : !hasValidLocation ? (
+              'Select Location on Map to Save'
+            ) : resolvedDelivery.isOutOfZone ? (
+              'Outside Delivery Area'
             ) : isEditing ? (
               'Update Address'
             ) : (

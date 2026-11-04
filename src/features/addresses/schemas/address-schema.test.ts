@@ -41,8 +41,10 @@ describe('addressSchema', () => {
     expect(addressSchema.safeParse(validResidential).success).toBe(true)
   })
 
-  it('rejects a pincode that is not an Ahmedabad 380xxx pincode', () => {
-    expect(addressSchema.safeParse({ ...validCommercial, pincode: '400001' }).success).toBe(false)
+  it('rejects an invalid pincode (not 6 digits or starting with 0)', () => {
+    expect(addressSchema.safeParse({ ...validCommercial, pincode: '012345' }).success).toBe(false)
+    expect(addressSchema.safeParse({ ...validCommercial, pincode: '12345' }).success).toBe(false)
+    expect(addressSchema.safeParse({ ...validCommercial, pincode: '38001A' }).success).toBe(false)
   })
 
   it('rejects a phone number not starting 6-9', () => {

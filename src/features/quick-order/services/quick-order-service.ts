@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { fetchThaliOptionGroups, type ResolvedOptionGroup } from '@/features/menu/services/thali-customizer-service'
 import { placeOrder } from '@/features/checkout/services/checkout-service'
 import { resolveDeliveryCharge, type DeliveryResolutionResult } from '@/features/checkout/services/delivery-charge-resolver'
+import { calculateGoogleRoadDistance } from '@/services/google-routes-service'
 import { fetchAddresses } from '@/features/addresses/services/addresses-service'
 import { fetchDeliveryAreas, fetchDeliveryFeeRules, fetchKitchenLocation, fetchDeliverySettings } from '@/features/addresses/services/delivery-zone-service'
 import type { Json, MealType, Tables } from '@/types/database.types'
@@ -231,11 +232,28 @@ export async function fetchQuickOrderContext(
     activeAddress = addresses.find((a) => a.is_default) || addresses[0] || null
   }
 
+  // Calculate driving distance via Google Routes API if coordinates exist
+  let overrideDistanceKm: number | null = null
+  const destLat = activeAddress?.latitude != null ? Number(activeAddress.latitude) : null
+  const destLng = activeAddress?.longitude != null ? Number(activeAddress.longitude) : null
+
+  if (destLat && destLng && !isNaN(destLat) && !isNaN(destLng) && destLat !== 0 && destLng !== 0) {
+    try {
+      const roadRes = await calculateGoogleRoadDistance(destLat, destLng, kitchenLoc.lat, kitchenLoc.lng)
+      if (roadRes && roadRes.km > 0) {
+        overrideDistanceKm = roadRes.km
+      }
+    } catch (err) {
+      console.debug('[QuickOrder] Road distance calculation:', err)
+    }
+  }
+
   const deliveryResolution = resolveDeliveryCharge(activeAddress, {
     settings: deliverySettings,
     kitchenLocation: kitchenLoc,
     areas,
     feeRules,
+    overrideDistanceKm,
   })
 
   // Determine active Thali

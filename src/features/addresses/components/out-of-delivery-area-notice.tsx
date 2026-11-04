@@ -25,7 +25,7 @@ export function OutOfDeliveryAreaNotice({
 }: OutOfDeliveryAreaNoticeProps) {
   const detectedPincode =
     pincode ||
-    (formattedAddress ? formattedAddress.match(/\b(38\d{4})\b/)?.[1] : null) ||
+    (formattedAddress ? formattedAddress.match(/\b([1-9]\d{5})\b/)?.[1] : null) ||
     null
 
   return (
@@ -39,22 +39,23 @@ export function OutOfDeliveryAreaNotice({
         <AlertCircle className="size-4 text-amber-600 shrink-0" />
         <span>
           {detectedPincode
-            ? `No delivery at Pincode ${detectedPincode}`
-            : 'Outside Current Delivery Area'}
+            ? `Pincode ${detectedPincode} · Outside Daily Meal Delivery Area`
+            : 'Outside Daily Meal Delivery Area'}
         </span>
       </div>
 
       <p className="text-muted-foreground text-[11px] leading-relaxed">
-        We currently deliver individual meals only to select West Ahmedabad areas. We’re expanding to more areas soon!
+        Individual daily meals are currently delivered to select <strong>West Ahmedabad areas</strong> (Bodakdev, Vastrapur, Thaltej, Prahlad Nagar, Satellite, Bopal, SG Highway). 
+        However, for <strong>bulk and party orders, we deliver across all of Ahmedabad!</strong>
       </p>
 
       <div className="pt-1.5 border-t border-amber-200/60 dark:border-amber-900/40 text-[11px] text-muted-foreground">
-        Planning a bulk or party order?{' '}
+        Need a bulk or party order anywhere in Ahmedabad?{' '}
         <Link
           to={ROUTES.contact}
           className="font-semibold text-primary underline underline-offset-2 hover:opacity-80 inline-flex items-center gap-0.5"
         >
-          Contact us <ArrowRight className="size-3" />
+          Contact our catering team <ArrowRight className="size-3" />
         </Link>
       </div>
     </div>

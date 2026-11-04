@@ -172,3 +172,15 @@ export const DEFAULT_KITCHEN_LOCATION = {
   lng: 72.5153523,
 } as const
 
+/**
+ * Strict boundary coordinates for Ahmedabad metropolitan area.
+ * Used to lock Google Maps viewport (strictBounds: true) and restrict Google Places autocomplete queries.
+ */
+export const AHMEDABAD_BOUNDS = {
+  north: 23.18, // Vaishnodevi / Adalaj border
+  south: 22.95, // South Bopal / Makarba / Sarkhej
+  east: 72.65,  // Sabarmati river / Shahibaug
+  west: 72.44,  // Shela / Ghuma
+} as const
+
+

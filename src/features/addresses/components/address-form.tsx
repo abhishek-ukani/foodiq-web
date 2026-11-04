@@ -452,18 +452,6 @@ export function AddressForm({
       const category: PlaceCategory = details.category || pred.category || 'general'
       form.setValue('place_category', category)
 
-      console.log(
-        `%c[FoodIQ:AddressForm] 🔍 Google Place Selected: "${details.name || pred.mainText}"`,
-        'color: #3b82f6; font-weight: bold;',
-        {
-          name: details.name || pred.mainText,
-          address: details.formattedAddress,
-          pincode: details.pincode,
-          coordinates: { lat: details.latitude, lng: details.longitude },
-          category,
-        }
-      )
-
       // Always populate building_name with resolved place name so validation never fails
       const rawName = details.name || details.buildingName || pred.mainText
       const resolvedName = isPlusCode(rawName)
@@ -753,12 +741,6 @@ export function AddressForm({
       meal_type_tag: values.meal_type_tag,
       preferred_time: values.preferred_time ? `${values.preferred_time}:00` : null,
     }
-
-    console.log(
-      `%c[FoodIQ:AddressForm] 💾 Saving Address Payload (${isEditing ? 'UPDATE' : 'CREATE'}):`,
-      'color: #06b6d4; font-weight: bold;',
-      payload
-    )
 
     if (isEditing && address) {
       updateAddress.mutate({ id: address.id, input: payload }, { onSuccess: () => onSaved(null) })

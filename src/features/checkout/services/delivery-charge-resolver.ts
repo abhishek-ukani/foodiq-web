@@ -65,24 +65,7 @@ export function resolveDeliveryCharge(
     }
   }
 
-  const returnWithLog = (res: DeliveryResolutionResult): DeliveryResolutionResult => {
-    const isOut = res.isOutOfZone
-    const feeStr = res.fee === 0 ? 'FREE' : `₹${res.fee}`
-    const style = isOut ? 'color: #ef4444; font-weight: bold;' : 'color: #10b981; font-weight: bold;'
-    console.log(
-      `%c[FoodIQ:Delivery] ${isOut ? '🛑 OUT OF ZONE' : '✅ DELIVERABLE'}: Pincode ${pincode || 'None'} (${res.zoneClassification.toUpperCase()}) | Distance: ${res.distanceKm ?? 0} km | Fee: ${feeStr}`,
-      style,
-      {
-        zone: res.zoneClassification,
-        label: res.zoneLabel,
-        distanceKm: res.distanceKm,
-        deliveryFee: res.fee,
-        isOutOfZone: res.isOutOfZone,
-        source: overrideDistanceKm ? 'Google Routes (DRIVE)' : 'Pending / Not Resolved',
-      }
-    )
-    return res
-  }
+  const returnWithLog = (res: DeliveryResolutionResult): DeliveryResolutionResult => res
 
   // If outside all deliverable zones
   if (classification === 'out_of_zone') {

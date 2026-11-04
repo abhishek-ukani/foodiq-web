@@ -132,16 +132,6 @@ export function CheckoutPage() {
     const destLng = selectedAddress.longitude != null ? Number(selectedAddress.longitude) : null
 
     if (destLat !== null && destLng !== null && !isNaN(destLat) && !isNaN(destLng) && destLat !== 0) {
-      console.log(
-        `%c[FoodIQ:Checkout] 🏠 Customer Address: "${selectedAddress.address_line1 || 'Address'}" (Pincode: ${selectedAddress.pincode || 'N/A'})`,
-        'color: #ec4899; font-weight: bold;',
-        {
-          id: selectedAddress.id,
-          pincode: selectedAddress.pincode,
-          coordinates: { lat: destLat, lng: destLng },
-        }
-      )
-
       let isMounted = true
       setGoogleRoadDistance(null) // Reset while resolving new address coordinates
       calculateGoogleRoadDistance(destLat, destLng, kitchenLoc?.lat, kitchenLoc?.lng)

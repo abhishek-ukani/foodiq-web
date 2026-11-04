@@ -69,13 +69,8 @@ export async function calculateGoogleRoadDistance(
 
   // 1. Cache Check
   if (distanceCache.has(cacheKey)) {
-    const cachedKm = distanceCache.get(cacheKey)!
-    console.log(
-      `%c[FoodIQ:Distance] ⚡ Cache Hit: ${cachedKm} km (Destination: ${destLat.toFixed(4)}, ${destLng.toFixed(4)})`,
-      'color: #8b5cf6; font-weight: bold;'
-    )
     return {
-      km: cachedKm,
+      km: distanceCache.get(cacheKey)!,
       source: 'cache',
     }
   }
@@ -87,22 +82,10 @@ export async function calculateGoogleRoadDistance(
     return { km: 0, source: 'error' }
   }
 
-  const aerialKm = haversineDistanceKm(kitchenLat, kitchenLng, destLat, destLng)
-
-  // 4. Call Google Routes API v2
-  console.groupCollapsed(
-    `%c[FoodIQ:Distance] 🌐 Calling Google Routes API (DRIVE) → (${destLat.toFixed(5)}, ${destLng.toFixed(5)})`,
-    'color: #0284c7; font-weight: bold;'
-  )
-  console.log('Kitchen Origin (Sarita Apts Bodakdev):', { lat: kitchenLat, lng: kitchenLng })
-  console.log('Customer Destination:', { lat: destLat, lng: destLng })
-  console.log('Aerial (Straight-line):', `${aerialKm.toFixed(2)} km`)
-
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 6000) // 6s timeout
 
-    const startTime = performance.now()
     const response = await fetch(ROUTES_API_URL, {
       method: 'POST',
       headers: {
@@ -127,7 +110,6 @@ export async function calculateGoogleRoadDistance(
       signal: controller.signal,
     })
 
-    const latencyMs = Math.round(performance.now() - startTime)
     clearTimeout(timeoutId)
 
     if (!response.ok) {
@@ -147,18 +129,6 @@ export async function calculateGoogleRoadDistance(
       // Store in memory cache
       distanceCache.set(cacheKey, roadKm)
 
-      console.log(
-        `%c[FoodIQ:Distance] ✅ Google Routes Success (${latencyMs}ms):`,
-        'color: #10b981; font-weight: bold;',
-        {
-          roadDistance: `${roadKm} km (${distanceMeters} m)`,
-          driveDuration: durationSec ? `${Math.round(durationSec / 60)} min (${durationSec}s)` : 'N/A',
-          circuityMultiplier: `${(roadKm / (aerialKm || 1)).toFixed(2)}x`,
-          cached: true,
-        }
-      )
-      console.groupEnd()
-
       return {
         km: roadKm,
         source: 'google_routes',
@@ -168,7 +138,6 @@ export async function calculateGoogleRoadDistance(
     throw new Error('Google Routes response missing distanceMeters')
   } catch (error) {
     console.error('[FoodIQ:Distance] 🛑 Google Routes API failed:', error)
-    console.groupEnd()
     return {
       km: 0,
       source: 'error',

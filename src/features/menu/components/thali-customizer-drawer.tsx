@@ -113,14 +113,14 @@ export function ThaliCustomizerDrawer({
       if (customAddonMap.has(id)) {
         return customAddonMap.get(id)!
       }
-      const match = item?.item_customizations?.find((c) => c.id === id)
+      const match = groupAddOns.find((c) => c.id === id)
       return {
         id,
         name: match?.name || 'Add-on',
         price_delta: Number(match?.price_delta || 0),
       }
     })
-  }, [selectedIds, customAddonMap, item?.item_customizations])
+  }, [selectedIds, customAddonMap, groupAddOns])
 
   const addOnsTotal = resolvedSelectedCustomizations.reduce((sum, c) => sum + c.price_delta, 0)
   const totalPrice = (basePrice + addOnsTotal) * quantity
@@ -383,10 +383,9 @@ export function ThaliCustomizerDrawer({
               )}
 
               {/* Add-ons & Extras */}
-              {(item.item_customizations?.length > 0 || groupAddOns.length > 0) && (
+              {groupAddOns.length > 0 && (
                 <div className="pt-1.5 border-t">
                   <ItemCustomizationPicker
-                    customizations={item.item_customizations || []}
                     groupAddOns={groupAddOns}
                     selectedIds={selectedIds}
                     onToggle={toggleCustomization}

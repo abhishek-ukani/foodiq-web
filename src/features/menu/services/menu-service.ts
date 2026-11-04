@@ -300,7 +300,6 @@ export type ThaliComponent = Tables<'thali_items'> & { food_items: { name: strin
 export type FoodItemDetail = Tables<'food_items'> & {
   categories: Tables<'categories'> | null
   thali_items: ThaliComponent[]
-  item_customizations: Tables<'item_customizations'>[]
   food_item_variants: Tables<'food_item_variants'>[]
 }
 
@@ -309,7 +308,7 @@ export async function fetchFoodItemBySlug(slug: string): Promise<FoodItemDetail>
   let query = supabase
     .from('food_items')
     .select(
-      '*, categories(*), thali_items!thali_items_thali_id_fkey(*, food_items!thali_items_food_item_id_fkey(name)), item_customizations(*), food_item_variants(*)',
+      '*, categories(*), thali_items!thali_items_thali_id_fkey(*, food_items!thali_items_food_item_id_fkey(name)), food_item_variants(*)',
     )
   if (isUuid) {
     query = query.or(`slug.eq.${slug},id.eq.${slug}`)
@@ -319,7 +318,6 @@ export async function fetchFoodItemBySlug(slug: string): Promise<FoodItemDetail>
   const { data, error } = await query.single()
   if (error) throw error
   const item = data as unknown as FoodItemDetail
-  const activeCustomizations = (item.item_customizations || []).filter((c) => c.is_active !== false)
   const activeVariants = (item.food_item_variants || [])
     .filter((v) => v.is_active !== false)
     .sort((a, b) => a.display_order - b.display_order || a.price - b.price)
@@ -327,9 +325,6 @@ export async function fetchFoodItemBySlug(slug: string): Promise<FoodItemDetail>
   return {
     ...item,
     thali_items: [...(item.thali_items || [])].sort((a, b) => a.display_order - b.display_order),
-    item_customizations: [...activeCustomizations].sort(
-      (a, b) => a.display_order - b.display_order,
-    ),
     food_item_variants: activeVariants,
   }
 }

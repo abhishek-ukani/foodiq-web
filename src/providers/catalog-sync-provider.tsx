@@ -80,7 +80,6 @@ export function CatalogSyncProvider({ children }: CatalogSyncProviderProps) {
       'thali_option_groups',
       'thali_option_items',
       'thali_components',
-      'item_customizations',
     ]
 
     for (const table of monitoredTables) {

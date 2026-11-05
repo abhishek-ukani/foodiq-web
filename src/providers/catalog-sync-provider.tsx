@@ -73,13 +73,13 @@ export function CatalogSyncProvider({ children }: CatalogSyncProviderProps) {
     const monitoredTables = [
       'food_items',
       'food_item_variants',
+      'thalis',
+      'thali_fixed_items',
+      'thali_option_groups',
+      'thali_option_items',
       'daily_menus',
       'daily_menu_items',
       'categories',
-      'thali_items',
-      'thali_option_groups',
-      'thali_option_items',
-      'thali_components',
     ]
 
     for (const table of monitoredTables) {

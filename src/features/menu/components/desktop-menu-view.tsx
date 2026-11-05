@@ -274,20 +274,9 @@ export function DesktopMenuView({
 
     const handledIds = new Set<string>()
 
-    // Priority ordering: Farsan first, then Thalis, then others
-    const getSortPriority = (nameOrSlug: string) => {
-      const s = nameOrSlug.toLowerCase()
-      if (s.includes('farsan') || s.includes('snack')) return 1
-      if (s.includes('thali')) return 2
-      if (s.includes('sabji') || s.includes('shabji')) return 3
-      if (s.includes('bread') || s.includes('rotli')) return 4
-      if (s.includes('sweet')) return 5
-      if (s.includes('beverage')) return 6
-      return 10
-    }
-
+    // Data-driven ordering from categories.display_order
     const sortedCategories = [...availableCategories].sort(
-      (a, b) => getSortPriority(a.slug || a.name) - getSortPriority(b.slug || b.name),
+      (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
     )
 
     for (const cat of sortedCategories) {
@@ -306,21 +295,7 @@ export function DesktopMenuView({
       if (items.length > 0 || isThali) {
         items.forEach((item) => handledIds.add(item.id))
 
-        let subtitle = cat.description || ''
-        const nameLower = cat.name.toLowerCase()
-        if (nameLower.includes('farsan')) {
-          subtitle = 'Crispy, tasty and perfect for your cravings'
-        } else if (isThali) {
-          subtitle = 'Delicious & Authentic Fixed Gujarati Thalis'
-        } else if (nameLower.includes('sabji') || nameLower.includes('shabji')) {
-          subtitle = 'Homestyle authentic Kathiyawadi & Gujarati curries'
-        } else if (nameLower.includes('rotli') || nameLower.includes('bread')) {
-          subtitle = 'Soft hot phulkas, parathas & desi bhakhri'
-        } else if (nameLower.includes('sweet')) {
-          subtitle = 'Rich, traditional Gujarati sweets and mithais'
-        } else if (nameLower.includes('beverage')) {
-          subtitle = 'Chilled spiced masala chhas and refreshing drinks'
-        }
+        const subtitle = cat.description || ''
 
         sections.push({
           category: cat,

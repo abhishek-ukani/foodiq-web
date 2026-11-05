@@ -45,73 +45,28 @@ export interface QuickOrderContext {
   todayDate: string
 }
 
-export function isBreadOptionGroup(group: { name: string; target_category_type?: string | null }): boolean {
-  const name = group.name.toLowerCase()
-  if (
-    name.includes('bread') ||
-    name.includes('roti') ||
-    name.includes('rotli') ||
-    name.includes('bhakhri') ||
-    name.includes('bhakhari') ||
-    name.includes('rotla') ||
-    name.includes('puri') ||
-    name.includes('thepla') ||
-    name.includes('paratha')
-  ) {
-    return true
-  }
-  return group.target_category_type === 'bread'
+export function isBreadOptionGroup(group: {
+  categories?: { slug?: string | null; category_type?: string | null } | null
+}): boolean {
+  return group.categories?.slug === 'bread' || group.categories?.category_type === 'bread'
 }
 
-export function isAddOnOptionGroup(group: { name: string; group_type?: string | null }): boolean {
-  if (group.group_type === 'optional_addon') return true
-  const name = group.name.toLowerCase()
-  return name.includes('add-on') || name.includes('addon') || name.includes('extra')
+export function isAddOnOptionGroup(group: {
+  categories?: { slug?: string | null; category_type?: string | null } | null
+  is_required?: boolean
+}): boolean {
+  return group.categories?.slug === 'add-ons' || group.is_required === false
 }
 
 export function isSabjiOptionGroup(group: {
-  name: string
-  target_category_type?: string | null
-  group_type?: string | null
+  categories?: { slug?: string | null; category_type?: string | null } | null
+  is_daily_menu_source?: boolean
 }): boolean {
-  // Bread and Add-on groups must NEVER be classified as Sabji groups
-  if (isBreadOptionGroup(group) || isAddOnOptionGroup(group)) {
-    return false
-  }
-
-  const name = group.name.toLowerCase()
-
-  // Explicit non-sabji categories
-  if (
-    name.includes('accompaniment') ||
-    name.includes('snack') ||
-    name.includes('farsan') ||
-    name.includes('sweet') ||
-    name.includes('mithai') ||
-    name.includes('dessert') ||
-    name.includes('rice') ||
-    name.includes('bhat') ||
-    name.includes('dal') ||
-    name.includes('beverage') ||
-    name.includes('chaas') ||
-    name.includes('chhas')
-  ) {
-    return false
-  }
-
-  if (
-    name.includes('sabji') ||
-    name.includes('shabji') ||
-    name.includes('sabzi') ||
-    name.includes('subji') ||
-    name.includes('shaak') ||
-    name.includes('curry') ||
-    name.includes('bhaji')
-  ) {
-    return true
-  }
-
-  return group.target_category_type === 'sabji'
+  return (
+    group.is_daily_menu_source === true ||
+    group.categories?.slug === 'sabji' ||
+    group.categories?.category_type === 'sabji'
+  )
 }
 
 type OrderWithRawItems = {
@@ -177,6 +132,31 @@ export async function getCustomerThaliPreferences(userId: string): Promise<{
  * Fetches all active Thali meal items from catalog.
  */
 export async function fetchActiveThalis(): Promise<ThaliFoodItem[]> {
+  // 1. Fetch from decoupled thalis table
+  const { data: thaliData, error: thaliErr } = await supabase
+    .from('thalis')
+    .select('*')
+    .eq('is_available', true)
+    .order('display_order', { ascending: true })
+
+  if (!thaliErr && thaliData && thaliData.length > 0) {
+    return thaliData.map((t) => ({
+      ...t,
+      kind: 'thali',
+      categories: {
+        id: 'thalis-cat',
+        name: 'Thalis',
+        name_gujarati: 'થાળી',
+        slug: 'thalis',
+        category_type: 'thali',
+        display_order: 1,
+        is_active: true,
+      },
+      food_item_variants: [],
+    })) as unknown as ThaliFoodItem[]
+  }
+
+  // 2. Fallback to food_items if legacy rows exist
   const { data, error } = await supabase
     .from('food_items')
     .select('*, categories(*), food_item_variants(*)')
@@ -300,46 +280,45 @@ export async function fetchQuickOrderContext(
     }
   }
 
-  // 2. Global Thali Components configured by Admin (beverage, sweet, snack, accompaniment)
+  // 2. Extra side items from food_items (beverage, sweet, snack, accompaniment)
   try {
-    const { data: components } = await supabase
-      .from('thali_components')
-      .select('*, food_items(*, categories(*))')
-      .eq('is_active', true)
+    const { data: dishes } = await supabase
+      .from('food_items')
+      .select('*, categories(*)')
+      .eq('is_available', true)
+      .neq('kind', 'thali')
       .order('display_order', { ascending: true })
 
-    if (components && components.length > 0) {
-      for (const comp of components) {
-        const fi = comp.food_items as unknown as JoinedFoodItem | null
-        if (!fi || !fi.is_available || fi.kind === 'thali') continue
+    if (dishes && dishes.length > 0) {
+      for (const fi of dishes as unknown as JoinedFoodItem[]) {
+        if (!fi || !fi.is_available) continue
 
         const nameKey = fi.name.toLowerCase().trim()
         if (seenNames.has(nameKey)) continue
 
+        const catSlug = fi.categories?.slug || ''
         if (
-          comp.category_type === 'beverage' ||
-          comp.category_type === 'sweet' ||
-          comp.category_type === 'snack' ||
-          comp.category_type === 'accompaniment'
+          catSlug === 'beverage' ||
+          catSlug === 'sweet' ||
+          catSlug === 'snack' ||
+          catSlug === 'accompaniment' ||
+          catSlug === 'add-ons'
         ) {
           seenIds.add(fi.id)
           seenNames.add(nameKey)
-          const catLabel =
-            fi.categories?.name ||
-            (comp.category_type ? comp.category_type.charAt(0).toUpperCase() + comp.category_type.slice(1) : 'Extras')
           availableAddOns.push({
             id: fi.id,
             name: fi.name,
             price: Number(fi.price || 0),
             description: fi.description || null,
-            category: catLabel,
+            category: fi.categories?.name || 'Extras',
             image_url: fi.image_url || null,
           })
         }
       }
     }
   } catch (err) {
-    console.warn('Could not load thali components for add-ons:', err)
+    console.warn('Could not load extra dishes for add-ons:', err)
   }
 
   // 3. Standalone daily menu items for today published by admin
@@ -428,10 +407,17 @@ export async function submitQuickOrder(input: SubmitQuickOrderInput): Promise<Ta
   // 1. Clear any stale cart items for this user to ensure clean 1-item direct order
   await supabase.from('cart_items').delete().eq('user_id', session.user.id)
 
-  // 2. Insert the direct configured Thali item into cart_items
+  // 2. Check if input.thaliId belongs to public.thalis or public.food_items
+  const { data: maybeThali } = await supabase
+    .from('thalis')
+    .select('id')
+    .eq('id', input.thaliId)
+    .maybeSingle()
+
   const { error: insertErr } = await supabase.from('cart_items').insert({
     user_id: session.user.id,
-    food_item_id: input.thaliId,
+    thali_id: maybeThali ? maybeThali.id : null,
+    food_item_id: maybeThali ? null : input.thaliId,
     variant_id: input.variantId ?? null,
     quantity: input.quantity,
     special_instructions: input.specialInstructions?.trim() || null,

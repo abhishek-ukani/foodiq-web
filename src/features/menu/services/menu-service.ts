@@ -93,12 +93,29 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
     (l) => l.is_available && (l.food_items as any)?.is_available !== false,
   )
 
-  // Fetch active Thalis for the requested meals (always available catalog items)
-  const { data: thaliFoods } = await supabase
-    .from('food_items')
-    .select('*, categories(*), food_item_variants(*)')
-    .eq('kind', 'thali')
+  // Fetch active Thalis for the requested meals (from thalis table)
+  const { data: rawThaliFoods } = await (supabase
+    .from('thalis')
+    .select('*, thali_fixed_items(quantity, food_items(name))')
     .eq('is_available', true)
+    .order('display_order', { ascending: true }) as any)
+
+  const thaliFoods = (rawThaliFoods || []).map((thali: any) => ({
+    ...thali,
+    kind: 'thali',
+    ingredients: (thali.thali_fixed_items || []).map(
+      (fi: any) => `${fi.quantity > 1 ? `${fi.quantity}x ` : ''}${fi.food_items?.name || 'Item'}`,
+    ),
+    categories: {
+      id: 'thalis-cat',
+      name: 'Thalis',
+      name_gujarati: 'થાળી',
+      slug: 'thalis',
+      category_type: 'thali',
+      display_order: 1,
+      is_active: true,
+    },
+  }))
 
   if (thaliFoods && thaliFoods.length > 0) {
     const existingThaliKeys = new Set(listings.map((l) => `${l.daily_menus?.meal_type}-${l.food_item_id}`))
@@ -295,7 +312,16 @@ export async function fetchActiveCategories(): Promise<Tables<'categories'>[]> {
   return data || []
 }
 
-export type ThaliComponent = Tables<'thali_items'> & { food_items: { name: string } | null }
+export type ThaliComponent = {
+  id: string
+  thali_id: string
+  food_item_id: string | null
+  custom_name: string | null
+  quantity: number
+  display_order: number
+  created_at: string
+  food_items: { name: string } | null
+}
 
 export type FoodItemDetail = Tables<'food_items'> & {
   categories: Tables<'categories'> | null
@@ -305,11 +331,92 @@ export type FoodItemDetail = Tables<'food_items'> & {
 
 export async function fetchFoodItemBySlug(slug: string): Promise<FoodItemDetail> {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
+
+  // 1. Check if slug matches a Thali in dedicated thalis entity
+  let thaliQuery = supabase
+    .from('thalis')
+    .select('*, thali_fixed_items(*, food_items(name))')
+  if (isUuid) {
+    thaliQuery = thaliQuery.or(`slug.eq.${slug},id.eq.${slug}`)
+  } else {
+    thaliQuery = thaliQuery.eq('slug', slug)
+  }
+  const { data: rawThaliData } = await thaliQuery.maybeSingle()
+  const thaliData = rawThaliData as any
+
+  if (thaliData) {
+    const fixedInclusions: ThaliComponent[] = (thaliData.thali_fixed_items || []).map((fi: any) => ({
+      id: fi.id,
+      thali_id: fi.thali_id,
+      food_item_id: fi.food_item_id,
+      custom_name: fi.food_items?.name || null,
+      quantity: fi.quantity,
+      display_order: fi.display_order,
+      created_at: fi.created_at,
+      food_items: fi.food_items || null,
+    }))
+
+    return {
+      id: thaliData.id,
+      branch_id: thaliData.branch_id || '',
+      category_id: null,
+      kind: 'thali',
+      name: thaliData.name,
+      name_gujarati: thaliData.name_gujarati,
+      slug: thaliData.slug,
+      description: thaliData.description,
+      ingredients: fixedInclusions.map(
+        (fi) => `${fi.quantity > 1 ? `${fi.quantity}x ` : ''}${fi.custom_name}`,
+      ),
+      food_type: 'veg',
+      price: Number(thaliData.price),
+      compare_price: thaliData.compare_price != null ? Number(thaliData.compare_price) : null,
+      cost_price: thaliData.cost_price != null ? Number(thaliData.cost_price) : null,
+      unit_label: '1 Thali',
+      serves: thaliData.serves,
+      prep_minutes: thaliData.prep_minutes,
+      spice_level: 1,
+      calories: null,
+      nutrition: null,
+      image_url: thaliData.image_url,
+      gallery_urls: thaliData.gallery_urls,
+      is_available: thaliData.is_available,
+      is_featured: thaliData.is_featured,
+      is_swaminarayan_available: thaliData.is_swaminarayan_available,
+      is_vaishnav_available: thaliData.is_vaishnav_available,
+      is_jain_available: thaliData.is_jain_available,
+      track_stock: false,
+      stock_quantity: 999,
+      rating_average: Number(thaliData.rating_average || 4.8),
+      rating_count: Number(thaliData.rating_count || 0),
+      total_sold: 0,
+      display_order: thaliData.display_order,
+      product_code: null,
+      created_at: thaliData.created_at,
+      updated_at: thaliData.updated_at,
+      categories: {
+        id: 'thalis-cat',
+        name: 'Thalis',
+        name_gujarati: 'થાળી',
+        slug: 'thalis',
+        description: null,
+        image_url: null,
+        icon: 'Utensils',
+        display_order: 1,
+        is_active: true,
+        category_type: 'thali',
+        created_at: thaliData.created_at,
+        updated_at: thaliData.updated_at,
+      },
+      thali_items: fixedInclusions,
+      food_item_variants: [],
+    }
+  }
+
+  // 2. Otherwise fetch from standard food_items
   let query = supabase
     .from('food_items')
-    .select(
-      '*, categories(*), thali_items!thali_items_thali_id_fkey(*, food_items!thali_items_food_item_id_fkey(name)), food_item_variants(*)',
-    )
+    .select('*, categories(*), food_item_variants(*)')
   if (isUuid) {
     query = query.or(`slug.eq.${slug},id.eq.${slug}`)
   } else {
@@ -317,14 +424,14 @@ export async function fetchFoodItemBySlug(slug: string): Promise<FoodItemDetail>
   }
   const { data, error } = await query.single()
   if (error) throw error
-  const item = data as unknown as FoodItemDetail
+  const item = data as unknown as any
   const activeVariants = (item.food_item_variants || [])
-    .filter((v) => v.is_active !== false)
-    .sort((a, b) => a.display_order - b.display_order || a.price - b.price)
+    .filter((v: any) => v.is_active !== false)
+    .sort((a: any, b: any) => a.display_order - b.display_order || a.price - b.price)
 
   return {
     ...item,
-    thali_items: [...(item.thali_items || [])].sort((a, b) => a.display_order - b.display_order),
+    thali_items: [],
     food_item_variants: activeVariants,
   }
 }

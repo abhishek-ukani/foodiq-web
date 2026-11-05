@@ -258,53 +258,9 @@ export function QuickOrderPage() {
   const nonSelectableIncludedItems = useMemo(() => {
     if (!currentThali) return []
 
-    // 1. Check ingredients list from the Thali food_item configured by admin
-    const rawIngredients: string[] = Array.isArray(currentThali.ingredients)
-      ? currentThali.ingredients
-      : []
-
-    // Filter out the selectable components (breads and sabjis) which are chosen in Step 1 & Step 2
-    const filtered = rawIngredients.filter((item) => {
-      const lower = item.toLowerCase().trim()
-      if (
-        lower.includes('roti') ||
-        lower.includes('bhakhri') ||
-        lower.includes('bread') ||
-        lower.includes('rotla') ||
-        lower.includes('puri')
-      ) {
-        return false
-      }
-      if (
-        lower.includes('sabji') ||
-        lower.includes('shabji') ||
-        lower.includes('sabzi') ||
-        lower.includes('subji') ||
-        lower.includes('shaak') ||
-        lower.includes('curry')
-      ) {
-        return false
-      }
-      return true
-    })
-
-    if (filtered.length > 0) {
-      return filtered
-    }
-
-    // 2. Fallback: Parse description if ingredients array was empty
-    if (currentThali.description) {
-      const parts = currentThali.description
-        .replace(/^Includes\s+/i, '')
-        .split(/,\s*/)
-        .map((p) => p.trim())
-        .filter((p) => {
-          const lower = p.toLowerCase()
-          if (lower.includes('roti') || lower.includes('bhakhri') || lower.includes('bread')) return false
-          if (lower.includes('sabji') || lower.includes('shaak') || lower.includes('curry')) return false
-          return p.length > 0
-        })
-      if (parts.length > 0) return parts
+    // Populated directly from thali_fixed_items (Option A: Informative inclusions)
+    if (Array.isArray(currentThali.ingredients) && currentThali.ingredients.length > 0) {
+      return currentThali.ingredients
     }
 
     return []

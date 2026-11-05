@@ -157,56 +157,68 @@ type FoodItemRow = {
   updated_at: string
 }
 
-type ThaliItemRow = {
+export type ThaliRow = {
+  id: string
+  branch_id: string | null
+  name: string
+  name_gujarati: string | null
+  slug: string
+  description: string | null
+  image_url: string | null
+  gallery_urls: string[] | null
+  price: number
+  compare_price: number | null
+  cost_price: number | null
+  serves: number
+  prep_minutes: number
+  packaging_type: string | null
+  meal_slot_allowed: 'lunch' | 'dinner' | 'both'
+  is_available: boolean
+  is_featured: boolean
+  is_swaminarayan_available: boolean
+  is_vaishnav_available: boolean
+  is_jain_available: boolean
+  display_order: number
+  rating_average: number
+  rating_count: number
+  created_at: string
+  updated_at: string
+}
+
+export type ThaliFixedItemRow = {
   id: string
   thali_id: string
-  food_item_id: string | null
-  custom_name: string | null
+  food_item_id: string
   quantity: number
   display_order: number
   created_at: string
 }
 
-type ThaliOptionGroupType = 'static_choice' | 'daily_menu_choice' | 'optional_addon'
-
-type ThaliOptionGroupRow = {
+export type ThaliOptionGroupRow = {
   id: string
-  food_item_id: string
+  thali_id: string
   name: string
   description: string | null
-  group_type: ThaliOptionGroupType
-  target_category_type: CategoryType
+  target_category_id: string
   min_select: number
   max_select: number
   is_required: boolean
+  allow_duplicate_selection: boolean
+  is_daily_menu_source: boolean
   display_order: number
   is_active: boolean
-  disabled_item_ids: string[] | null
   created_at: string
 }
 
-type ThaliOptionItemRow = {
+export type ThaliOptionItemRow = {
   id: string
   group_id: string
-  linked_food_item_id: string | null
-  label: string
+  food_item_id: string
   price_delta: number
   is_default: boolean
   display_order: number
   is_active: boolean
   created_at: string
-}
-
-type ThaliComponentCategoryType = 'bread' | 'sabji' | 'sweet' | 'snack' | 'accompaniment' | 'beverage' | 'rice'
-
-type ThaliComponentRow = {
-  id: string
-  food_item_id: string
-  category_type: ThaliComponentCategoryType
-  is_active: boolean
-  display_order: number
-  created_at: string
-  updated_at: string
 }
 
 type SubscriptionPlanRow = {
@@ -371,7 +383,8 @@ type FavoriteRow = {
 type CartItemRow = {
   id: string
   user_id: string
-  food_item_id: string
+  food_item_id: string | null
+  thali_id: string | null
   variant_id: string | null
   daily_menu_item_id: string | null
   quantity: number
@@ -456,6 +469,7 @@ type OrderItemRow = {
   id: string
   order_id: string
   food_item_id: string | null
+  thali_id: string | null
   variant_id: string | null
   product_code: string | null
   variant_code: string | null
@@ -679,10 +693,34 @@ export interface Database {
       suppliers: TableOf<SupplierRow, 'status'>
       purchase_orders: TableOf<PurchaseOrderRow, 'status'>
       purchase_order_items: TableOf<PurchaseOrderItemRow, 'received_quantity'>
-      thali_items: TableOf<ThaliItemRow>
-      thali_option_groups: TableOf<ThaliOptionGroupRow, 'min_select' | 'max_select' | 'is_required' | 'display_order' | 'is_active'>
-      thali_option_items: TableOf<ThaliOptionItemRow, 'price_delta' | 'is_default' | 'display_order' | 'is_active'>
-      thali_components: TableOf<ThaliComponentRow, 'is_active' | 'display_order'>
+      thalis: TableOf<
+        ThaliRow,
+        | 'is_available'
+        | 'is_featured'
+        | 'is_swaminarayan_available'
+        | 'is_vaishnav_available'
+        | 'is_jain_available'
+        | 'display_order'
+        | 'meal_slot_allowed'
+        | 'packaging_type'
+        | 'serves'
+        | 'prep_minutes'
+      >
+      thali_fixed_items: TableOf<ThaliFixedItemRow, 'quantity' | 'display_order'>
+      thali_option_groups: TableOf<
+        ThaliOptionGroupRow,
+        | 'min_select'
+        | 'max_select'
+        | 'is_required'
+        | 'allow_duplicate_selection'
+        | 'is_daily_menu_source'
+        | 'display_order'
+        | 'is_active'
+      >
+      thali_option_items: TableOf<
+        ThaliOptionItemRow,
+        'price_delta' | 'is_default' | 'display_order' | 'is_active'
+      >
       subscription_plans: TableOf<SubscriptionPlanRow, 'discount_percentage' | 'is_active'>
       user_subscriptions: TableOf<UserSubscriptionRow, 'status'>
       subscription_daily_deliveries: TableOf<SubscriptionDailyDeliveryRow, 'status'>

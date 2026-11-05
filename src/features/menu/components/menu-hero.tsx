@@ -77,7 +77,7 @@ export function MenuHero({ searchQuery, onSearchChange, sort, onSortChange }: Me
 
           {/* Subtext */}
           <p className="text-xs sm:text-sm leading-relaxed mb-6 text-muted-foreground max-w-[340px]">
-            Homestyle Gujarati & Kathiyawadi dishes, freshly cooked with groundnut oil and pure spices.
+            Homestyle Gujarati &amp; Kathiyawadi dishes, freshly cooked with Gulab double filtered groundnut oil and pure spices.
           </p>
 
           {/* Search + Sort */}

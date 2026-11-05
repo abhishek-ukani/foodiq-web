@@ -3,8 +3,18 @@ import { Reveal } from '@/components/common/reveal'
 import { Button } from '@/components/ui/button'
 import { Link } from 'react-router-dom'
 import { ROUTES } from '@/constants'
+import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
+import { useDeliverySettings } from '@/features/addresses/hooks/use-delivery-zones'
 
 export function DeliveryTimingsSection() {
+  const { slots } = useMealTiming()
+  const { data: deliverySettings } = useDeliverySettings()
+
+  const lunchDisplay = slots.lunch?.formattedCutoff ?? '10:00 AM'
+  const [lunchTime, lunchMeridiem] = lunchDisplay.split(' ')
+
+  const dinnerDisplay = slots.dinner?.formattedCutoff ?? '6:00 PM'
+  const [dinnerTime, dinnerMeridiem] = dinnerDisplay.split(' ')
 
   return (
     <section
@@ -68,9 +78,9 @@ export function DeliveryTimingsSection() {
                   <p className="text-xs text-muted-foreground">Place order by</p>
                   <div className="flex items-baseline gap-1.5 pt-1">
                     <span className="font-display text-4xl sm:text-5xl font-bold text-foreground">
-                      10:00
+                      {lunchTime || '10:00'}
                     </span>
-                    <span className="text-sm font-bold text-primary uppercase">AM</span>
+                    <span className="text-sm font-bold text-primary uppercase">{lunchMeridiem || 'AM'}</span>
                   </div>
 
                 </div>
@@ -83,9 +93,9 @@ export function DeliveryTimingsSection() {
                   <p className="text-xs text-muted-foreground">Place order by</p>
                   <div className="flex items-baseline gap-1.5 pt-1">
                     <span className="font-display text-4xl sm:text-5xl font-bold text-foreground">
-                      6:00
+                      {dinnerTime || '6:00'}
                     </span>
-                    <span className="text-sm font-bold text-primary uppercase">PM</span>
+                    <span className="text-sm font-bold text-primary uppercase">{dinnerMeridiem || 'PM'}</span>
                   </div>
 
                 </div>
@@ -130,10 +140,12 @@ export function DeliveryTimingsSection() {
                 </div>
                 <div>
                   <h4 className="font-display text-base font-bold text-foreground">
-                    Free Home Delivery
+                    {deliverySettings?.free_delivery_radius_km ? 'Free Home Delivery' : 'Direct Home Delivery'}
                   </h4>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    Zero delivery charge within 3 km of our local kitchen.
+                    {deliverySettings?.free_delivery_radius_km
+                      ? `Zero delivery charge within ${deliverySettings.free_delivery_radius_km} km of our local kitchen.`
+                      : 'Affordable, transparent distance-based delivery across Ahmedabad.'}
                   </p>
                 </div>
               </div>
@@ -153,17 +165,17 @@ export function DeliveryTimingsSection() {
                 </div>
               </div>
 
-              {/* Highlight 3: Ahmedabad Exclusivity */}
+              {/* Highlight 3: Single Kitchen, No Branches */}
               <div className="flex items-start gap-4">
                 <div className="size-11 rounded-2xl bg-emerald-500/10 text-emerald-800 shrink-0 flex items-center justify-center">
                   <MapPin className="size-5.5" />
                 </div>
                 <div>
                   <h4 className="font-display text-base font-bold text-foreground">
-                    Exclusively in Ahmedabad
+                    Only 1 Place • No Branches
                   </h4>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    Operating exclusively across Ahmedabad to guarantee speed, freshness, and piping hot meals.
+                    Cooked exclusively from our single Bodakdev home kitchen under direct personal family supervision. We have no branches or outsourced cloud kitchens.
                   </p>
                 </div>
               </div>

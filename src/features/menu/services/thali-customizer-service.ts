@@ -60,13 +60,13 @@ export async function fetchThaliOptionGroups(
     if (activeMenus && activeMenus.length > 0) {
       const nowStr = new Date().toTimeString().substring(0, 5) // "HH:MM"
       const openMenu = activeMenus.find((m) => {
-        if (!m.cutoff_time) return true
-        return nowStr < m.cutoff_time.substring(0, 5)
+        const cutoff = m.cutoff_time || (m.meal_type === 'lunch' ? '10:00:00' : '18:00:00')
+        return nowStr < cutoff.substring(0, 5)
       })
       effectiveMealType = openMenu ? (openMenu.meal_type as string) : (activeMenus[0].meal_type as string)
     } else {
       const currentHour = new Date().getHours()
-      effectiveMealType = currentHour < 15 ? 'lunch' : 'dinner'
+      effectiveMealType = currentHour < 10 ? 'lunch' : 'dinner'
     }
   }
 

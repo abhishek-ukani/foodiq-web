@@ -6,17 +6,18 @@
 //   SUPABASE_SERVICE_ROLE_KEY — service role key (full DB access, bypasses RLS)
 //
 // Optional secrets you can set via Supabase Dashboard → Edge Functions → Secrets:
-//   KITCHEN_LAT              — kitchen latitude  (default: 23.0225, Ahmedabad placeholder)
-//   KITCHEN_LNG              — kitchen longitude (default: 72.5714, Ahmedabad placeholder)
+//   KITCHEN_LAT              — kitchen latitude  (default: 23.0347092, Sarita Apartments, Bodakdev)
+//   KITCHEN_LNG              — kitchen longitude (default: 72.5153523, Sarita Apartments, Bodakdev)
+//   GOOGLE_MAPS_API_KEY      — Google Maps API key for Google Routes computeRoutes v2
 //   NOMINATIM_CONTACT_EMAIL  — contact email for Nominatim User-Agent (REQUIRED by Nominatim ToS)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // ---------------------------------------------------------------------------
-// Kitchen constants — fallback coordinates if branch lat/lng not set
+// Kitchen constants — fallback coordinates (Sarita Apartments, Bodakdev)
 // ---------------------------------------------------------------------------
-const KITCHEN_LAT = Number(Deno.env.get('KITCHEN_LAT') ?? '23.0225')
-const KITCHEN_LNG = Number(Deno.env.get('KITCHEN_LNG') ?? '72.5714')
+const KITCHEN_LAT = Number(Deno.env.get('KITCHEN_LAT') ?? '23.0347092')
+const KITCHEN_LNG = Number(Deno.env.get('KITCHEN_LNG') ?? '72.5153523')
 
 const NOMINATIM_CONTACT =
   Deno.env.get('NOMINATIM_CONTACT_EMAIL') ?? 'YOUR_EMAIL_HERE'
@@ -43,7 +44,7 @@ interface DeliveryResult {
 // Haversine formula — great-circle distance in km
 // ---------------------------------------------------------------------------
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371 // Earth radius in km
+  const R = 6371.0088 // Earth radius in km
   const toRad = (deg: number) => (deg * Math.PI) / 180
   const dLat = toRad(lat2 - lat1)
   const dLng = toRad(lng2 - lng1)
@@ -51,6 +52,49 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+/**
+ * Calculates road driving distance in km using Google Routes API (computeRoutes v2).
+ */
+async function getGoogleRoutesDistanceKm(
+  originLat: number,
+  originLng: number,
+  destLat: number,
+  destLng: number,
+  apiKey: string,
+): Promise<number | null> {
+  try {
+    const resp = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'routes.distanceMeters',
+      },
+      body: JSON.stringify({
+        origin: {
+          location: { latLng: { latitude: originLat, longitude: originLng } },
+        },
+        destination: {
+          location: { latLng: { latitude: destLat, longitude: destLng } },
+        },
+        travelMode: 'DRIVE',
+        routingPreference: 'TRAFFIC_UNAWARE',
+      }),
+      signal: AbortSignal.timeout(6000),
+    })
+
+    if (!resp.ok) return null
+    const data = await resp.json()
+    const meters = data.routes?.[0]?.distanceMeters
+    if (typeof meters === 'number') {
+      return meters / 1000.0
+    }
+  } catch (err) {
+    console.warn('Google Routes computeRoutes error in Edge Function:', err)
+  }
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -236,9 +280,28 @@ Deno.serve(async (req: Request) => {
   }
 
   // -------------------------------------------------------------------------
-  // Step 4 — Calculate Haversine distance
+  // Step 4 — Calculate Road Distance via Google Routes API (computeRoutes DRIVE)
   // -------------------------------------------------------------------------
-  const distanceKm = haversineKm(kitchenLat, kitchenLng, resolvedLat, resolvedLng)
+  const aerialKm = haversineKm(kitchenLat, kitchenLng, resolvedLat, resolvedLng)
+  let distanceKm = aerialKm * 1.3 // Default urban circuity fallback
+
+  const googleApiKey =
+    Deno.env.get('GOOGLE_MAPS_API_KEY') ?? Deno.env.get('VITE_GOOGLE_MAPS_API_KEY')
+
+  // Only call Google Routes if within delivery vicinity (< 25km aerial) to protect API quota
+  if (googleApiKey && aerialKm <= 25.0) {
+    const roadKm = await getGoogleRoutesDistanceKm(
+      kitchenLat,
+      kitchenLng,
+      resolvedLat,
+      resolvedLng,
+      googleApiKey,
+    )
+    if (roadKm != null && roadKm > 0) {
+      distanceKm = roadKm
+    }
+  }
+
   const distanceRounded = Math.round(distanceKm * 10) / 10
 
   // -------------------------------------------------------------------------

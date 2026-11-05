@@ -50,7 +50,7 @@ export function OrderSuccessPage() {
               {dayjs(order.delivery_date).format('D MMM')} ·{' '}
               {order.meal_type
                 ? `${order.meal_type === 'dinner' ? '🌙' : '☀️'} ${order.meal_type.charAt(0).toUpperCase() + order.meal_type.slice(1)}`
-                : order.delivery_slot_label}
+                : 'Standard Delivery'}
             </span>
           </div>
           <div className="flex justify-between border-t pt-3 font-semibold">

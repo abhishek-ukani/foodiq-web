@@ -8,7 +8,6 @@ import {
   fetchTestimonials,
   fetchTodaysSpecial,
 } from '@/features/home/services/home-service'
-import { fetchDeliveryAreas } from '@/features/addresses/services/delivery-zone-service'
 
 export function useBanners(placement: 'hero' | 'promo_strip' | 'menu_top' | 'popup') {
   return useQuery({
@@ -38,8 +37,4 @@ export function usePopularItems(limit = 6) {
     queryKey: QUERY_KEYS.popularItems(limit),
     queryFn: () => fetchPopularItems(limit),
   })
-}
-
-export function useDeliveryAreas() {
-  return useQuery({ queryKey: QUERY_KEYS.deliveryAreas, queryFn: fetchDeliveryAreas })
 }

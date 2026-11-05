@@ -1,5 +1,11 @@
 import { Home, Soup, Leaf, ShieldCheck, Heart } from 'lucide-react'
 import { Reveal } from '@/components/common/reveal'
+import { cn } from '@/lib/utils'
+
+interface WhyFoodIqSectionProps {
+  className?: string
+  bgClassName?: string
+}
 
 const PILLARS = [
   {
@@ -29,17 +35,20 @@ const PILLARS = [
   },
 ]
 
-export function WhyFoodIqSection() {
+export function WhyFoodIqSection({
+  className,
+  bgClassName = 'bg-[#2D0D19]',
+}: WhyFoodIqSectionProps = {}) {
   return (
-    <section className="relative overflow-hidden bg-[#2D0D19] py-16 sm:py-24 lg:py-28 text-white">
-      {/* Ambient Radial Lighting */}
+    <section className={cn('relative overflow-hidden py-16 sm:py-24 lg:py-28 text-white', bgClassName, className)}>
+      {/* Ambient Lighting - safely centered inside section */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-40 right-0 size-96 rounded-full bg-[#52132A]/40 blur-3xl"
+        className="pointer-events-none absolute top-1/2 -translate-y-1/2 -right-20 size-96 rounded-full bg-[#52132A]/35 blur-3xl"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-40 left-0 size-96 rounded-full bg-black/40 blur-3xl"
+        className="pointer-events-none absolute top-1/2 -translate-y-1/2 -left-20 size-80 rounded-full bg-amber-500/10 blur-3xl"
       />
 
       <div className="relative z-10 mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10 xl:px-12">

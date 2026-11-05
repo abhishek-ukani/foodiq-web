@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { GoogleMap } from '@react-google-maps/api'
 import {
   Search,
@@ -6,16 +6,20 @@ import {
   Navigation,
   ArrowLeft,
   AlertTriangle,
+  Info,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
+import { DEFAULT_KITCHEN_LOCATION, AHMEDABAD_BOUNDS } from '@/constants'
 import {
   useGooglePlaces,
   type GooglePlacePrediction,
 } from '@/features/addresses/hooks/use-google-places'
+import { useDeliverySettings } from '@/features/addresses/hooks/use-delivery-zones'
+import { OutOfDeliveryAreaNotice } from '@/features/addresses/components/out-of-delivery-area-notice'
 
 export interface PinnedLocationData {
   latitude: number
@@ -23,6 +27,8 @@ export interface PinnedLocationData {
   buildingName: string
   roadName: string
   sublocality: string
+  city?: string
+  state?: string
   pincode: string
   formattedAddress: string
 }
@@ -31,14 +37,12 @@ export function MapLocationPicker({
   initialLocation,
   onConfirmLocation,
   onCancel,
-  onManualAddressFallback,
 }: {
   initialLocation?: { lat: number; lng: number } | null
   onConfirmLocation: (data: PinnedLocationData) => void
   onCancel?: () => void
-  onManualAddressFallback?: () => void
 }) {
-  const defaultCenter = initialLocation || { lat: 23.0392, lng: 72.5085 } // Bodakdev / Sindhubhavan Road, Ahmedabad
+  const defaultCenter = initialLocation || { ...DEFAULT_KITCHEN_LOCATION }
   const [center, setCenter] = useState(defaultCenter)
   const mapRef = useRef<google.maps.Map | null>(null)
   const geocoderRef = useRef<google.maps.Geocoder | null>(null)
@@ -57,9 +61,22 @@ export function MapLocationPicker({
     buildingName: '',
     roadName: '',
     sublocality: 'Ahmedabad',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
     pincode: '',
     formattedAddress: '',
   })
+
+  // Delivery settings for real-time serviceability check
+  const { data: deliverySettings } = useDeliverySettings()
+
+  const isOutOfZone = useMemo(() => {
+    if (!pinnedData.pincode) return false
+    const zoneA = (deliverySettings?.zone_a_pincodes || []).map((p) => p.trim())
+    const zoneB = (deliverySettings?.zone_b_pincodes || []).map((p) => p.trim())
+    if (zoneA.length === 0 && zoneB.length === 0) return false
+    return !zoneA.includes(pinnedData.pincode) && !zoneB.includes(pinnedData.pincode)
+  }, [pinnedData.pincode, deliverySettings])
 
   // Google Places hook for top search bar
   const { isLoaded, loadError, getPredictions, getPlaceDetails } = useGooglePlaces()
@@ -97,6 +114,8 @@ export function MapLocationPicker({
           let roadName = ''
           let sublocality = ''
           let pincode = ''
+          let city = ''
+          let state = ''
 
           for (const comp of place.address_components) {
             const types = comp.types
@@ -116,24 +135,40 @@ export function MapLocationPicker({
               types.includes('neighborhood')
             ) {
               if (!sublocality) sublocality = comp.long_name
-            } else if (types.includes('locality') && !sublocality) {
-              sublocality = comp.long_name
+            } else if (types.includes('locality')) {
+              city = comp.long_name
+              if (!sublocality) sublocality = comp.long_name
+            } else if (types.includes('administrative_area_level_2') && !city) {
+              city = comp.long_name
+            } else if (types.includes('administrative_area_level_1')) {
+              state = comp.long_name
             } else if (types.includes('postal_code')) {
               pincode = comp.long_name
             }
+          }
+
+          if (!buildingName && place.address_components.length > 0) {
+            buildingName = place.address_components[0].long_name
           }
 
           // Fallback for sublocality if it's 'Ahmedabad' or empty
           if (!sublocality || sublocality === 'Ahmedabad') {
             const parts = (place.formatted_address || '').split(',').map((s) => s.trim())
             const candidate = parts.find(
-              (p) => p && p !== 'Ahmedabad' && p !== 'Gujarat' && p !== 'India' && !p.match(/^\d{6}$/)
+              (p) =>
+                p &&
+                p !== 'Ahmedabad' &&
+                p !== 'Gujarat' &&
+                p !== 'India' &&
+                p !== buildingName &&
+                !p.match(/^\d{6}$/) &&
+                !p.match(/^(?:block|flat|shop|unit|plot|house|no\.?)\b/i)
             )
-            if (candidate) sublocality = candidate
-          }
-
-          if (!buildingName && place.address_components.length > 0) {
-            buildingName = place.address_components[0].long_name
+            if (candidate) {
+              sublocality = candidate
+            } else if (roadName) {
+              sublocality = roadName
+            }
           }
 
           setPinnedData({
@@ -142,6 +177,8 @@ export function MapLocationPicker({
             buildingName,
             roadName,
             sublocality: sublocality || 'Ahmedabad',
+            city: city || 'Ahmedabad',
+            state: state || 'Gujarat',
             pincode,
             formattedAddress: place.formatted_address,
           })
@@ -228,7 +265,14 @@ export function MapLocationPicker({
       (pos) => {
         setIsLocatingGPS(false)
         toast.dismiss(toastId)
-        toast.success('Location updated!')
+        if (pos.coords.accuracy > 1000) {
+          toast(
+            `Desktop Wi-Fi location is approximate (~${Math.round(pos.coords.accuracy / 1000)} km). Drag the pin to your exact building.`,
+            { id: 'wifi-accuracy-toast', duration: 4000, icon: '📍' },
+          )
+        } else {
+          toast.success('Location updated!', { id: 'wifi-accuracy-toast' })
+        }
         const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude }
         setCenter(newPos)
         if (mapRef.current) {
@@ -243,13 +287,26 @@ export function MapLocationPicker({
         toast.dismiss(toastId)
         console.warn('Geolocation error:', err.message)
         if (err.code === err.PERMISSION_DENIED) {
-          toast.error('Location permission was denied. Please select location on the map.')
+          toast.error('Location permission was denied. Please select location on the map.', { id: 'wifi-accuracy-toast' })
         } else {
-          toast.error('Could not fetch location. Please drag the pin on map.')
+          toast.error('Could not fetch location. Please drag the pin on map.', { id: 'wifi-accuracy-toast' })
         }
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
+  }, [runReverseGeocode])
+
+  // Quick snap to Bodakdev Kitchen for kitchen testing / staff usage
+  const handleSnapToKitchen = useCallback(() => {
+    const kitchenPos = { ...DEFAULT_KITCHEN_LOCATION }
+    setCenter(kitchenPos)
+    if (mapRef.current) {
+      isProgrammaticMoveRef.current = true
+      mapRef.current.panTo(kitchenPos)
+      mapRef.current.setZoom(17)
+    }
+    runReverseGeocode(kitchenPos.lat, kitchenPos.lng)
+    toast.success('Centered on Bodakdev Kitchen', { id: 'wifi-accuracy-toast' })
   }, [runReverseGeocode])
 
   // Handle Search input typing
@@ -294,6 +351,8 @@ export function MapLocationPicker({
         buildingName: details.buildingName || pred.mainText,
         roadName: details.roadName || (secondaryParts[0] !== inferredArea ? secondaryParts[0] : ''),
         sublocality: details.sublocality && details.sublocality !== 'Ahmedabad' ? details.sublocality : inferredArea,
+        city: details.city || 'Ahmedabad',
+        state: details.state || 'Gujarat',
         pincode: details.pincode,
         formattedAddress: details.formattedAddress || `${pred.mainText}, ${pred.secondaryText}`,
       })
@@ -308,18 +367,16 @@ export function MapLocationPicker({
       <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center bg-card rounded-2xl border size-full">
         <AlertTriangle className="size-12 text-amber-500" />
         <div className="space-y-1">
-          <h3 className="font-semibold text-xl">Google Maps API Notice</h3>
+          <h3 className="font-semibold text-xl">Location Service Unavailable</h3>
           <p className="text-muted-foreground text-sm max-w-md">
-            Maps JavaScript API is not active. You can proceed directly with manual address entry using our local area autocomplete.
+            Could not load Google Maps. Please check your network connection or try again.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 pt-4">
-          {onManualAddressFallback && (
-            <Button type="button" size="lg" onClick={onManualAddressFallback}>
-              Enter Address Manually
-            </Button>
-          )}
+          <Button type="button" size="lg" onClick={() => window.location.reload()}>
+            Retry
+          </Button>
           {onCancel && (
             <Button type="button" size="lg" variant="outline" onClick={onCancel}>
               Cancel
@@ -389,6 +446,16 @@ export function MapLocationPicker({
                 ))}
               </div>
             )}
+
+            {/* Zero results within Ahmedabad boundary */}
+            {isSearchOpen && searchInput.trim().length >= 3 && predictions.length === 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl p-3.5 z-30 text-left space-y-1">
+                <p className="text-xs font-bold text-slate-800">No daily meal delivery in this area</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Daily individual meal delivery is limited to select West Ahmedabad areas. For bulk & party catering, we deliver across all of Ahmedabad!
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -406,8 +473,8 @@ export function MapLocationPicker({
           <div className="size-2 rounded-full bg-slate-900 mt-0.5 shadow-md" />
         </div>
 
-        {/* Floating Bottom Left Control: Current Location Button */}
-        <div className="absolute bottom-4 left-4 z-20">
+        {/* Floating Bottom Left Controls: GPS & Kitchen Snap Buttons */}
+        <div className="absolute bottom-4 left-4 z-20 flex flex-wrap items-center gap-2">
           <Button
             type="button"
             size="sm"
@@ -417,6 +484,17 @@ export function MapLocationPicker({
           >
             <Navigation className={`size-4 mr-2 text-emerald-600 ${isLocatingGPS ? 'animate-spin' : ''}`} />
             Use my current location
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleSnapToKitchen}
+            className="bg-white/95 text-slate-700 hover:bg-slate-50 font-semibold shadow-xl border border-slate-200 rounded-full h-10 px-3.5 text-xs"
+            title="Snap to Kitchen (Sarita Apartments, Bodakdev)"
+          >
+            <MapPin className="size-3.5 mr-1.5 text-amber-600" />
+            Kitchen (Bodakdev)
           </Button>
         </div>
 
@@ -432,6 +510,12 @@ export function MapLocationPicker({
               disableDefaultUI: true,
               zoomControl: true,
               gestureHandling: 'greedy',
+              restriction: {
+                latLngBounds: AHMEDABAD_BOUNDS,
+                strictBounds: true,
+              },
+              minZoom: 12,
+              maxZoom: 20,
             }}
           />
         ) : (
@@ -451,11 +535,18 @@ export function MapLocationPicker({
             </p>
           </div>
 
-          <Card className="border-emerald-500/30 bg-emerald-500/10 shadow-sm">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-left">
+            <Info className="size-4 text-amber-700 dark:text-amber-400 shrink-0" />
+            <p className="text-[11px] text-muted-foreground leading-tight">
+              Daily meals: <strong className="text-foreground">West Ahmedabad</strong> • Bulk/Party: <strong className="text-foreground">All Ahmedabad</strong>
+            </p>
+          </div>
+
+          <Card className={isOutOfZone ? 'border-amber-500/30 bg-amber-500/10 shadow-sm' : 'border-emerald-500/30 bg-emerald-500/10 shadow-sm'}>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-bold text-sm text-foreground truncate">
-                  <MapPin className="size-4 text-emerald-600 shrink-0" />
+                  <MapPin className={`size-4 shrink-0 ${isOutOfZone ? 'text-amber-600' : 'text-emerald-600'}`} />
                   <span className="truncate">{pinnedData.sublocality || 'Ahmedabad'}</span>
                 </div>
                 <button
@@ -479,20 +570,18 @@ export function MapLocationPicker({
             </CardContent>
           </Card>
 
+          {/* Real-time Zone Classification Notice */}
+          {isOutOfZone && (
+            <OutOfDeliveryAreaNotice
+              pincode={pinnedData.pincode}
+              formattedAddress={pinnedData.formattedAddress}
+            />
+          )}
+
           {quotaExceeded && (
             <p className="text-xs text-amber-700 font-semibold bg-amber-50 p-3 rounded-xl border border-amber-200">
               ⚠️ Google Geocoding quota reached for this key. Pin location saved, click below to fill building/street details.
             </p>
-          )}
-
-          {onManualAddressFallback && (
-            <button
-              type="button"
-              onClick={onManualAddressFallback}
-              className="text-xs font-semibold text-muted-foreground hover:text-foreground underline w-full text-center block pt-2 transition-colors"
-            >
-              Skip map & enter address manually
-            </button>
           )}
         </div>
 
@@ -500,10 +589,11 @@ export function MapLocationPicker({
           <Button
             type="button"
             size="lg"
+            disabled={isOutOfZone || isGeocoding}
             onClick={() => onConfirmLocation(pinnedData)}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg h-12 text-sm rounded-xl"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg h-12 text-sm rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Add Address Details
+            {isOutOfZone ? 'Outside Delivery Area' : 'Confirm Location & Enter Unit'}
           </Button>
           {onCancel && (
             <Button

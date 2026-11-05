@@ -12,6 +12,9 @@ const validCommercial = {
   building_name: 'Mondeal Heights',
   sublocality: 'Bodakdev',
   pincode: '380015',
+  latitude: 23.0387,
+  longitude: 72.5119,
+  meal_type_tag: 'both' as const,
 }
 
 const validResidential = {
@@ -24,6 +27,9 @@ const validResidential = {
   building_name: 'Goyal Intercity',
   sublocality: 'Drive In Road',
   pincode: '380054',
+  latitude: 23.0455,
+  longitude: 72.5080,
+  meal_type_tag: 'both' as const,
 }
 
 describe('addressSchema', () => {
@@ -35,8 +41,10 @@ describe('addressSchema', () => {
     expect(addressSchema.safeParse(validResidential).success).toBe(true)
   })
 
-  it('rejects a pincode that is not an Ahmedabad 380xxx pincode', () => {
-    expect(addressSchema.safeParse({ ...validCommercial, pincode: '400001' }).success).toBe(false)
+  it('rejects an invalid pincode (not 6 digits or starting with 0)', () => {
+    expect(addressSchema.safeParse({ ...validCommercial, pincode: '012345' }).success).toBe(false)
+    expect(addressSchema.safeParse({ ...validCommercial, pincode: '12345' }).success).toBe(false)
+    expect(addressSchema.safeParse({ ...validCommercial, pincode: '38001A' }).success).toBe(false)
   })
 
   it('rejects a phone number not starting 6-9', () => {

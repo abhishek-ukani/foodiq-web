@@ -73,7 +73,7 @@ export function MenuProductCard({ listing, onCustomize, isHolidayClosed }: MenuP
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (isUnavailable) return
-    if (isThali || hasMultipleVariants || (item as any).item_customizations?.length > 0) {
+    if (isThali || hasMultipleVariants) {
       onCustomize?.(listing)
       return
     }

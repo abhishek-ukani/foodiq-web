@@ -52,7 +52,7 @@ export function isCutoffPassed(listing: MenuListing): boolean {
 
   // 3. Today: evaluate cutoff time
   const mealType = listing.daily_menus?.meal_type
-  const defaultCutoff = mealType === 'lunch' ? '11:30:00' : '20:00:00'
+  const defaultCutoff = mealType === 'lunch' ? '10:00:00' : '18:00:00'
   const cutoff = listing.cutoff_time || listing.daily_menus?.cutoff_time || defaultCutoff
 
   const nowStr = dayjs().format('HH:mm')
@@ -109,7 +109,7 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
     for (const slot of targetSlots) {
       const menuRecord = dateMenus?.find((m) => m.meal_type === slot)
       const isSlotPublished = menuRecord?.is_published ?? false
-      const cutoffTime = menuRecord?.cutoff_time ?? (slot === 'lunch' ? '11:30:00' : '20:00:00')
+      const cutoffTime = menuRecord?.cutoff_time ?? (slot === 'lunch' ? '10:00:00' : '18:00:00')
       const menuId = menuRecord?.id || `synthetic-${slot}-${date}`
 
       for (const thali of thaliFoods) {
@@ -283,17 +283,6 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
   return listings
 }
 
-export async function fetchDailyMenuSlots(date: string) {
-  const { data, error } = await supabase
-    .from('daily_menus')
-    .select('id, menu_date, is_published, meal_type, cutoff_time, title, note')
-    .eq('menu_date', date)
-    .eq('is_published', true)
-
-  if (error) throw error
-  return data || []
-}
-
 /** Active categories from admin, ordered by display_order. */
 export async function fetchActiveCategories(): Promise<Tables<'categories'>[]> {
   const { data, error } = await supabase
@@ -311,7 +300,6 @@ export type ThaliComponent = Tables<'thali_items'> & { food_items: { name: strin
 export type FoodItemDetail = Tables<'food_items'> & {
   categories: Tables<'categories'> | null
   thali_items: ThaliComponent[]
-  item_customizations: Tables<'item_customizations'>[]
   food_item_variants: Tables<'food_item_variants'>[]
 }
 
@@ -320,7 +308,7 @@ export async function fetchFoodItemBySlug(slug: string): Promise<FoodItemDetail>
   let query = supabase
     .from('food_items')
     .select(
-      '*, categories(*), thali_items!thali_items_thali_id_fkey(*, food_items!thali_items_food_item_id_fkey(name)), item_customizations(*), food_item_variants(*)',
+      '*, categories(*), thali_items!thali_items_thali_id_fkey(*, food_items!thali_items_food_item_id_fkey(name)), food_item_variants(*)',
     )
   if (isUuid) {
     query = query.or(`slug.eq.${slug},id.eq.${slug}`)
@@ -330,7 +318,6 @@ export async function fetchFoodItemBySlug(slug: string): Promise<FoodItemDetail>
   const { data, error } = await query.single()
   if (error) throw error
   const item = data as unknown as FoodItemDetail
-  const activeCustomizations = (item.item_customizations || []).filter((c) => c.is_active !== false)
   const activeVariants = (item.food_item_variants || [])
     .filter((v) => v.is_active !== false)
     .sort((a, b) => a.display_order - b.display_order || a.price - b.price)
@@ -338,9 +325,6 @@ export async function fetchFoodItemBySlug(slug: string): Promise<FoodItemDetail>
   return {
     ...item,
     thali_items: [...(item.thali_items || [])].sort((a, b) => a.display_order - b.display_order),
-    item_customizations: [...activeCustomizations].sort(
-      (a, b) => a.display_order - b.display_order,
-    ),
     food_item_variants: activeVariants,
   }
 }

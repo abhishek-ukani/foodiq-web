@@ -82,84 +82,12 @@ type ProfileRow = {
   updated_at: string
 }
 
-type DeliveryAreaRow = {
-  id: string
-  name: string
-  area_key: string | null
-  pincode: string | null
-  city: string | null
-  state: string | null
-  display_order: number
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-type DeliveryBuildingRow = {
-  id: number
-  name: string
-  delivery_charge: number
-  area_hint: string | null
-  pincode: string | null
-  city: string
-  state: string
-  display_order: number
-  is_active: boolean
-  created_at: string
-}
-
-type DeliveryRoadRow = {
-  id: number
-  name: string
-  delivery_charge: number
-  area_hint: string | null
-  display_order: number
-  is_active: boolean
-  created_at: string
-}
-
-/** delivery_zones — pre-classified localities for Kathiyawadi Kitchen. */
-type DeliveryZoneRow = {
-  id: number
-  name: string
-  pincode: string | null
-  zone_type: 'FREE' | 'PAID' | 'BLOCKED'
-  fixed_fee: number
-  is_active: boolean
-  created_at: string
-}
-
-/** delivery_fee_rules — distance-based fee tiers, fallback when no zone matches. */
-type DeliveryFeeRuleRow = {
-  id: number
-  min_distance_km: number
-  max_distance_km: number
-  fee: number
-  is_active: boolean
-  created_at: string
-}
-
-type DeliverySlotRow = {
-  id: string
-  branch_id: string
-  label: string
-  meal_type: MealType
-  start_time: string
-  end_time: string
-  cutoff_time: string
-  max_orders: number | null
-  display_order: number
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
 type AddressRow = {
   id: string
   user_id: string
-  delivery_area_id: string | null
-  delivery_building_id: number | null
-  delivery_road_id: number | null
+  delivery_area_id?: string | null
+  delivery_building_id?: number | null
+  delivery_road_id?: number | null
   label: AddressLabel
   custom_label: string | null
   contact_name: string
@@ -426,7 +354,7 @@ type UserSubscriptionRow = {
   user_id: string
   plan_id: string
   address_id: string | null
-  default_delivery_slot_id: string | null
+  default_delivery_slot_id?: string | null
   start_date: string
   end_date: string
   total_meals: number
@@ -450,6 +378,7 @@ type SubscriptionDailyDeliveryRow = {
   created_at: string
 }
 
+<<<<<<< HEAD
 
 type ItemCustomizationRow = {
   id: string
@@ -462,6 +391,8 @@ type ItemCustomizationRow = {
   created_at: string
 }
 
+=======
+>>>>>>> 3e2eaf4d29c357891d460d25e5a6e3254cf54d55
 type DailyMenuRow = {
   id: string
   branch_id: string
@@ -586,7 +517,7 @@ type CartItemRow = {
   customizations: Json
   special_instructions: string | null
   delivery_date: string | null
-  delivery_slot_id: string | null
+  delivery_slot_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -624,7 +555,7 @@ type OrderRow = {
   delivery_date: string
   delivery_slot_id: string | null
   delivery_slot_label: string | null
-  delivery_area_id: string | null
+  delivery_area_id?: string | null
   address_id: string | null
   contact_name: string
   contact_phone: string
@@ -881,21 +812,6 @@ export interface Database {
     Tables: {
       branches: TableOf<BranchRow>
       profiles: TableOf<ProfileRow>
-      delivery_areas: TableOf<
-        DeliveryAreaRow,
-        'display_order' | 'is_active'
-      >
-      delivery_buildings: TableOf<
-        DeliveryBuildingRow,
-        'delivery_charge' | 'display_order' | 'is_active'
-      >
-      delivery_roads: TableOf<
-        DeliveryRoadRow,
-        'delivery_charge' | 'display_order' | 'is_active'
-      >
-      delivery_zones: TableOf<DeliveryZoneRow, 'fixed_fee' | 'is_active'>
-      delivery_fee_rules: TableOf<DeliveryFeeRuleRow, 'is_active'>
-      delivery_slots: TableOf<DeliverySlotRow, 'display_order' | 'is_active'>
       addresses: TableOf<AddressRow, 'is_default'>
       categories: TableOf<CategoryRow>
       food_items: TableOf<FoodItemRow>
@@ -922,10 +838,6 @@ export interface Database {
       subscription_plans: TableOf<SubscriptionPlanRow, 'discount_percentage' | 'is_active'>
       user_subscriptions: TableOf<UserSubscriptionRow, 'status'>
       subscription_daily_deliveries: TableOf<SubscriptionDailyDeliveryRow, 'status'>
-      item_customizations: TableOf<
-        ItemCustomizationRow,
-        'price_delta' | 'is_default' | 'display_order' | 'is_active'
-      >
       daily_menus: TableOf<DailyMenuRow>
       daily_menu_items: TableOf<DailyMenuItemRow, 'display_order' | 'is_available' | 'is_special'>
       price_history: TableOf<PriceHistoryRow>
@@ -951,7 +863,7 @@ export interface Database {
         Args: {
           p_address_id: string
           p_delivery_date: string
-          p_delivery_slot_id: string
+          p_delivery_slot_id?: string | null
           p_payment_method: PaymentMethod
           p_special_instructions?: string | null
           p_payment_reference?: string | null

@@ -34,8 +34,6 @@ export function CatalogSyncProvider({ children }: CatalogSyncProviderProps) {
         queryClient.invalidateQueries({ queryKey: ['daily-menu'] })
         queryClient.invalidateQueries({ queryKey: ['food-item'] })
         queryClient.invalidateQueries({ queryKey: ['categories'] })
-        queryClient.invalidateQueries({ queryKey: ['daily-menu-slots'] })
-        queryClient.invalidateQueries({ queryKey: ['delivery-slots'] })
         queryClient.invalidateQueries({ queryKey: ['meal-timing-data'] })
         queryClient.invalidateQueries({ queryKey: ['all-active-items'] })
         queryClient.invalidateQueries({ queryKey: ['always-available-items'] })
@@ -82,8 +80,6 @@ export function CatalogSyncProvider({ children }: CatalogSyncProviderProps) {
       'thali_option_groups',
       'thali_option_items',
       'thali_components',
-      'item_customizations',
-      'delivery_slots',
     ]
 
     for (const table of monitoredTables) {

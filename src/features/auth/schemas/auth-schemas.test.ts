@@ -58,6 +58,14 @@ describe('registerSchema', () => {
     expect(result.success).toBe(false)
   })
 
+  it('accepts and normalizes phone numbers with country code or spaces', () => {
+    const result = registerSchema.safeParse({ ...valid, phone: '+91 98765 43210' })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.phone).toBe('9876543210')
+    }
+  })
+
   it('rejects when terms are not accepted', () => {
     const result = registerSchema.safeParse({ ...valid, acceptTerms: false })
     expect(result.success).toBe(false)

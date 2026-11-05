@@ -1,120 +1,179 @@
 import type { Tables } from '@/types/database.types'
+import type {
+  DeliveryResolutionResult,
+  DeliverySettings,
+  ZoneClassification,
+} from '@/types/delivery'
 
 export type KitchenLocation = { lat: number; lng: number }
-
-export type DeliveryResolutionResult = {
-  fee: number
-  isOutOfZone: boolean
-  zoneType: 'building' | 'road' | 'area' | 'out_of_zone'
-  zoneLabel: string
-  distanceKm: number | null
-}
+export type { DeliveryResolutionResult, DeliverySettings, ZoneClassification }
 
 /**
- * Calculates straight-line (Haversine) distance between two GPS coordinates in kilometers.
+ * Extracts a 6-digit Indian pincode from an address.
  */
-export function calculateHaversineDistanceKm(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number {
-  const R = 6371 // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLon = ((lon2 - lon1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return Math.round(R * c * 10) / 10 // Round to 1 decimal place
+export function extractPincode(address: Partial<Tables<'addresses'>> | null): string | null {
+  if (!address?.pincode) return null
+  const cleaned = address.pincode.trim()
+  return /^\d{6}$/.test(cleaned) ? cleaned : null
+}
+
+export interface ResolveDeliveryOptions {
+  settings?: DeliverySettings | null
+  /** Exact road driving distance (e.g. from Google Routes API) override */
+  overrideDistanceKm?: number | null
 }
 
 /**
- * Resolves delivery fee and zone status based on address, deliverable areas, and kitchen distance fee rules.
+ * Resolves delivery fee, zone classification, and serviceability.
+ * All pricing, radius, and pincode rules are loaded dynamically from the database.
  */
 export function resolveDeliveryCharge(
   address: Partial<Tables<'addresses'>> | null,
-  areas: Tables<'delivery_areas'>[] = [],
-  feeRules: Tables<'delivery_fee_rules'>[] = [],
-  kitchenLocation: KitchenLocation = { lat: 23.0392, lng: 72.5085 },
+  options?: ResolveDeliveryOptions,
 ): DeliveryResolutionResult {
   if (!address) {
     return {
       fee: 0,
       isOutOfZone: false,
+      zoneClassification: 'out_of_zone',
       zoneType: 'out_of_zone',
       zoneLabel: 'Address required',
       distanceKm: null,
     }
   }
 
-  // Match Area (Validated strictly against delivery_areas)
-  const subloc = (address.sublocality || '').toLowerCase().trim()
-  const line1 = (address.address_line1 || '').toLowerCase().trim()
-  const line2 = (address.address_line2 || '').toLowerCase().trim()
+  const settings = options?.settings ?? null
+  const overrideDistanceKm =
+    options?.overrideDistanceKm != null && options.overrideDistanceKm > 0
+      ? options.overrideDistanceKm
+      : null
 
-  const matchedArea = areas.find((a) => {
-    if (!a.is_active) return false
-    const key = (a.area_key || '').toLowerCase().trim()
-    const name = (a.name || '').toLowerCase().trim()
+  // 1. Extract and normalize pincode
+  const pincode = extractPincode(address)
 
-    // 1. Direct sublocality match
-    if (subloc) {
-      if (key && (subloc === key || subloc.includes(key) || key.includes(subloc))) return true
-      if (name && (subloc === name || subloc.includes(name) || name.includes(subloc))) return true
+  // 2. Classify zone based on dynamic pincode lists from database
+  const zoneA = (settings?.zone_a_pincodes || []).map((p) => p.trim())
+  const zoneB = (settings?.zone_b_pincodes || []).map((p) => p.trim())
+
+  let classification: ZoneClassification = 'out_of_zone'
+
+  if (pincode) {
+    if (zoneA.includes(pincode)) {
+      classification = 'zone_a'
+    } else if (zoneB.includes(pincode)) {
+      classification = 'zone_b'
     }
+  }
 
-    // 2. Address lines text match (only if key/name has at least 3 chars)
-    if (key && key.length >= 3 && (line1.includes(key) || line2.includes(key))) return true
-    if (name && name.length >= 3 && (line1.includes(name) || line2.includes(name))) return true
+  const returnWithLog = (res: DeliveryResolutionResult): DeliveryResolutionResult => res
 
-    // 3. Fall back to pincode ONLY if sublocality is completely empty
-    if (!subloc && a.pincode && address.pincode && a.pincode === address.pincode) return true
+  // If outside all deliverable zones
+  if (classification === 'out_of_zone') {
+    return returnWithLog({
+      fee: 0,
+      isOutOfZone: true,
+      zoneClassification: 'out_of_zone',
+      zoneType: 'out_of_zone',
+      zoneLabel: pincode ? `Pincode ${pincode} · Outside Standard Service Area` : 'Outside Delivery Area',
+      distanceKm: overrideDistanceKm != null && overrideDistanceKm > 0 ? overrideDistanceKm : null,
+    })
+  }
 
-    return false
-  })
+  // 3. Driving distance from kitchen (Strictly from Google Routes API - no heuristic multiplier fallback)
+  const distanceKm: number | null =
+    overrideDistanceKm != null && overrideDistanceKm > 0 ? overrideDistanceKm : null
 
-  if (matchedArea) {
-    let distanceKm = 3.5 // Fallback estimated distance in Ahmedabad if lat/lng unavailable
+  // 4. Hard distance cutoff configured in database
+  const maxDistance = Number(settings?.max_delivery_distance_km ?? 0)
+  if (maxDistance > 0 && distanceKm !== null && distanceKm > maxDistance) {
+    return returnWithLog({
+      fee: 0,
+      isOutOfZone: true,
+      zoneClassification: 'out_of_zone',
+      zoneType: 'out_of_zone',
+      zoneLabel: `Exceeds Maximum Delivery Radius (${distanceKm} km)`,
+      distanceKm,
+    })
+  }
 
-    if (address.latitude && address.longitude) {
-      distanceKm = calculateHaversineDistanceKm(
-        kitchenLocation.lat,
-        kitchenLocation.lng,
-        address.latitude,
-        address.longitude,
-      )
-    }
+  const baseFee = Number(settings?.base_delivery_fee ?? 0)
+  const perKmFee = Number(settings?.per_km_fee ?? 0)
+  const freeRadius = Number(settings?.free_delivery_radius_km ?? 0)
 
-    // Match against distance fee rules
-    const matchedRule = feeRules.find(
-      (r) => distanceKm >= r.min_distance_km && distanceKm <= r.max_distance_km,
-    )
+  // 5. Unified Distance-Based Delivery Fee Calculation (same fair rate regardless of Zone A or B)
+  const isFree = distanceKm !== null && freeRadius > 0 && distanceKm <= freeRadius
+  const extraKm =
+    distanceKm !== null && freeRadius > 0 && distanceKm > freeRadius
+      ? Math.round((distanceKm - freeRadius) * 10) / 10
+      : isFree
+      ? 0
+      : (distanceKm ?? 0)
+  const fee = distanceKm === null ? 0 : isFree ? 0 : Math.round(baseFee + extraKm * perKmFee)
 
-    const fee = matchedRule
-      ? Number(matchedRule.fee)
-      : feeRules.length > 0
-        ? Number(feeRules[feeRules.length - 1].fee) // highest tier if beyond max rule
-        : 30
+  const pricingBreakdown = {
+    isFree,
+    baseFee: isFree ? 0 : baseFee,
+    extraKm,
+    perKmFee,
+    distanceKm: distanceKm ?? 0,
+  }
 
-    return {
+  // Zone A: Core Delivery Area (automatic acceptance, standard ETA 30–45 mins)
+  if (classification === 'zone_a') {
+    return returnWithLog({
       fee,
       isOutOfZone: false,
-      zoneType: 'area',
-      zoneLabel: `${matchedArea.name} (${distanceKm} km)`,
+      zoneClassification: 'zone_a',
+      zoneType: 'zone_a',
+      zoneLabel:
+        distanceKm !== null
+          ? isFree
+            ? `Standard Zone (${distanceKm} km) · Free Delivery`
+            : `Standard Zone (${distanceKm} km)`
+          : 'Standard Zone · Free Delivery',
       distanceKm,
-    }
+      pricingBreakdown,
+    })
   }
 
-  // 4. Out of Zone
-  return {
+  // Zone B: Extended Delivery Area (same distance fee rate; extended ETA 50–65 mins, subject to confirmation)
+  if (classification === 'zone_b') {
+    // If master toggle for Zone B is OFF (e.g. during peak rush)
+    if (settings?.zone_b_enabled === false) {
+      return returnWithLog({
+        fee: 0,
+        isOutOfZone: true,
+        zoneClassification: 'zone_b',
+        zoneType: 'zone_b',
+        zoneLabel: `Extended Zone (${pincode || (distanceKm ? `${distanceKm} km` : '')}) · Paused Due to Rush`,
+        distanceKm,
+        isZoneBDisabled: true,
+      })
+    }
+
+    return returnWithLog({
+      fee,
+      isOutOfZone: false,
+      zoneClassification: 'zone_b',
+      zoneType: 'zone_b',
+      zoneLabel:
+        distanceKm !== null
+          ? isFree
+            ? `Extended Zone (${distanceKm} km) · Free Delivery · Subject to Confirmation`
+            : `Extended Zone (${distanceKm} km) · Subject to Confirmation`
+          : 'Extended Zone · Subject to Confirmation',
+      distanceKm,
+      pricingBreakdown,
+    })
+  }
+
+  // Fallback safe return
+  return returnWithLog({
     fee: 0,
     isOutOfZone: true,
+    zoneClassification: 'out_of_zone',
     zoneType: 'out_of_zone',
-    zoneLabel: 'Out of Standard Zone',
+    zoneLabel: 'Outside Delivery Area',
     distanceKm: null,
-  }
+  })
 }

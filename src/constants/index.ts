@@ -96,10 +96,8 @@ export const QUERY_KEYS = {
   dailyMenu: (date: string, meal?: MealType) => ['daily-menu', date, meal ?? 'all'] as const,
   cart: ['cart'] as const,
   addresses: ['addresses'] as const,
-  deliverySlots: ['delivery-slots'] as const,
-  deliveryAreas: ['delivery-areas'] as const,
-  deliveryFeeRules: ['delivery-fee-rules'] as const,
   kitchenLocation: ['kitchen-location'] as const,
+  deliverySettings: ['delivery-settings'] as const,
   quickOrder: (mealType?: string) => ['quick-order', mealType ?? 'active'] as const,
   orders: (filters?: Record<string, unknown>) => ['orders', filters ?? {}] as const,
   order: (id: string) => ['order', id] as const,
@@ -116,3 +114,73 @@ export const CURRENCY_SYMBOL = '₹'
 export const DATE_FORMAT = 'DD MMM YYYY'
 export const DATE_TIME_FORMAT = 'DD MMM YYYY, h:mm A'
 export const API_DATE_FORMAT = 'YYYY-MM-DD'
+
+export const CONTACT_INFO = {
+  brandName: 'FoodIQ',
+  taglineGujarati: 'શુદ્ધ ઘરનો સ્વાદ, પ્રેમથી પીરસાયેલું જમણ',
+  email: 'hello@foodiq.in',
+  phone: '+91 99999 99999',
+  phoneRaw: '919999999999',
+  whatsappUrl: (message = 'Hello FoodIQ! I would like to inquire about your homemade tiffin service.') =>
+    `https://wa.me/919999999999?text=${encodeURIComponent(message)}`,
+  address: {
+    line1: 'B-5, First Floor, Sarita Appartment',
+    line2: 'Satya Marg, Judges Bunglow Cross Road',
+    landmark: 'Near Judges Bunglow',
+    area: 'Bodakdev',
+    city: 'Ahmedabad',
+    pincode: '380015',
+    state: 'Gujarat',
+    full: 'B-5, First Floor, Sarita Appartment, Satya Marg, Judges Bunglow Cross Road, Bodakdev, Ahmedabad – 380015',
+    googleMapsUrl: 'https://maps.google.com/?q=Sarita+Apartments+Bodakdev',
+  },
+  hours: {
+    lunchSupport: '7:30 AM – 3:00 PM',
+    dinnerSupport: '5:00 PM – 9:30 PM',
+    days: 'All 7 Days (Mon – Sun)',
+  },
+  cutoffs: {
+    lunchTime: '10:00 AM',
+    lunchDelivery: '11:00 AM – 1:30 PM',
+    dinnerTime: '6:00 PM',
+    dinnerDelivery: '7:30 PM – 9:00 PM',
+  },
+  deliveryAreas: [
+    'Bodakdev',
+    'Satellite',
+    'SG Highway',
+    'Iscon - Ambli Road',
+    'Sindhu Bhavan Road',
+    'Thaltej',
+    'Vastrapur',
+    'Prahladnagar',
+    'Navrangpura',
+    'Ambawadi',
+  ],
+  socials: {
+    instagram: 'https://instagram.com',
+    facebook: 'https://facebook.com',
+  },
+} as const
+
+/**
+ * Canonical kitchen coordinates (Sarita Apartments, Satya Marg, Bodakdev, Ahmedabad - 380015).
+ * Single authoritative source of truth across the application.
+ */
+export const DEFAULT_KITCHEN_LOCATION = {
+  lat: 23.0347092,
+  lng: 72.5153523,
+} as const
+
+/**
+ * Strict boundary coordinates for Ahmedabad metropolitan area.
+ * Used to lock Google Maps viewport (strictBounds: true) and restrict Google Places autocomplete queries.
+ */
+export const AHMEDABAD_BOUNDS = {
+  north: 23.18, // Vaishnodevi / Adalaj border
+  south: 22.95, // South Bopal / Makarba / Sarkhej
+  east: 72.65,  // Sabarmati river / Shahibaug
+  west: 72.44,  // Shela / Ghuma
+} as const
+
+

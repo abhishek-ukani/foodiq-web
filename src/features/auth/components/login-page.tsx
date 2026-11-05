@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -48,21 +48,38 @@ export function LoginPage() {
   const location = useLocation()
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false)
 
+  const searchParams = new URLSearchParams(location.search)
+  const initialEmail = searchParams.get('email') || ''
+
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: initialEmail, password: '' },
   })
+
+  // Sync if URL query param changes
+  useEffect(() => {
+    if (initialEmail && !form.getValues('email')) {
+      form.setValue('email', initialEmail)
+    }
+  }, [initialEmail, form])
 
   const onSubmit = async (values: LoginInput) => {
     try {
       await signInWithEmail(values)
       toast.success('Welcome back!')
-      const searchParams = new URLSearchParams(location.search)
       const fromParam = searchParams.get('redirect') || searchParams.get('from')
       const from = fromParam || (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
       navigate(from ?? ROUTES.home, { replace: true })
-    } catch (error) {
-      toast.error(toFriendlyAuthMessage(error))
+    } catch (error: any) {
+      const msg = error?.message || ''
+      if (/Email not confirmed/i.test(msg)) {
+        toast.error('Please verify your email before signing in.', {
+          duration: 5000,
+        })
+        navigate(ROUTES.verifyEmail, { state: { email: values.email } })
+      } else {
+        toast.error(toFriendlyAuthMessage(error))
+      }
     }
   }
 

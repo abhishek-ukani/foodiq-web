@@ -17,16 +17,25 @@ export function AddressFlowDialog({
   addressToEdit,
   onSaved,
 }: AddressFlowDialogProps) {
-  // Always start at manual form ('details') first per UX requirement
-  const [step, setStep] = useState<'details' | 'map'>('details')
+  // If editing an existing address with coordinates, start at 'details'.
+  // If adding a new address, start at 'map' (compulsory location selection first).
+  const [step, setStep] = useState<'details' | 'map'>('map')
   const [pinnedLocation, setPinnedLocation] = useState<PinnedLocationData | null>(null)
   const [mapTargetLocation, setMapTargetLocation] = useState<{ lat: number; lng: number } | null>(null)
 
   useEffect(() => {
     if (open) {
-      setStep('details')
-      setPinnedLocation(null)
-      setMapTargetLocation(null)
+      if (addressToEdit?.latitude && addressToEdit?.longitude) {
+        setStep('details')
+        setMapTargetLocation({
+          lat: Number(addressToEdit.latitude),
+          lng: Number(addressToEdit.longitude),
+        })
+      } else {
+        setStep('map')
+        setPinnedLocation(null)
+        setMapTargetLocation(null)
+      }
     }
   }, [open, addressToEdit])
 
@@ -57,6 +66,11 @@ export function AddressFlowDialog({
   const handleConfirmLocation = (location: PinnedLocationData) => {
     setPinnedLocation({ ...location })
     setStep('details')
+  }
+
+  const handleClearLocation = () => {
+    setPinnedLocation(null)
+    setMapTargetLocation(null)
   }
 
   const handleAddressSaved = (address: Tables<'addresses'> | null) => {
@@ -95,8 +109,13 @@ export function AddressFlowDialog({
             <MapLocationPicker
               initialLocation={mapTargetLocation}
               onConfirmLocation={handleConfirmLocation}
-              onManualAddressFallback={() => setStep('details')}
-              onCancel={() => setStep('details')}
+              onCancel={() => {
+                if (pinnedLocation || addressToEdit) {
+                  setStep('details')
+                } else {
+                  onOpenChange(false)
+                }
+              }}
             />
           </div>
         )}
@@ -107,6 +126,7 @@ export function AddressFlowDialog({
               address={addressToEdit}
               pinnedLocation={pinnedLocation}
               onOpenMap={handleOpenMap}
+              onClearLocation={handleClearLocation}
               onSaved={handleAddressSaved}
               onCancel={() => onOpenChange(false)}
             />

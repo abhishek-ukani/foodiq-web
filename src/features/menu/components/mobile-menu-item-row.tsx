@@ -67,8 +67,8 @@ export function MobileMenuItemRow({
     e.stopPropagation()
     if (isUnavailable) return
 
-    // If it's a thali or has customizations, always open customizer
-    if (isThali || (item as any).item_customizations?.length > 0) {
+    // If it's a thali or has multiple variants, open customizer
+    if (isThali || hasMultipleVariants) {
       onCustomize?.(listing)
       return
     }

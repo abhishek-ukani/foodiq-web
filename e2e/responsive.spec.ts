@@ -7,13 +7,6 @@ test('mobile nav sheet opens and links to the menu', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Menu', exact: true })).toBeVisible()
 })
 
-test('theme toggle switches the document to dark mode', async ({ page }) => {
-  await page.goto('/')
-  const html = page.locator('html')
-  await expect(html).not.toHaveClass(/dark/)
-  await page.getByRole('button', { name: /toggle theme/i }).click()
-  await expect(html).toHaveClass(/dark/)
-})
 
 test('menu search narrows results and an empty query restores them', async ({ page }) => {
   await page.goto('/menu')

@@ -6,53 +6,57 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSubscriptionQuote } from '../hooks/use-subscriptions'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
-import type { PlanVariantRow } from '@/types/database.types'
+import type { SubscriptionPlanRow } from '@/types/database.types'
 
 type PlanCardProps = {
-  variant: PlanVariantRow
+  plan?: SubscriptionPlanRow
+  /** Backward-compatible prop alias */
+  variant?: SubscriptionPlanRow
   selectedSlot: 'lunch' | 'dinner' | 'both'
   selectedThaliId?: string | null
 }
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-export function PlanCard({ variant, selectedSlot, selectedThaliId }: PlanCardProps) {
+export function PlanCard({ plan, variant, selectedSlot, selectedThaliId }: PlanCardProps) {
+  const planItem = (plan || variant)!
+
   const { data: quote, isLoading: quoteLoading } = useSubscriptionQuote(
-    variant.id,
+    planItem.id,
     selectedSlot,
     selectedThaliId,
   )
 
-  const isSlotAllowed = (variant.meal_slots_allowed || ['lunch', 'dinner', 'both']).includes(
+  const isSlotAllowed = (planItem.meal_slots_allowed || ['lunch', 'dinner', 'both']).includes(
     selectedSlot,
   )
 
   const activeDaysStr =
-    variant.schedule_type === 'every_other_day'
+    planItem.schedule_type === 'every_other_day'
       ? 'Alternate Days (Every 2nd day)'
-      : (variant.delivery_days || [1, 2, 3, 4, 5])
+      : (planItem.delivery_days || [1, 2, 3, 4, 5])
         .map((d) => DAY_NAMES[d - 1])
         .filter(Boolean)
         .join(', ')
 
   const totalMeals =
-    selectedSlot === 'both' ? variant.duration_meal_days * 2 : variant.duration_meal_days
+    selectedSlot === 'both' ? planItem.duration_meal_days * 2 : planItem.duration_meal_days
 
-  const checkoutUrl = `${ROUTES.checkoutSubscription}?variant=${variant.slug}&slot=${selectedSlot}${selectedThaliId ? `&thali=${selectedThaliId}` : ''
+  const checkoutUrl = `${ROUTES.checkoutSubscription}?plan=${planItem.slug}&slot=${selectedSlot}${selectedThaliId ? `&thali=${selectedThaliId}` : ''
     }`
 
   return (
     <Card
-      className={`relative flex flex-col justify-between overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${variant.badge_text
+      className={`relative flex flex-col justify-between overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${planItem.badge_text
           ? 'border-primary/40 bg-gradient-to-b from-primary/5 via-card to-card'
           : 'border-border/80 bg-card'
         }`}
     >
       {/* Top Banner Badge */}
-      {variant.badge_text && (
+      {planItem.badge_text && (
         <div className="absolute top-0 right-0">
           <span className="inline-block rounded-bl-xl bg-primary px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-xs">
-            {variant.badge_text}
+            {planItem.badge_text}
           </span>
         </div>
       )}
@@ -61,17 +65,17 @@ export function PlanCard({ variant, selectedSlot, selectedThaliId }: PlanCardPro
         <CardHeader className="pt-6 pb-3">
           <div className="space-y-1">
             <CardTitle className="font-display text-2xl font-bold text-foreground">
-              {variant.name}
+              {planItem.name}
             </CardTitle>
-            {variant.who_it_is_for && (
+            {planItem.who_it_is_for && (
               <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
                 <span>🎯</span>
-                <span>{variant.who_it_is_for}</span>
+                <span>{planItem.who_it_is_for}</span>
               </p>
             )}
           </div>
           <CardDescription className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed">
-            {variant.short_description}
+            {planItem.short_description}
           </CardDescription>
         </CardHeader>
 
@@ -158,7 +162,7 @@ export function PlanCard({ variant, selectedSlot, selectedThaliId }: PlanCardPro
             <li className="flex items-start gap-2.5">
               <Check className="size-4 shrink-0 text-emerald-600 mt-0.5" />
               <div>
-                Up to <strong>{variant.skip_limit} delivery skips</strong> allowed (extends your
+                Up to <strong>{planItem.skip_limit} delivery skips</strong> allowed (extends your
                 plan automatically)
               </div>
             </li>
@@ -171,7 +175,7 @@ export function PlanCard({ variant, selectedSlot, selectedThaliId }: PlanCardPro
               </div>
             </li>
 
-            {variant.has_weekly_sweet ? (
+            {planItem.has_weekly_sweet ? (
               <li className="flex items-start gap-2.5 text-amber-900 dark:text-amber-300 font-medium bg-amber-50/60 dark:bg-amber-950/20 p-2 rounded-lg border border-amber-200/50">
                 <Sparkles className="size-4 shrink-0 text-amber-600 mt-0.5" />
                 <span>Weekly complimentary homemade Kathiyawadi sweet included 🍬</span>

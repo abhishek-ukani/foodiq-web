@@ -42,7 +42,6 @@ export type PoStatus = 'DRAFT' | 'ORDERED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' |
 export type SubscriptionPlanType = 'standard' | 'custom'
 export type SubscriptionStatus = 'pending_payment' | 'active' | 'completed' | 'cancelled'
 export type SubscriptionDayStatus = 'scheduled' | 'delivered' | 'skipped' | 'kitchen_cancelled'
-export type PlanEnquiryStatus = 'new' | 'in_progress' | 'resolved' | 'closed'
 
 type BranchRow = {
   id: string
@@ -213,7 +212,7 @@ type ThaliComponentRow = {
   updated_at: string
 }
 
-export type PlanVariantRow = {
+export type SubscriptionPlanRow = {
   id: string
   name: string
   slug: string
@@ -233,6 +232,9 @@ export type PlanVariantRow = {
   created_at: string
   updated_at: string
 }
+
+/** Backward-compatibility alias for smooth transition */
+export type PlanVariantRow = SubscriptionPlanRow
 
 export type SubscriptionSettingsRow = {
   id: string
@@ -262,7 +264,8 @@ export type SubscriptionRow = {
   id: string
   subscription_number: string
   user_id: string
-  plan_variant_id: string
+  plan_id: string
+  plan_variant_id?: string
   meal_thali_id: string | null
   thali_snapshot: Json | null
   plan_type: SubscriptionPlanType
@@ -282,7 +285,8 @@ export type SubscriptionRow = {
   has_weekly_sweet: boolean
   schedule_type: string
   delivery_days: number[]
-  variant_snapshot: Json
+  plan_snapshot: Json
+  variant_snapshot?: Json
   address_snapshot: Json
   renewal_reminder_threshold: number
   payment_method: string
@@ -316,83 +320,6 @@ export type SubscriptionDayRow = {
   created_at: string
   updated_at: string
 }
-
-export type PlanEnquiryRow = {
-  id: string
-  user_id: string | null
-  enquiry_type: string
-  headcount: number | null
-  days_per_week: number | null
-  area_or_office: string
-  phone: string
-  contact_name: string | null
-  message: string | null
-  status: PlanEnquiryStatus
-  admin_notes: string | null
-  created_at: string
-  updated_at: string
-}
-
-type SubscriptionPlanRow = {
-  id: string
-  branch_id: string | null
-  name: string
-  slug: string
-  thali_food_item_id: string
-  duration_days: number
-  total_meals: number
-  meal_type_allowed: 'lunch_only' | 'dinner_only' | 'both'
-  price: number
-  discount_percentage: number
-  description: string | null
-  is_active: boolean
-  created_at: string
-}
-
-type UserSubscriptionRow = {
-  id: string
-  user_id: string
-  plan_id: string
-  address_id: string | null
-  default_delivery_slot_id?: string | null
-  start_date: string
-  end_date: string
-  total_meals: number
-  meals_remaining: number
-  status: 'active' | 'paused' | 'cancelled' | 'expired'
-  paused_from: string | null
-  paused_until: string | null
-  created_at: string
-}
-
-type SubscriptionDailyDeliveryRow = {
-  id: string
-  subscription_id: string
-  user_id: string
-  delivery_date: string
-  meal_type: MealType
-  status: 'scheduled' | 'customized' | 'auto_fulfilled' | 'skipped' | 'delivered' | 'cancelled'
-  order_id: string | null
-  selected_customizations: Json
-  customized_at: string | null
-  created_at: string
-}
-
-<<<<<<< HEAD
-
-type ItemCustomizationRow = {
-  id: string
-  food_item_id: string
-  name: string
-  price_delta: number
-  is_default: boolean
-  display_order: number
-  is_active: boolean
-  created_at: string
-}
-
-=======
->>>>>>> 3e2eaf4d29c357891d460d25e5a6e3254cf54d55
 type DailyMenuRow = {
   id: string
   branch_id: string
@@ -823,8 +750,8 @@ export interface Database {
       thali_option_groups: TableOf<ThaliOptionGroupRow, 'min_select' | 'max_select' | 'is_required' | 'display_order' | 'is_active'>
       thali_option_items: TableOf<ThaliOptionItemRow, 'price_delta' | 'is_default' | 'display_order' | 'is_active'>
       thali_components: TableOf<ThaliComponentRow, 'is_active' | 'display_order'>
-      plan_variants: TableOf<
-        PlanVariantRow,
+      subscription_plans: TableOf<
+        SubscriptionPlanRow,
         'display_order' | 'is_active' | 'discount_percentage' | 'skip_limit' | 'has_weekly_sweet' | 'meal_slots_allowed' | 'renewal_reminder_threshold'
       >
       subscription_settings: TableOf<SubscriptionSettingsRow>
@@ -834,10 +761,6 @@ export interface Database {
         'status' | 'plan_type' | 'renewal_reminder_threshold' | 'payment_method' | 'payment_status'
       >
       subscription_days: TableOf<SubscriptionDayRow, 'status' | 'includes_sweet'>
-      plan_enquiries: TableOf<PlanEnquiryRow, 'status'>
-      subscription_plans: TableOf<SubscriptionPlanRow, 'discount_percentage' | 'is_active'>
-      user_subscriptions: TableOf<UserSubscriptionRow, 'status'>
-      subscription_daily_deliveries: TableOf<SubscriptionDailyDeliveryRow, 'status'>
       daily_menus: TableOf<DailyMenuRow>
       daily_menu_items: TableOf<DailyMenuItemRow, 'display_order' | 'is_available' | 'is_special'>
       price_history: TableOf<PriceHistoryRow>
@@ -876,19 +799,23 @@ export interface Database {
       }
       get_subscription_quote: {
         Args: {
-          p_variant_id: string
+          p_plan_id: string
           p_meal_slot: string
+          p_meal_thali_id?: string | null
+          p_variant_id?: string
         }
         Returns: Json
       }
       create_subscription: {
         Args: {
-          p_variant_id: string
+          p_plan_id: string
           p_meal_slot: string
           p_start_date: string
           p_address_id: string
           p_delivery_slot_id?: string | null
           p_payment_method?: string
+          p_meal_thali_id?: string | null
+          p_variant_id?: string
         }
         Returns: Json
       }

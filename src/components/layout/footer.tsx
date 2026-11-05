@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 
 const QUICK_LINKS = [
   { to: ROUTES.menu, label: "Today's Menu" },
+  { to: ROUTES.plans, label: 'Meal Plans & Tiffin' },
   { to: ROUTES.about, label: 'Our Story & Farm' },
   { to: ROUTES.contact, label: 'Contact Us' },
   { to: ROUTES.faq, label: 'FAQs' },

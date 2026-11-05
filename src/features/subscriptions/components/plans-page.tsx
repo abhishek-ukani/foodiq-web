@@ -21,22 +21,29 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import {
-  useActivePlanVariants,
+  useActiveSubscriptionPlans,
   useActiveMealOptions,
   useSubscriptionSettings,
 } from '../hooks/use-subscriptions'
 import { PlanCard } from './plan-card'
-import { PlanEnquiryDialog } from './plan-enquiry-dialog'
 import { ROUTES } from '@/constants'
 
 export function PlansPage() {
   const [selectedSlot, setSelectedSlot] = useState<'lunch' | 'dinner' | 'both'>('lunch')
   const [selectedThaliId, setSelectedThaliId] = useState<string | null>(null)
-  const [enquiryOpen, setEnquiryOpen] = useState(false)
 
-  const { data: variants, isLoading: variantsLoading } = useActivePlanVariants()
+  const { data: plans, isLoading: plansLoading } = useActiveSubscriptionPlans()
   const { data: mealOptions, isLoading: thalisLoading } = useActiveMealOptions()
   const { data: settings } = useSubscriptionSettings()
+
+  const handleCorporateEnquiry = () => {
+    const rawPhone = settings?.contact_whatsapp_number || '+91 98765 43210'
+    const digits = rawPhone.replace(/\D/g, '')
+    const text = encodeURIComponent(
+      'Hello FoodIQ! I would like to inquire about Custom and Corporate Tiffin Plans for our team.',
+    )
+    window.open(`https://wa.me/${digits}?text=${text}`, '_blank', 'noopener,noreferrer')
+  }
 
   // Default to first active thali if none chosen
   const activeThali = useMemo(() => {
@@ -208,18 +215,18 @@ export function PlansPage() {
           </p>
         </div>
 
-        {variantsLoading ? (
+        {plansLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-96 rounded-2xl bg-muted/40 animate-pulse border" />
             ))}
           </div>
-        ) : variants && variants.length > 0 ? (
+        ) : plans && plans.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-            {variants.map((variant) => (
+            {plans.map((plan) => (
               <PlanCard
-                key={variant.id}
-                variant={variant}
+                key={plan.id}
+                plan={plan}
                 selectedSlot={selectedSlot}
                 selectedThaliId={effectiveThaliId}
               />
@@ -227,7 +234,7 @@ export function PlansPage() {
           </div>
         ) : (
           <div className="text-center py-12 text-sm text-muted-foreground">
-            No active plan variants found. Please check back shortly.
+            No active subscription plans found. Please check back shortly.
           </div>
         )}
       </section>
@@ -319,10 +326,10 @@ export function PlansPage() {
 
           <Button
             size="lg"
-            onClick={() => setEnquiryOpen(true)}
+            onClick={handleCorporateEnquiry}
             className="shrink-0 font-semibold text-xs bg-primary text-primary-foreground min-h-[44px]"
           >
-            Enquire for Group Plan
+            Enquire via WhatsApp
           </Button>
         </div>
       </section>
@@ -396,13 +403,6 @@ export function PlansPage() {
           </AccordionItem>
         </Accordion>
       </section>
-
-      {/* Enquiry Modal */}
-      <PlanEnquiryDialog
-        open={enquiryOpen}
-        onOpenChange={setEnquiryOpen}
-        whatsappNumber={settings?.contact_whatsapp_number}
-      />
     </div>
   )
 }

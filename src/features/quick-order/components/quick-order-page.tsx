@@ -813,32 +813,6 @@ export function QuickOrderPage() {
           )}
         </section>
 
-<<<<<<< HEAD
-        {/* ── 4. Fixed Items Included (Reassurance for customer) ─ */}
-        <section aria-labelledby="included-heading">
-          <Card className="rounded-2xl border-border/70 bg-card/60 shadow-xs">
-            <CardContent className="p-3.5 space-y-2">
-              <div className="flex items-center justify-between flex-wrap gap-1">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Sparkles className="size-3.5 text-emerald-600" />
-                  <span id="included-heading">Included in your {currentThali?.name || 'Meal'}</span>
-                </div>
-                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-800 border-emerald-200 font-semibold">
-                  Free Complimentary Snack Included
-                </Badge>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  'Gujarati Dal / Kadhi',
-                  'Steamed Rice',
-                  'Daily Snack / Farsan (Free Add-on)',
-                  'Salad',
-                  'Pickle (Aachar)',
-                ].map((name) => (
-                  <span
-                    key={name}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-100 text-[11px] text-foreground font-medium"
-=======
         {/* ── Fixed Items Included Reassurance ─────────────────── */}
         {nonSelectableIncludedItems.length > 0 && (
           <section aria-labelledby="included-heading">
@@ -1043,7 +1017,6 @@ export function QuickOrderPage() {
                     size="sm"
                     onClick={() => setIsAddonsExpanded(false)}
                     className="rounded-xl h-8 px-4 text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white"
->>>>>>> 3e2eaf4d29c357891d460d25e5a6e3254cf54d55
                   >
                     Done Adding Extras
                   </Button>

@@ -229,7 +229,7 @@ export function MySubscriptionPage() {
               >
                 {subscriptions.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.plan_variants?.name || 'Tiffin Plan'} ({s.status})
+                    {s.subscription_plans?.name || s.plan_variants?.name || (s.plan_snapshot as any)?.name || 'Tiffin Plan'} ({s.status})
                   </option>
                 ))}
               </select>
@@ -248,7 +248,7 @@ export function MySubscriptionPage() {
                       {currentSub.meal_thalis?.name || (currentSub.thali_snapshot as any)?.name || 'Regular Thali'}
                     </CardTitle>
                     <Badge variant="outline" className="text-xs font-semibold bg-primary/10 text-primary border-primary/30">
-                      {currentSub.plan_variants?.name || 'Standard Plan'}
+                      {currentSub.subscription_plans?.name || currentSub.plan_variants?.name || (currentSub.plan_snapshot as any)?.name || 'Standard Plan'}
                     </Badge>
                     <Badge
                       variant={

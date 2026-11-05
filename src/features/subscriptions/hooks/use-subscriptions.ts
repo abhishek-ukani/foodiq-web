@@ -3,26 +3,30 @@ import toast from 'react-hot-toast'
 import * as subService from '../services/subscription-service'
 
 export const CUSTOMER_SUB_KEYS = {
-  variants: ['customer-plan-variants'] as const,
+  plans: ['customer-subscription-plans'] as const,
+  variants: ['customer-subscription-plans'] as const,
   settings: ['customer-subscription-settings'] as const,
   closedDates: ['customer-kitchen-closed-dates'] as const,
   mealOptions: ['customer-thali-options'] as const,
-  quote: (variantId: string, mealSlot: string, mealThaliId?: string | null) =>
-    ['customer-sub-quote', variantId, mealSlot, mealThaliId || 'default'] as const,
+  quote: (planId: string, mealSlot: string, mealThaliId?: string | null) =>
+    ['customer-sub-quote', planId, mealSlot, mealThaliId || 'default'] as const,
   mySubscriptions: ['my-subscriptions'] as const,
   ledger: (subId: string) => ['my-subscription-ledger', subId] as const,
 }
 
 // ---------------------------------------------------------------------------
-// 1. Plan Variants Query
+// 1. Subscription Plans Query
 // ---------------------------------------------------------------------------
-export function useActivePlanVariants() {
+export function useActiveSubscriptionPlans() {
   return useQuery({
-    queryKey: CUSTOMER_SUB_KEYS.variants,
-    queryFn: subService.fetchActivePlanVariants,
+    queryKey: CUSTOMER_SUB_KEYS.plans,
+    queryFn: subService.fetchActiveSubscriptionPlans,
     staleTime: 60_000,
   })
 }
+
+/** Backward-compatible alias */
+export const useActivePlanVariants = useActiveSubscriptionPlans
 
 // ---------------------------------------------------------------------------
 // 2. Active Thali Meal Options Query (Regular, Classic, Deluxe, etc.)
@@ -61,14 +65,14 @@ export function useKitchenClosedDates() {
 // 5. Live Server Quote Query
 // ---------------------------------------------------------------------------
 export function useSubscriptionQuote(
-  variantId?: string | null,
+  planId?: string | null,
   mealSlot?: 'lunch' | 'dinner' | 'both' | null,
   mealThaliId?: string | null,
 ) {
   return useQuery({
-    queryKey: CUSTOMER_SUB_KEYS.quote(variantId || '', mealSlot || 'lunch', mealThaliId),
-    queryFn: () => subService.getSubscriptionQuote(variantId!, mealSlot || 'lunch', mealThaliId),
-    enabled: Boolean(variantId && mealSlot),
+    queryKey: CUSTOMER_SUB_KEYS.quote(planId || '', mealSlot || 'lunch', mealThaliId),
+    queryFn: () => subService.getSubscriptionQuote(planId!, mealSlot || 'lunch', mealThaliId),
+    enabled: Boolean(planId && mealSlot),
     staleTime: 30_000,
   })
 }
@@ -151,17 +155,3 @@ export function useUndoSkipDeliveryDay(subscriptionId: string) {
   })
 }
 
-// ---------------------------------------------------------------------------
-// 10. Plan Enquiry Mutation
-// ---------------------------------------------------------------------------
-export function useSubmitPlanEnquiry() {
-  return useMutation({
-    mutationFn: subService.submitPlanEnquiry,
-    onSuccess: () => {
-      toast.success('Your enquiry has been received! Our kitchen team will contact you shortly.')
-    },
-    onError: (err: any) => {
-      toast.error(err.message || 'Failed to submit enquiry')
-    },
-  })
-}

@@ -23,9 +23,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/use-auth'
 import { useAddresses } from '@/features/addresses/hooks/use-addresses'
 import { AddressFlowDialog } from '@/features/addresses/components/address-flow-dialog'
-import { fetchActiveDeliverySlots } from '@/features/checkout/services/checkout-service'
 import {
-  useActivePlanVariants,
+  useActiveSubscriptionPlans,
   useActiveMealOptions,
   useSubscriptionSettings,
   useKitchenClosedDates,
@@ -33,14 +32,13 @@ import {
   useCreateSubscription,
 } from '../hooks/use-subscriptions'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
-import type { Tables } from '@/types/database.types'
 
 export function SubscriptionCheckoutPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { isAuthenticated, isLoading: authLoading } = useAuth()
 
-  const variantSlug = searchParams.get('variant') || ''
+  const planSlug = searchParams.get('plan') || searchParams.get('variant') || ''
   const slotParam = (searchParams.get('slot') as 'lunch' | 'dinner' | 'both') || 'lunch'
   const thaliParam = searchParams.get('thali') || ''
 
@@ -53,21 +51,21 @@ export function SubscriptionCheckoutPage() {
     }
   }, [authLoading, isAuthenticated, navigate])
 
-  const { data: variants, isLoading: variantsLoading } = useActivePlanVariants()
+  const { data: plans, isLoading: plansLoading } = useActiveSubscriptionPlans()
   const { data: mealOptions, isLoading: thalisLoading } = useActiveMealOptions()
   const { data: settings } = useSubscriptionSettings()
   const { data: closedDates } = useKitchenClosedDates()
   const { data: addresses, isLoading: addressesLoading } = useAddresses()
 
-  // Selected variant
-  const selectedVariant = useMemo(() => {
-    if (!variants?.length) return null
-    if (variantSlug) {
-      const match = variants.find((v) => v.slug === variantSlug)
+  // Selected subscription plan
+  const selectedPlan = useMemo(() => {
+    if (!plans?.length) return null
+    if (planSlug) {
+      const match = plans.find((p) => p.slug === planSlug)
       if (match) return match
     }
-    return variants[0]
-  }, [variants, variantSlug])
+    return plans[0]
+  }, [plans, planSlug])
 
   // Form states
   const [selectedThaliId, setSelectedThaliId] = useState<string>(thaliParam)
@@ -75,8 +73,6 @@ export function SubscriptionCheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<string>('')
   const [startDate, setStartDate] = useState<string>('')
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'cash' | 'bank_transfer'>('upi')
-  const [deliverySlots, setDeliverySlots] = useState<Tables<'delivery_slots'>[]>([])
-  const [selectedDeliverySlotId, setSelectedDeliverySlotId] = useState<string | null>(null)
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(true)
 
@@ -95,13 +91,6 @@ export function SubscriptionCheckoutPage() {
     return mealOptions?.find((t) => t.id === selectedThaliId) || mealOptions?.[0] || null
   }, [mealOptions, selectedThaliId])
 
-  // Load delivery slots
-  useEffect(() => {
-    fetchActiveDeliverySlots()
-      .then((slots) => setDeliverySlots(slots || []))
-      .catch((err) => console.error('Failed to load delivery slots:', err))
-  }, [])
-
   // Auto-pick default address
   useEffect(() => {
     if (addresses?.length && !selectedAddressId) {
@@ -110,29 +99,13 @@ export function SubscriptionCheckoutPage() {
     }
   }, [addresses, selectedAddressId])
 
-  // Filter delivery slots matching slot
-  const relevantDeliverySlots = useMemo(() => {
-    if (!deliverySlots.length) return []
-    if (mealSlot === 'both') {
-      return deliverySlots
-    }
-    return deliverySlots.filter((s) => s.meal_type === mealSlot)
-  }, [deliverySlots, mealSlot])
-
-  // Auto-select slot if matching
-  useEffect(() => {
-    if (relevantDeliverySlots.length && !selectedDeliverySlotId) {
-      setSelectedDeliverySlotId(relevantDeliverySlots[0].id)
-    }
-  }, [relevantDeliverySlots, selectedDeliverySlotId])
-
   // Calculate default valid start date
   useEffect(() => {
-    if (settings && selectedVariant && !startDate) {
+    if (settings && selectedPlan && !startDate) {
       const minLead = settings.min_lead_days ?? 1
       let candidate = dayjs().add(minLead, 'day')
 
-      const allowedDays = selectedVariant.delivery_days || [1, 2, 3, 4, 5]
+      const allowedDays = selectedPlan.delivery_days || [1, 2, 3, 4, 5]
       const closedSet = new Set(closedDates || [])
 
       // Loop up to 14 days to find first valid delivery date
@@ -141,7 +114,7 @@ export function SubscriptionCheckoutPage() {
         const dayOfWeek = candidate.day() === 0 ? 7 : candidate.day()
 
         if (
-          selectedVariant.schedule_type === 'every_other_day' ||
+          selectedPlan.schedule_type === 'every_other_day' ||
           allowedDays.includes(dayOfWeek)
         ) {
           if (!closedSet.has(dStr)) {
@@ -152,11 +125,11 @@ export function SubscriptionCheckoutPage() {
         candidate = candidate.add(1, 'day')
       }
     }
-  }, [settings, selectedVariant, closedDates, startDate])
+  }, [settings, selectedPlan, closedDates, startDate])
 
   // Server quote query
   const { data: quote, isLoading: quoteLoading } = useSubscriptionQuote(
-    selectedVariant?.id,
+    selectedPlan?.id,
     mealSlot,
     selectedThaliId,
   )
@@ -164,15 +137,15 @@ export function SubscriptionCheckoutPage() {
   const createMutation = useCreateSubscription()
 
   const handleConfirmSubscription = async () => {
-    if (!selectedVariant || !selectedAddressId || !startDate) return
+    if (!selectedPlan || !selectedAddressId || !startDate) return
 
     await createMutation.mutateAsync({
-      variantId: selectedVariant.id,
+      planId: selectedPlan.id,
       mealSlot,
       mealThaliId: selectedThaliId || null,
       startDate,
       addressId: selectedAddressId,
-      deliverySlotId: selectedDeliverySlotId,
+      deliverySlotId: null,
       paymentMethod,
     })
 
@@ -186,7 +159,7 @@ export function SubscriptionCheckoutPage() {
     .add(settings?.max_start_lead_days ?? 30, 'day')
     .format('YYYY-MM-DD')
 
-  if (variantsLoading || authLoading) {
+  if (plansLoading || authLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12 space-y-4">
         <Skeleton className="h-8 w-60" />
@@ -195,10 +168,10 @@ export function SubscriptionCheckoutPage() {
     )
   }
 
-  if (!selectedVariant) {
+  if (!selectedPlan) {
     return (
       <div className="max-w-md mx-auto text-center py-16 px-4 space-y-4">
-        <p className="text-muted-foreground text-sm">Plan variant not found.</p>
+        <p className="text-muted-foreground text-sm">Subscription plan not found.</p>
         <Button asChild>
           <Link to={ROUTES.plans}>Browse Meal Plans</Link>
         </Button>
@@ -237,16 +210,16 @@ export function SubscriptionCheckoutPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <CardTitle className="font-display text-xl font-bold">
-                      {selectedVariant.name}
+                      {selectedPlan.name}
                     </CardTitle>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {selectedVariant.duration_meal_days} meal-days validity • Up to{' '}
-                      {selectedVariant.skip_limit} delivery skips allowed
+                      {selectedPlan.duration_meal_days} meal-days validity • Up to{' '}
+                      {selectedPlan.skip_limit} delivery skips allowed
                     </p>
                   </div>
-                  {selectedVariant.discount_percentage > 0 && (
+                  {selectedPlan.discount_percentage > 0 && (
                     <Badge variant="default" className="bg-emerald-600 font-bold text-xs">
-                      {selectedVariant.discount_percentage}% OFF
+                      {selectedPlan.discount_percentage}% OFF
                     </Badge>
                   )}
                 </div>
@@ -257,7 +230,7 @@ export function SubscriptionCheckoutPage() {
                   <span>Includes complimentary snack in every meal (Farsan / Fryums) 🥟</span>
                 </div>
 
-                {selectedVariant.has_weekly_sweet && (
+                {selectedPlan.has_weekly_sweet && (
                   <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/20 px-3 py-1.5 rounded-lg border border-amber-200/50">
                     <Sparkles className="size-3.5 text-amber-600 shrink-0" />
                     <span>Includes complimentary homemade Kathiyawadi sweet every week 🍬</span>

@@ -1,15 +1,21 @@
 import { supabase } from '@/lib/supabase'
 import type {
-  PlanVariantRow,
+  SubscriptionPlanRow,
   SubscriptionSettingsRow,
   SubscriptionRow,
   SubscriptionDayRow,
-  PlanEnquiryRow,
 } from '@/types/database.types'
 
+export type { SubscriptionPlanRow }
+export type PlanVariantRow = SubscriptionPlanRow
+
 export type SubscriptionQuote = {
-  variant_id: string
-  variant_name: string
+  plan_id: string
+  plan_name: string
+  /** @deprecated Backward-compatible alias for plan_id */
+  variant_id?: string
+  /** @deprecated Backward-compatible alias for plan_name */
+  variant_name?: string
   meal_slot: 'lunch' | 'dinner' | 'both'
   meal_thali_id?: string
   meal_thali_name?: string
@@ -38,8 +44,13 @@ export type ThaliMealOption = {
 }
 
 export type CustomerSubscriptionWithDetails = SubscriptionRow & {
-  plan_variants: Pick<
-    PlanVariantRow,
+  subscription_plans: Pick<
+    SubscriptionPlanRow,
+    'name' | 'slug' | 'badge_text' | 'short_description' | 'who_it_is_for'
+  > | null
+  /** Backward-compatible alias for subscription_plans */
+  plan_variants?: Pick<
+    SubscriptionPlanRow,
     'name' | 'slug' | 'badge_text' | 'short_description' | 'who_it_is_for'
   > | null
   meal_thalis?: {
@@ -58,7 +69,7 @@ export type CustomerSubscriptionWithDetails = SubscriptionRow & {
     contact_name: string
     contact_phone: string
   } | null
-  delivery_slots: {
+  delivery_slots?: {
     label: string
     start_time: string
     end_time: string
@@ -77,7 +88,9 @@ export type CustomerSubscriptionLedgerItem = SubscriptionDayRow & {
 }
 
 export type CreateSubscriptionInput = {
-  variantId: string
+  planId: string
+  /** @deprecated Backward-compatible alias for planId */
+  variantId?: string
   mealSlot: 'lunch' | 'dinner' | 'both'
   mealThaliId?: string | null
   startDate: string
@@ -97,18 +110,21 @@ export type CreateSubscriptionResult = {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Fetch Active Plan Variants (Standard Catalog)
+// 1. Fetch Active Subscription Plans (Standard Catalog)
 // ---------------------------------------------------------------------------
-export async function fetchActivePlanVariants(): Promise<PlanVariantRow[]> {
+export async function fetchActiveSubscriptionPlans(): Promise<SubscriptionPlanRow[]> {
   const { data, error } = await supabase
-    .from('plan_variants')
+    .from('subscription_plans')
     .select('*')
     .eq('is_active', true)
     .order('display_order', { ascending: true })
 
   if (error) throw error
-  return (data || []) as PlanVariantRow[]
+  return (data || []) as SubscriptionPlanRow[]
 }
+
+/** Backward-compatible alias */
+export const fetchActivePlanVariants = fetchActiveSubscriptionPlans
 
 // ---------------------------------------------------------------------------
 // 2. Fetch Global Subscription Settings (Cutoffs, Lead Times, WhatsApp)
@@ -172,12 +188,12 @@ export async function fetchActiveMealOptions(): Promise<ThaliMealOption[]> {
 // 5. Server-Authoritative Quote Calculation
 // ---------------------------------------------------------------------------
 export async function getSubscriptionQuote(
-  variantId: string,
+  planId: string,
   mealSlot: 'lunch' | 'dinner' | 'both',
   mealThaliId?: string | null,
 ): Promise<SubscriptionQuote> {
   const { data, error } = await supabase.rpc('get_subscription_quote', {
-    p_variant_id: variantId,
+    p_plan_id: planId,
     p_meal_slot: mealSlot,
     p_meal_thali_id: mealThaliId ?? null,
   })
@@ -191,8 +207,13 @@ export async function getSubscriptionQuote(
 export async function createSubscription(
   input: CreateSubscriptionInput,
 ): Promise<CreateSubscriptionResult> {
+  const effectivePlanId = input.planId || input.variantId
+  if (!effectivePlanId) {
+    throw new Error('Subscription planId is required')
+  }
+
   const { data, error } = await supabase.rpc('create_subscription', {
-    p_variant_id: input.variantId,
+    p_plan_id: effectivePlanId,
     p_meal_slot: input.mealSlot,
     p_start_date: input.startDate,
     p_address_id: input.addressId,
@@ -215,16 +236,22 @@ export async function fetchMySubscriptions(): Promise<CustomerSubscriptionWithDe
     .from('subscriptions')
     .select(`
       *,
-      plan_variants:plan_variant_id(name, slug, badge_text, short_description, who_it_is_for),
+      subscription_plans:plan_id(name, slug, badge_text, short_description, who_it_is_for),
       meal_thalis:meal_thali_id(id, name, description, image_url, price),
-      addresses:address_id(address_line1, address_line2, landmark, city, pincode, contact_name, contact_phone),
-      delivery_slots:delivery_slot_id(label, start_time, end_time)
+      addresses:address_id(address_line1, address_line2, landmark, city, pincode, contact_name, contact_phone)
     `)
     .eq('user_id', session.user.id)
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return (data || []) as unknown as CustomerSubscriptionWithDetails[]
+
+  // Ensure backward compatibility for any views looking at plan_variants
+  const enriched = (data || []).map((row: any) => ({
+    ...row,
+    plan_variants: row.subscription_plans || row.plan_variants || null,
+  }))
+
+  return enriched as unknown as CustomerSubscriptionWithDetails[]
 }
 
 // ---------------------------------------------------------------------------
@@ -249,7 +276,7 @@ export async function fetchMySubscriptionLedger(
 }
 
 // ---------------------------------------------------------------------------
-// 8. Skip Delivery Day
+// 9. Skip Delivery Day
 // ---------------------------------------------------------------------------
 export async function skipDeliveryDay(
   dayId: string,
@@ -272,7 +299,7 @@ export async function skipDeliveryDay(
 }
 
 // ---------------------------------------------------------------------------
-// 9. Undo Skip Delivery Day
+// 10. Undo Skip Delivery Day
 // ---------------------------------------------------------------------------
 export async function undoSkipDeliveryDay(
   dayId: string,
@@ -286,38 +313,4 @@ export async function undoSkipDeliveryDay(
   })
   if (error) throw error
   return data as any
-}
-
-// ---------------------------------------------------------------------------
-// 10. Submit Custom / Corporate Plan Enquiry
-// ---------------------------------------------------------------------------
-export async function submitPlanEnquiry(input: {
-  enquiry_type: string
-  headcount?: number | null
-  days_per_week?: number | null
-  area_or_office: string
-  contact_name: string
-  phone: string
-  message?: string | null
-}): Promise<PlanEnquiryRow> {
-  const { data: session } = await supabase.auth.getUser()
-
-  const { data, error } = await supabase
-    .from('plan_enquiries')
-    .insert({
-      user_id: session.user?.id ?? null,
-      enquiry_type: input.enquiry_type,
-      headcount: input.headcount ?? null,
-      days_per_week: input.days_per_week ?? null,
-      area_or_office: input.area_or_office,
-      contact_name: input.contact_name,
-      phone: input.phone,
-      message: input.message ?? null,
-      status: 'new',
-    })
-    .select('*')
-    .single()
-
-  if (error) throw error
-  return data as PlanEnquiryRow
 }

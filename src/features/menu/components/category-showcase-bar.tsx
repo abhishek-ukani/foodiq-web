@@ -13,13 +13,16 @@ export interface CategoryPillItem {
 
 export function getCategoryVisuals(cat: Partial<Tables<'categories'>> | null): { emoji: string; color: string } {
   if (!cat) return { emoji: '🍽️', color: 'bg-neutral-100 text-neutral-800' }
+  const catType = cat.category_type
   const slug = (cat.slug || '').toLowerCase()
-  if (slug.includes('thali')) return { emoji: '🍱', color: 'bg-amber-100/80 text-amber-900' }
-  if (slug.includes('farsan') || slug.includes('snack')) return { emoji: '🥟', color: 'bg-orange-100/80 text-orange-900' }
-  if (slug.includes('sabji') || slug.includes('shabji')) return { emoji: '🍛', color: 'bg-emerald-100/80 text-emerald-900' }
-  if (slug.includes('sweet')) return { emoji: '🍯', color: 'bg-yellow-100/80 text-yellow-900' }
-  if (slug.includes('beverage')) return { emoji: '🥛', color: 'bg-cyan-100/80 text-cyan-900' }
-  if (slug.includes('bread') || slug.includes('rotli')) return { emoji: '🫓', color: 'bg-amber-50/90 text-amber-900' }
+
+  if (catType === 'thali' || slug === 'thalis') return { emoji: '🍱', color: 'bg-amber-100/80 text-amber-900' }
+  if (catType === 'snack' || slug === 'snack') return { emoji: '🥟', color: 'bg-orange-100/80 text-orange-900' }
+  if (catType === 'sabji' || slug === 'sabji') return { emoji: '🍛', color: 'bg-emerald-100/80 text-emerald-900' }
+  if (catType === 'sweet' || slug === 'sweet') return { emoji: '🍯', color: 'bg-yellow-100/80 text-yellow-900' }
+  if (catType === 'beverage' || slug === 'beverage') return { emoji: '🥛', color: 'bg-cyan-100/80 text-cyan-900' }
+  if (catType === 'bread' || slug === 'bread') return { emoji: '🫓', color: 'bg-amber-50/90 text-amber-900' }
+  if (slug === 'accompaniment') return { emoji: '✨', color: 'bg-emerald-50 text-emerald-800' }
   return { emoji: '🍲', color: 'bg-neutral-100 text-neutral-800' }
 }
 

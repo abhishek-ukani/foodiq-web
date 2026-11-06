@@ -9,47 +9,121 @@ export type ResolvedOptionItem = {
   is_available: boolean
   is_cutoff_closed: boolean
   cutoff_note?: string | null
-  linked_food_item_id?: string | null
+  food_item_id: string
+  is_jain_available: boolean
+  is_swaminarayan_available: boolean
 }
 
 export type ResolvedOptionGroup = Tables<'thali_option_groups'> & {
+  categories?: Tables<'categories'> | null
   options: ResolvedOptionItem[]
 }
 
+export type ThaliFixedInclusion = {
+  id: string
+  quantity: number
+  name: string
+  food_item_id: string
+}
+
+export type ThaliDetail = Tables<'thalis'> & {
+  fixed_inclusions: ThaliFixedInclusion[]
+  option_groups: ResolvedOptionGroup[]
+}
+
 /**
- * Fetches and resolves dynamic option groups for a Thali food item.
- * Supports static choice options as well as daily-menu-driven Sabji choices,
- * checking real-time availability & overnight item-level cutoff times.
+ * Fetches all informative fixed inclusions for a Thali (e.g. 1x Dal-Bhat, 1x Papad, 1x Chhash).
+ * Single source of truth for dish name is food_items.name.
+ */
+export async function fetchThaliFixedItems(thaliId: string): Promise<ThaliFixedInclusion[]> {
+  const { data, error } = await supabase
+    .from('thali_fixed_items')
+    .select('*, food_items!inner(id, name, price)')
+    .eq('thali_id', thaliId)
+    .order('display_order')
+
+  if (error) {
+    console.warn('[Thali] Error fetching fixed items:', error)
+    return []
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    quantity: row.quantity,
+    name: row.food_items?.name || 'Included Item',
+    food_item_id: row.food_item_id,
+  }))
+}
+
+/**
+ * Fetches all active Thalis from the dedicated thalis entity.
+ */
+export async function fetchAllActiveThalis(): Promise<Tables<'thalis'>[]> {
+  const { data, error } = await supabase
+    .from('thalis')
+    .select('*')
+    .eq('is_available', true)
+    .order('display_order', { ascending: true })
+
+  if (error) throw error
+  return data || []
+}
+
+/**
+ * Fetches a single Thali by slug or UUID along with its fixed inclusions and option groups.
+ */
+export async function fetchThaliBySlug(slugOrId: string): Promise<ThaliDetail | null> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId)
+  let query = supabase.from('thalis').select('*')
+  if (isUuid) {
+    query = query.or(`slug.eq.${slugOrId},id.eq.${slugOrId}`)
+  } else {
+    query = query.eq('slug', slugOrId)
+  }
+
+  const { data: thali, error } = await query.single()
+  if (error || !thali) return null
+
+  const [fixedItems, optionGroups] = await Promise.all([
+    fetchThaliFixedItems(thali.id),
+    fetchThaliOptionGroups(thali.id),
+  ])
+
+  return {
+    ...thali,
+    fixed_inclusions: fixedItems,
+    option_groups: optionGroups,
+  }
+}
+
+/**
+ * Fetches and resolves dynamic option groups for a Thali.
+ * 100% Relational: Queries strictly by target_category_id with ZERO string matching.
  */
 export async function fetchThaliOptionGroups(
-  foodItemId: string,
+  thaliId: string,
   selectedDate?: string,
   mealType?: string,
 ): Promise<ResolvedOptionGroup[]> {
   // 1. Fetch Option Groups for this Thali
-  const { data: groups, error: groupErr } = await supabase
+  const { data: rawGroups, error: groupErr } = await supabase
     .from('thali_option_groups')
-    .select('*, thali_option_items(*, food_items:linked_food_item_id(id, name, is_available, price, compare_price))')
-    .eq('food_item_id', foodItemId)
+    .select(
+      '*, categories:target_category_id(id, name, slug, category_type), thali_option_items(*, food_items:food_item_id(id, name, is_available, price, is_jain_available, is_swaminarayan_available))',
+    )
+    .eq('thali_id', thaliId)
     .eq('is_active', true)
     .order('display_order')
 
-  if (groupErr || !groups) return []
+  if (groupErr || !rawGroups) return []
+  const groups = rawGroups as any[]
 
-  // Fetch global Thali components (Breads, Accompaniments, Sweets, Snacks)
-  // These merge into static_choice groups of the matching category_type
-  await supabase
-    .from('thali_components')
-    .select('*, food_items(id, name, price, compare_price)')
-    .order('display_order')
-
-  // Local YYYY-MM-DD date (e.g. 2026-08-07)
+  // Local YYYY-MM-DD date
   const localToday = new Date().toLocaleDateString('en-CA')
   const targetDate = selectedDate || localToday
 
-  // Resolve effective meal type context (prioritize open/published meal if not explicitly passed)
+  // Resolve effective meal type context (lunch vs dinner)
   let effectiveMealType = mealType
-
   if (!effectiveMealType) {
     const { data: activeMenus } = await supabase
       .from('daily_menus')
@@ -70,189 +144,71 @@ export async function fetchThaliOptionGroups(
     }
   }
 
-  // 2. Fetch today's daily menu items to populate 'daily_menu_choice' groups
-  const { data: dailyItems } = await supabase
-    .from('daily_menu_items')
-    .select('*, food_items(*, categories(id, name, category_type)), daily_menus!inner(menu_date, is_published, meal_type)')
-    .eq('daily_menus.menu_date', targetDate)
-    .eq('daily_menus.meal_type', effectiveMealType as MealType)
-    .eq('daily_menus.is_published', true)
-    .eq('is_available', true)
-    .neq('is_thali_option', false)
+  // 2. Fetch today's daily menu items for groups that use daily menu source
+  const hasDailyGroup = groups.some((g) => g.is_daily_menu_source)
+  let dailyItems: any[] = []
+
+  if (hasDailyGroup) {
+    const { data: fetchedDaily } = await supabase
+      .from('daily_menu_items')
+      .select('*, food_items(*), daily_menus!inner(menu_date, is_published, meal_type)')
+      .eq('daily_menus.menu_date', targetDate)
+      .eq('daily_menus.meal_type', effectiveMealType as MealType)
+      .eq('daily_menus.is_published', true)
+      .eq('is_available', true)
+      .neq('is_thali_option', false)
+
+    dailyItems = fetchedDaily || []
+  }
 
   const resolvedGroups: ResolvedOptionGroup[] = []
+  const now = new Date()
 
   for (const grp of groups) {
-    const disabledItemIds: string[] = (grp as any).disabled_item_ids || []
-    const rawItems = ((grp as any).thali_option_items || []).filter(
-      (i: Tables<'thali_option_items'>) =>
-        i.is_active &&
-        !disabledItemIds.includes(i.id) &&
-        (!i.linked_food_item_id || !disabledItemIds.includes(i.linked_food_item_id)),
-    )
-
     let resolvedOptions: ResolvedOptionItem[] = []
 
-    // 1. Resolve manual options configured explicitly for this group
-    const manualResolvedOptions: ResolvedOptionItem[] = rawItems.map((item: any) => ({
-      id: item.id,
-      label: item.food_items?.name || item.label,
-      price_delta: Number(item.price_delta || 0),
-      is_default: item.is_default,
-      is_available: item.food_items?.is_available ?? item.is_active,
-      is_cutoff_closed: false,
-      linked_food_item_id: item.linked_food_item_id,
-    }))
+    if (grp.is_daily_menu_source) {
+      // ✅ ZERO STRING GUESSING: Filter strictly by category foreign key
+      const matchedDaily = dailyItems.filter(
+        (di) => di.food_items?.category_id === grp.target_category_id,
+      )
 
-    // 2. Match daily items for this group (whether daily_menu_choice or static_choice)
-    let matchedItems: any[] = []
-    if (dailyItems && dailyItems.length > 0) {
-      const targetCategoryId = (grp as any).target_category_id
-      const groupNameLower = grp.name.toLowerCase()
+      resolvedOptions = matchedDaily.map((dItem: any) => {
+        const food = dItem.food_items
+        const isCutoffClosed = dItem.cutoff_time ? new Date(dItem.cutoff_time) < now : false
 
-      matchedItems = dailyItems.filter((di: any) => {
-        // Check if disabled for this specific Thali
-        if (
-          disabledItemIds.includes(di.id) ||
-          (di.food_item_id && disabledItemIds.includes(di.food_item_id))
-        ) {
-          return false
+        return {
+          id: dItem.id,
+          label: food?.name || 'Daily Special',
+          price_delta: dItem.price_override ? dItem.price_override - (food?.price || 0) : 0,
+          is_default: false,
+          is_available: dItem.is_available && !isCutoffClosed,
+          is_cutoff_closed: isCutoffClosed,
+          cutoff_note: dItem.cutoff_note,
+          food_item_id: dItem.food_item_id,
+          is_jain_available: food?.is_jain_available ?? true,
+          is_swaminarayan_available: food?.is_swaminarayan_available ?? true,
         }
+      })
+    } else {
+      // ✅ Static group: single source of truth for name is food_items.name
+      const rawItems = (grp.thali_option_items || []).filter((i: any) => i.is_active)
 
-        // Primary check: Direct Category ID match
-        if (targetCategoryId && di.food_items?.category_id === targetCategoryId) {
-          return true
+      resolvedOptions = rawItems.map((item: any) => {
+        const food = item.food_items
+        return {
+          id: item.id,
+          label: food?.name || 'Option Item',
+          price_delta: Number(item.price_delta || 0),
+          is_default: item.is_default,
+          is_available: food?.is_available ?? item.is_active,
+          is_cutoff_closed: false,
+          food_item_id: item.food_item_id,
+          is_jain_available: food?.is_jain_available ?? true,
+          is_swaminarayan_available: food?.is_swaminarayan_available ?? true,
         }
-
-        const catName = di.food_items?.categories?.name?.toLowerCase() || ''
-        const itemName = di.food_items?.name?.toLowerCase() || ''
-        const catType = di.food_items?.categories?.category_type || ''
-
-        if (
-          groupNameLower.includes('sabji') ||
-          groupNameLower.includes('shabji') ||
-          groupNameLower.includes('sabzi') ||
-          groupNameLower.includes('subji') ||
-          groupNameLower.includes('curry')
-        ) {
-          return (
-            catType === 'sabji' ||
-            catName.includes('sabji') ||
-            catName.includes('shabji') ||
-            catName.includes('sabzi') ||
-            catName.includes('shaak') ||
-            catName.includes('bhaji') ||
-            itemName.includes('sabji') ||
-            itemName.includes('shabji') ||
-            itemName.includes('paneer') ||
-            itemName.includes('aloo') ||
-            itemName.includes('curry')
-          )
-        }
-
-        if (
-          groupNameLower.includes('roti') ||
-          groupNameLower.includes('bread') ||
-          groupNameLower.includes('bhakhri') ||
-          groupNameLower.includes('bhakhari') ||
-          groupNameLower.includes('rotla') ||
-          groupNameLower.includes('puri')
-        ) {
-          return (
-            catType === 'bread' ||
-            catName.includes('bread') ||
-            catName.includes('roti') ||
-            catName.includes('rotis') ||
-            catName.includes('bhakhri') ||
-            catName.includes('bhakhari') ||
-            catName.includes('rotla') ||
-            catName.includes('puri') ||
-            itemName.includes('roti') ||
-            itemName.includes('rotli') ||
-            itemName.includes('bhakhri') ||
-            itemName.includes('bhakhari') ||
-            itemName.includes('rotla') ||
-            itemName.includes('puri') ||
-            itemName.includes('paratha')
-          )
-        }
-
-        if (
-          groupNameLower.includes('sweet') ||
-          groupNameLower.includes('mithai') ||
-          groupNameLower.includes('dessert')
-        ) {
-          return (
-            catType === 'sweet' ||
-            catName.includes('sweet') ||
-            catName.includes('dessert') ||
-            catName.includes('mithai') ||
-            itemName.includes('halwa') ||
-            itemName.includes('shrikhand')
-          )
-        }
-
-        if (
-          groupNameLower.includes('snack') ||
-          groupNameLower.includes('farsan')
-        ) {
-          return (
-            catType === 'snack' ||
-            catName.includes('snack') ||
-            catName.includes('farsan') ||
-            catName.includes('snacks') ||
-            itemName.includes('dhokla') ||
-            itemName.includes('samosa') ||
-            itemName.includes('fryums')
-          )
-        }
-
-        if (
-          groupNameLower.includes('accompaniment') ||
-          groupNameLower.includes('side')
-        ) {
-          return (
-            catType === 'accompaniment' ||
-            catName.includes('accompaniment') ||
-            catName.includes('sambhar') ||
-            catName.includes('salad') ||
-            catName.includes('pickle') ||
-            catName.includes('achar') ||
-            itemName.includes('jaggery') ||
-            itemName.includes('gud') ||
-            itemName.includes('aachar') ||
-            itemName.includes('pickle')
-          )
-        }
-
-        return false
       })
     }
-
-    const now = new Date()
-    const dailyResolvedOptions: ResolvedOptionItem[] = matchedItems.map((dItem: any) => {
-      const food = dItem.food_items
-      const isCutoffClosed = dItem.cutoff_time ? new Date(dItem.cutoff_time) < now : false
-
-      return {
-        id: dItem.id,
-        label: food?.name || 'Daily Special',
-        price_delta: dItem.price_override ? dItem.price_override - (food?.price || 0) : 0,
-        is_default: false,
-        is_available: dItem.is_available && !isCutoffClosed,
-        is_cutoff_closed: isCutoffClosed,
-        cutoff_note: dItem.cutoff_note,
-        linked_food_item_id: dItem.food_item_id,
-      }
-    })
-
-    // Merge daily items AND manual items (avoiding duplicates if linked)
-    const dailyFoodIds = new Set(dailyResolvedOptions.map((o) => o.linked_food_item_id).filter(Boolean))
-    const uniqueManualOptions = manualResolvedOptions.filter(
-      (mo) => !mo.linked_food_item_id || !dailyFoodIds.has(mo.linked_food_item_id),
-    )
-
-    resolvedOptions = [...dailyResolvedOptions, ...uniqueManualOptions]
 
     resolvedGroups.push({
       ...grp,

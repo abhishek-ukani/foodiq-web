@@ -19,13 +19,13 @@ export async function placeOrder(input: {
   // Re-resolve today's default customizations ONLY for thali items that have no customizations
   const { data: cartItems } = await supabase
     .from('cart_items')
-    .select('id, food_item_id, customizations, food_items(kind)')
+    .select('id, food_item_id, thali_id, customizations, food_items(kind), thalis(id)')
     .eq('user_id', session.user.id)
 
   if (cartItems && cartItems.length > 0) {
     const { resolveThaliDefaults } = await import('@/features/checkout/services/resolve-thali-defaults')
     for (const item of cartItems) {
-      const foodItem = item.food_items as unknown as { kind: string } | null
+      const isThali = Boolean(item.thali_id) || (item.food_items as any)?.kind === 'thali'
       const existingCustomizations = (item as any).customizations
 
       // If user already customized their thali (e.g. picked sabjis or breads), do NOT overwrite!
@@ -34,9 +34,10 @@ export async function placeOrder(input: {
         existingCustomizations.length > 0 &&
         existingCustomizations.some((c: any) => c && c.name && c.name !== 'Option Selection')
 
-      if (foodItem?.kind === 'thali' && !hasRealCustomizations) {
+      const thaliTargetId = item.thali_id || item.food_item_id
+      if (isThali && thaliTargetId && !hasRealCustomizations) {
         try {
-          const freshDefaults = await resolveThaliDefaults(item.food_item_id)
+          const freshDefaults = await resolveThaliDefaults(thaliTargetId)
           if (freshDefaults.length > 0) {
             await supabase
               .from('cart_items')

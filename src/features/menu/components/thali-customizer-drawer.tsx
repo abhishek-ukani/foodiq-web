@@ -188,9 +188,12 @@ export function ThaliCustomizerDrawer({
 
     const variantId = activeVariant?.id || (variants.length === 1 ? variants[0].id : null)
 
+    const isThaliItem = item.kind === 'thali' || (item as any)?.categories?.category_type === 'thali'
+
     addToCart.mutate(
       {
-        food_item_id: item.id,
+        food_item_id: isThaliItem ? null : item.id,
+        thali_id: isThaliItem ? item.id : null,
         variant_id: variantId,
         quantity,
         special_instructions: instructions.trim() || null,

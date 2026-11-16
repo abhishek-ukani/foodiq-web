@@ -14,5 +14,7 @@ export function useAuth() {
     isAdmin: profile?.role === 'admin',
     isDeliveryBoy: profile?.role === 'delivery_boy',
     isCustomer: profile?.role === 'customer',
+    isVerified: profile?.is_verified ?? false,
+    isPendingVerification: profile ? !profile.is_verified : false,
   }
 }

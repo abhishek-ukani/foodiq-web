@@ -1,16 +1,18 @@
 import { Link, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, MessageCircle, PhoneCall, Utensils } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/common/error-state'
 import { useOrder } from '@/features/orders/hooks/use-orders'
-import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
+import { useAuth } from '@/hooks/use-auth'
+import { CONTACT_INFO, CURRENCY_SYMBOL, ROUTES } from '@/constants'
 
 export function OrderSuccessPage() {
   const { id = '' } = useParams()
   const { data: order, isPending, isError, refetch } = useOrder(id)
+  const { isVerified } = useAuth()
 
   if (isPending) {
     return (
@@ -62,6 +64,35 @@ export function OrderSuccessPage() {
           </div>
         </CardContent>
       </Card>
+
+      {!isVerified && order.status === 'pending' && (
+        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-left space-y-2">
+          <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm">
+            <Utensils className="size-4 text-amber-600 shrink-0" />
+            <span>First Order: Kitchen Review in Progress</span>
+          </div>
+          <p className="text-xs text-amber-800 leading-relaxed">
+            Welcome to FoodIQ! Since this is your first order, our kitchen team will quickly review your delivery address before cooking. We may give you a quick phone call to confirm.
+          </p>
+          <div className="pt-1 flex items-center gap-3 text-xs">
+            <a
+              href={`tel:${CONTACT_INFO.phone}`}
+              className="inline-flex items-center gap-1 font-semibold text-amber-900 hover:underline"
+            >
+              <PhoneCall className="size-3.5" /> Call Kitchen
+            </a>
+            <span className="text-amber-300">|</span>
+            <a
+              href={CONTACT_INFO.whatsappUrl(`Hello FoodIQ, I just placed order #${order.order_number}. Please confirm my tiffin.`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:underline"
+            >
+              <MessageCircle className="size-3.5" /> WhatsApp Support
+            </a>
+          </div>
+        </div>
+      )}
 
       <div className="mt-8 flex flex-col gap-2 sm:flex-row">
         <Button asChild className="flex-1">

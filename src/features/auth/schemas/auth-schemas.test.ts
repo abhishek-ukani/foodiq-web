@@ -18,9 +18,17 @@ describe('loginSchema', () => {
     expect(result.error?.issues[0].message).toBe('Email is required')
   })
 
-  it('rejects a malformed email', () => {
+  it('rejects a malformed email or invalid phone', () => {
     const result = loginSchema.safeParse({ email: 'not-an-email', password: 'x' })
     expect(result.success).toBe(false)
+  })
+
+  it('accepts a valid 10-digit mobile number as identifier', () => {
+    const result = loginSchema.safeParse({ identifier: '9876543210', password: 'password123' })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.identifier).toBe('9876543210')
+    }
   })
 })
 

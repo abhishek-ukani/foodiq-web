@@ -14,11 +14,44 @@ const phone = z
   .transform((val) => val.replace(/\D/g, '').slice(-10))
   .pipe(z.string().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9'))
 
-export const loginSchema = z.object({
-  email,
-  password: z.string().min(1, 'Password is required'),
-})
-export type LoginInput = z.infer<typeof loginSchema>
+export const loginSchema = z
+  .object({
+    identifier: z.string().trim().optional(),
+    email: z.string().trim().optional(),
+    password: z.string().min(1, 'Password is required'),
+  })
+  .superRefine((data, ctx) => {
+    const raw = (data.identifier ?? data.email ?? '').trim()
+    if (!raw) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          data.email !== undefined && data.identifier === undefined
+            ? 'Email is required'
+            : 'Mobile number or email is required',
+        path: [data.identifier !== undefined ? 'identifier' : 'email'],
+      })
+      return
+    }
+
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)
+    const cleanPhone = raw.replace(/\D/g, '').slice(-10)
+    const isPhone = /^[6-9]\d{9}$/.test(cleanPhone)
+    if (!isEmail && !isPhone) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Enter a valid 10-digit mobile number or email address',
+        path: [data.identifier !== undefined ? 'identifier' : 'email'],
+      })
+    }
+  })
+  .transform((data) => ({
+    identifier: (data.identifier || data.email)!.trim(),
+    email: (data.email || data.identifier)!.trim(),
+    password: data.password,
+  }))
+export type LoginInput = z.input<typeof loginSchema>
+export type LoginOutput = z.output<typeof loginSchema>
 
 export const registerSchema = z
   .object({

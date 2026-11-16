@@ -122,11 +122,7 @@ export const router = createBrowserRouter([
       { path: ROUTES.menuItem(':slug'), element: <MenuItemRedirect /> },
       {
         path: ROUTES.cart,
-        element: withSuspense(
-          <ProtectedRoute>
-            <CartPage />
-          </ProtectedRoute>,
-        ),
+        element: withSuspense(<CartPage />),
       },
       {
         path: ROUTES.checkout,

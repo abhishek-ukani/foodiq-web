@@ -69,6 +69,7 @@ type ProfileRow = {
   avatar_url: string | null
   date_of_birth: string | null
   is_active: boolean
+  is_verified: boolean
   is_subscription_eligible: boolean
   total_orders: number
   total_spent: number
@@ -685,7 +686,7 @@ export interface Database {
   public: {
     Tables: {
       branches: TableOf<BranchRow>
-      profiles: TableOf<ProfileRow>
+      profiles: TableOf<ProfileRow, 'is_active' | 'is_verified'>
       addresses: TableOf<AddressRow, 'is_default'>
       categories: TableOf<CategoryRow>
       food_items: TableOf<FoodItemRow>

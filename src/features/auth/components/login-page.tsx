@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { LogIn } from 'lucide-react'
+import { AlertCircle, LogIn } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { AuthLayout } from '@/layouts/auth-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/common/password-input'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Form,
   FormControl,
@@ -17,8 +18,13 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { loginSchema, type LoginInput } from '@/features/auth/schemas/auth-schemas'
-import { signInWithEmail, signInWithGoogle, toFriendlyAuthMessage } from '@/features/auth/services/auth-service'
-import { ROUTES } from '@/constants'
+import {
+  signInWithIdentifier,
+  signInWithGoogle,
+  toFriendlyAuthMessage,
+} from '@/features/auth/services/auth-service'
+import { CONTACT_INFO, ROUTES } from '@/constants'
+import { env } from '@/lib/env'
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -47,46 +53,61 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
 
   const searchParams = new URLSearchParams(location.search)
   const initialEmail = searchParams.get('email') || ''
 
+  // Detect any expired token or error params in URL hash or search params
+  useEffect(() => {
+    const hash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : ''
+    const hashParams = new URLSearchParams(hash)
+    const errorDesc = hashParams.get('error_description') || searchParams.get('error_description')
+    const errorCode = hashParams.get('error_code') || searchParams.get('error_code')
+
+    if (errorDesc) {
+      setAuthError(decodeURIComponent(errorDesc.replace(/\+/g, ' ')))
+    } else if (errorCode === 'otp_expired') {
+      setAuthError('Your verification link has expired. Please request a new verification link or code.')
+    }
+  }, [searchParams])
+
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: initialEmail, password: '' },
+    defaultValues: { identifier: initialEmail, password: '' },
   })
 
   // Sync if URL query param changes
   useEffect(() => {
-    if (initialEmail && !form.getValues('email')) {
-      form.setValue('email', initialEmail)
+    if (initialEmail && !form.getValues('identifier')) {
+      form.setValue('identifier', initialEmail)
     }
   }, [initialEmail, form])
 
   const onSubmit = async (values: LoginInput) => {
     try {
-      await signInWithEmail(values)
+      await signInWithIdentifier({
+        identifier: values.identifier || values.email || '',
+        password: values.password,
+      })
       toast.success('Welcome back!')
       const fromParam = searchParams.get('redirect') || searchParams.get('from')
-      const from = fromParam || (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
+      const fromState = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from
+      const from = fromParam || (fromState ? `${fromState.pathname ?? ''}${fromState.search ?? ''}` : null)
       navigate(from ?? ROUTES.home, { replace: true })
     } catch (error: any) {
-      const msg = error?.message || ''
-      if (/Email not confirmed/i.test(msg)) {
-        toast.error('Please verify your email before signing in.', {
-          duration: 5000,
-        })
-        navigate(ROUTES.verifyEmail, { state: { email: values.email } })
-      } else {
-        toast.error(toFriendlyAuthMessage(error))
-      }
+      toast.error(toFriendlyAuthMessage(error))
     }
   }
 
   const handleGoogleSignIn = async () => {
     try {
       setIsGoogleSigningIn(true)
-      await signInWithGoogle()
+      const fromParam = searchParams.get('redirect') || searchParams.get('from')
+      const fromState = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from
+      const target = fromParam || (fromState ? `${fromState.pathname ?? ''}${fromState.search ?? ''}` : ROUTES.home)
+      const redirectTo = `${env.appUrl}/login?redirect=${encodeURIComponent(target)}`
+      await signInWithGoogle(redirectTo)
     } catch (error) {
       toast.error(toFriendlyAuthMessage(error))
       setIsGoogleSigningIn(false)
@@ -95,11 +116,26 @@ export function LoginPage() {
 
   return (
     <AuthLayout title="Welcome back" description="Sign in to order today's fresh tiffin.">
+      {authError ? (
+        <Alert className="mb-4 rounded-xl border-destructive/40 bg-destructive/10 text-destructive text-left p-3.5">
+          <AlertCircle className="size-4 mt-0.5" />
+          <AlertDescription className="text-xs space-y-1 ml-1.5">
+            <p className="font-semibold">{authError}</p>
+            <p className="text-[11px] text-muted-foreground">
+              Need another verification code?{' '}
+              <Link to={ROUTES.verifyEmail} className="text-primary font-bold underline">
+                Verify or resend email →
+              </Link>
+            </p>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <div className="space-y-4">
         <Button
           type="button"
           variant="outline"
-          className="w-full relative flex items-center justify-center gap-2 border-slate-300 hover:bg-slate-50"
+          className="w-full relative flex items-center justify-center gap-2 border-slate-300 hover:bg-slate-50 min-h-[44px]"
           size="lg"
           onClick={handleGoogleSignIn}
           disabled={isGoogleSigningIn || form.formState.isSubmitting}
@@ -111,7 +147,7 @@ export function LoginPage() {
         <div className="relative flex items-center justify-center my-4">
           <div className="border-t border-muted w-full" />
           <span className="bg-background px-3 text-xs text-muted-foreground uppercase font-medium absolute">
-            Or continue with email
+            Or sign in with mobile / email
           </span>
         </div>
       </div>
@@ -120,12 +156,18 @@ export function LoginPage() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate>
           <FormField
             control={form.control}
-            name="email"
+            name="identifier"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Mobile number or Email</FormLabel>
                 <FormControl>
-                  <Input type="email" autoComplete="email" placeholder="you@example.com" {...field} />
+                  <Input
+                    type="text"
+                    autoComplete="username"
+                    placeholder="98765 43210 or you@example.com"
+                    className="min-h-[44px]"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -154,19 +196,30 @@ export function LoginPage() {
             )}
           />
 
-          <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting || isGoogleSigningIn}>
+          <Button type="submit" className="w-full min-h-[44px]" size="lg" disabled={form.formState.isSubmitting || isGoogleSigningIn}>
             <LogIn className="size-4" aria-hidden />
             {form.formState.isSubmitting ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>
       </Form>
 
-      <p className="text-muted-foreground text-center text-sm mt-6">
-        New to FoodIQ?{' '}
-        <Link to={ROUTES.register} className="text-primary font-medium hover:underline">
-          Create an account
-        </Link>
-      </p>
+      <div className="mt-5 space-y-3 text-center">
+        <a
+          href={CONTACT_INFO.whatsappUrl('Hello FoodIQ, I need help signing in to my account.')}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-emerald-700 hover:underline inline-flex items-center justify-center gap-1.5 font-medium py-1"
+        >
+          Senior citizen / need assistance? Tap for WhatsApp Help →
+        </a>
+
+        <p className="text-muted-foreground text-sm">
+          New to FoodIQ?{' '}
+          <Link to={ROUTES.register} className="text-primary font-medium hover:underline">
+            Create an account
+          </Link>
+        </p>
+      </div>
     </AuthLayout>
   )
 }

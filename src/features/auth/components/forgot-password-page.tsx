@@ -50,7 +50,7 @@ export function ForgotPasswordPage() {
             If an account exists for <span className="text-foreground font-medium">{sentTo}</span>,
             a reset link is on its way. Open it on this device to set a new password.
           </p>
-          <Button asChild variant="outline" className="w-full">
+          <Button asChild variant="outline" className="w-full min-h-[44px] rounded-xl font-medium">
             <Link to={ROUTES.login}>
               <ArrowLeft className="size-4" aria-hidden />
               Back to sign in
@@ -82,7 +82,7 @@ export function ForgotPasswordPage() {
             )}
           />
 
-          <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting}>
+          <Button type="submit" className="w-full min-h-[44px] rounded-xl font-semibold shadow-xs" size="lg" disabled={form.formState.isSubmitting}>
             <Send className="size-4" aria-hidden />
             {form.formState.isSubmitting ? 'Sending…' : 'Send reset link'}
           </Button>
@@ -91,7 +91,7 @@ export function ForgotPasswordPage() {
 
       <Link
         to={ROUTES.login}
-        className="text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 text-sm"
+        className="text-muted-foreground hover:text-foreground flex items-center justify-center gap-1.5 text-sm py-2 font-medium"
       >
         <ArrowLeft className="size-3.5" aria-hidden />
         Back to sign in

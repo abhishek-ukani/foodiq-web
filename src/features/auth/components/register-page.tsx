@@ -20,12 +20,14 @@ import {
 import { registerSchema, type RegisterInput } from '@/features/auth/schemas/auth-schemas'
 import {
   signUpWithEmail,
+  signInWithEmail,
   signInWithGoogle,
   checkCredentialAvailability,
   normalizePhone,
   toFriendlyAuthMessage,
 } from '@/features/auth/services/auth-service'
 import { ROUTES } from '@/constants'
+import { env } from '@/lib/env'
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -170,25 +172,40 @@ export function RegisterPage() {
         return
       }
 
-      // 2. Perform Account Registration
+      // 2. Perform Account Registration (availability was just checked above)
       const result = await signUpWithEmail({
         fullName: values.fullName,
         email: cleanEmail,
         phone: cleanPhone,
         password: values.password,
+        skipAvailabilityCheck: true,
       })
 
-      // 3. Handle post-registration flow
-      // If Supabase returned an active session, user is already confirmed and logged in
+      // 3. Handle post-registration flow: Auto-login immediately with zero email verification
       if (result.session) {
         toast.success('Account created successfully! Welcome to FoodIQ.')
         navigate(ROUTES.home, { replace: true })
         return
       }
 
-      // If no session returned, email confirmation is required by Supabase settings
-      toast.success('Account registered! Please check your email inbox to verify.')
-      navigate(ROUTES.verifyEmail, { state: { email: cleanEmail }, replace: true })
+      // If session was not immediately returned by signUp, log in directly
+      try {
+        await signInWithEmail({ email: cleanEmail, password: values.password })
+        toast.success('Account created successfully! Welcome to FoodIQ.')
+        navigate(ROUTES.home, { replace: true })
+        return
+      } catch (signInErr: any) {
+        const errMsg = signInErr?.message || ''
+        if (/email not confirmed/i.test(errMsg)) {
+          toast.error(
+            'Please turn off "Confirm email" in Supabase Auth settings to enable 1-step instant login without confirmation.',
+            { duration: 6000 },
+          )
+        } else {
+          toast.success('Account registered! Please sign in.')
+        }
+        navigate(ROUTES.login, { state: { email: cleanEmail }, replace: true })
+      }
     } catch (error: any) {
       const msg = error?.message || 'Failed to create account.'
       const lower = msg.toLowerCase()
@@ -216,7 +233,11 @@ export function RegisterPage() {
   const handleGoogleSignIn = async () => {
     try {
       setIsGoogleSigningIn(true)
-      await signInWithGoogle()
+      const searchParams = new URLSearchParams(window.location.search)
+      const fromParam = searchParams.get('redirect') || searchParams.get('from')
+      const target = fromParam || ROUTES.home
+      const redirectTo = `${env.appUrl}/login?redirect=${encodeURIComponent(target)}`
+      await signInWithGoogle(redirectTo)
     } catch (error) {
       toast.error(toFriendlyAuthMessage(error))
       setIsGoogleSigningIn(false)

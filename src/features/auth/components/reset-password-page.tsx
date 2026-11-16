@@ -24,11 +24,57 @@ import { PageLoader } from '@/components/common/page-loader'
 export function ResetPasswordPage() {
   const navigate = useNavigate()
   const [hasRecoverySession, setHasRecoverySession] = useState<boolean | null>(null)
+  const [urlError, setUrlError] = useState<string | null>(null)
 
   useEffect(() => {
+    let isMounted = true
+
+    // 1. Check for explicit error parameters in the URL hash or query string
+    const hash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : ''
+    const hashParams = new URLSearchParams(hash)
+    const searchParams = new URLSearchParams(window.location.search)
+
+    const errorDesc =
+      hashParams.get('error_description') ||
+      searchParams.get('error_description') ||
+      hashParams.get('error') ||
+      searchParams.get('error')
+
+    if (errorDesc) {
+      setUrlError(decodeURIComponent(errorDesc.replace(/\+/g, ' ')))
+      setHasRecoverySession(false)
+      return
+    }
+
+    // 2. Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setHasRecoverySession(Boolean(session))
+      if (!isMounted) return
+      if (session) {
+        setHasRecoverySession(true)
+      }
     })
+
+    // 3. Listen for PASSWORD_RECOVERY or session arrival as Supabase parses URL hash/tokens
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return
+      if (event === 'PASSWORD_RECOVERY' || (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION'))) {
+        setHasRecoverySession(true)
+      }
+    })
+
+    // 4. Grace period timer: Give Supabase up to 1.5s to finish async token exchange
+    // before declaring the link expired
+    const timer = setTimeout(() => {
+      if (isMounted) {
+        setHasRecoverySession((prev) => (prev !== null ? prev : false))
+      }
+    }, 1500)
+
+    return () => {
+      isMounted = false
+      clearTimeout(timer)
+      authListener.subscription.unsubscribe()
+    }
   }, [])
 
   const form = useForm<ResetPasswordInput>({
@@ -53,17 +99,24 @@ export function ResetPasswordPage() {
 
   if (!hasRecoverySession) {
     return (
-      <AuthLayout title="Link expired" description="This password reset link is no longer valid.">
+      <AuthLayout title="Link expired or invalid" description="This password reset link is no longer valid.">
         <div className="space-y-6 text-center">
           <div className="bg-destructive/10 text-destructive mx-auto flex size-16 items-center justify-center rounded-full">
             <ShieldAlert className="size-8" aria-hidden />
           </div>
-          <p className="text-muted-foreground text-sm">
-            Reset links expire after a short time. Request a new one to continue.
-          </p>
-          <Button asChild className="w-full">
-            <Link to={ROUTES.forgotPassword}>Request a new link</Link>
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-sm">
+              {urlError || 'Reset links expire after a short time or can only be used once. Please request a new link to continue.'}
+            </p>
+          </div>
+          <Button asChild className="w-full min-h-[44px] rounded-xl font-semibold">
+            <Link to={ROUTES.forgotPassword}>Request a new reset link</Link>
           </Button>
+          <div className="pt-2">
+            <Link to={ROUTES.login} className="text-xs text-primary font-medium hover:underline">
+              Back to sign in
+            </Link>
+          </div>
         </div>
       </AuthLayout>
     )
@@ -109,7 +162,7 @@ export function ResetPasswordPage() {
             )}
           />
 
-          <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting}>
+          <Button type="submit" className="w-full min-h-[44px] rounded-xl font-semibold" size="lg" disabled={form.formState.isSubmitting}>
             <KeyRound className="size-4" aria-hidden />
             {form.formState.isSubmitting ? 'Updating…' : 'Update password'}
           </Button>

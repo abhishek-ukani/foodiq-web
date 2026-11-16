@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
-import { Star } from 'lucide-react'
+import { AlertCircle, MessageCircle, PhoneCall, Star, Utensils } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -11,11 +11,13 @@ import { OrderStatusTimeline } from '@/components/common/order-status-timeline'
 import { ReviewFormDialog } from '@/features/reviews/components/review-form-dialog'
 import { useMyReviewsForOrder } from '@/features/reviews/hooks/use-reviews'
 import { useOrder } from '@/features/orders/hooks/use-orders'
-import { CURRENCY_SYMBOL } from '@/constants'
+import { useAuth } from '@/hooks/use-auth'
+import { CONTACT_INFO, CURRENCY_SYMBOL } from '@/constants'
 
 export function OrderDetailPage() {
   const { id = '' } = useParams()
   const { data: order, isPending, isError, refetch } = useOrder(id)
+  const { isVerified } = useAuth()
   const { data: myReviews } = useMyReviewsForOrder(id)
   const [reviewTarget, setReviewTarget] = useState<{
     foodItemId: string
@@ -64,8 +66,66 @@ export function OrderDetailPage() {
           <CardHeader>
             <CardTitle className="text-base">Status</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <OrderStatusTimeline status={order.status} />
+
+            {!isVerified && order.status === 'pending' && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-left space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 font-semibold text-xs sm:text-sm">
+                  <Utensils className="size-4 text-amber-600 shrink-0" />
+                  <span>First Order: Kitchen Review in Progress</span>
+                </div>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Since this is your first order with FoodIQ, our kitchen team will quickly confirm your delivery details before cooking. We may call your contact number to verify.
+                </p>
+                <div className="pt-0.5 flex flex-wrap items-center gap-3 text-xs">
+                  <a
+                    href={`tel:${CONTACT_INFO.phone}`}
+                    className="inline-flex items-center gap-1 font-semibold text-amber-900 hover:underline"
+                  >
+                    <PhoneCall className="size-3.5" /> Call Kitchen
+                  </a>
+                  <span className="text-amber-300">|</span>
+                  <a
+                    href={CONTACT_INFO.whatsappUrl(`Hello FoodIQ, I am inquiring about my first order #${order.order_number}.`)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:underline"
+                  >
+                    <MessageCircle className="size-3.5" /> WhatsApp Support
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {(order.status === 'cancelled' || order.status === 'rejected') && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-3.5 text-left space-y-2">
+                <div className="flex items-center gap-2 text-rose-900 font-semibold text-xs sm:text-sm">
+                  <AlertCircle className="size-4 text-rose-600 shrink-0" />
+                  <span>Order Not Confirmed</span>
+                </div>
+                <p className="text-xs text-rose-700 leading-relaxed">
+                  Our kitchen was unable to confirm this order. If your phone was unreachable or address is outside our delivery zone, please contact our team directly.
+                </p>
+                <div className="pt-0.5 flex flex-wrap items-center gap-3 text-xs">
+                  <a
+                    href={`tel:${CONTACT_INFO.phone}`}
+                    className="inline-flex items-center gap-1 font-semibold text-rose-900 hover:underline"
+                  >
+                    <PhoneCall className="size-3.5" /> Call Kitchen
+                  </a>
+                  <span className="text-rose-300">|</span>
+                  <a
+                    href={CONTACT_INFO.whatsappUrl(`Hello FoodIQ, my order #${order.order_number} could not be confirmed. Please assist me.`)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:underline"
+                  >
+                    <MessageCircle className="size-3.5" /> WhatsApp Support
+                  </a>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

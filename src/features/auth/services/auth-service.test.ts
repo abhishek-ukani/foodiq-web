@@ -3,6 +3,10 @@ import {
   normalizePhone,
   toFriendlyAuthMessage,
   checkCredentialAvailability,
+  signInWithGoogle,
+  signInWithIdentifier,
+  signUpWithEmail,
+  resendVerificationEmail,
 } from './auth-service'
 import { supabase } from '@/lib/supabase'
 
@@ -21,6 +25,10 @@ vi.mock('@/lib/supabase', () => ({
     },
   },
 }))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+})
 
 describe('normalizePhone', () => {
   it('returns empty string on empty input', () => {
@@ -147,5 +155,151 @@ describe('checkCredentialAvailability', () => {
     expect(result.emailAvailable).toBe(false)
     expect(result.isVerified).toBe(true)
     expect(result.emailError).toContain('already exists')
+  })
+})
+
+describe('signInWithGoogle', () => {
+  it('forwards custom redirectTo URL to Supabase OAuth', async () => {
+    vi.mocked(supabase.auth.signInWithOAuth).mockResolvedValueOnce({
+      data: { provider: 'google', url: 'https://accounts.google.com/o/oauth2' },
+      error: null,
+    } as any)
+
+    const customRedirect = 'https://foodiq.com/login?redirect=%2Fcheckout'
+    await signInWithGoogle(customRedirect)
+
+    expect(supabase.auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: {
+        redirectTo: customRedirect,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    })
+  })
+})
+
+describe('signUpWithEmail', () => {
+  it('skips availability check when skipAvailabilityCheck is true', async () => {
+    vi.mocked(supabase.auth.signUp).mockResolvedValueOnce({
+      data: { user: { id: 'user-123', identities: [{ id: 'id-1' }] } as any, session: null },
+      error: null,
+    })
+
+    const mockUpsert = vi.fn().mockResolvedValueOnce({ error: null })
+    vi.mocked(supabase.from).mockReturnValueOnce({
+      upsert: mockUpsert,
+    } as any)
+
+    await signUpWithEmail({
+      fullName: 'Test User',
+      email: 'test@example.com',
+      phone: '9876543210',
+      password: 'password123',
+      skipAvailabilityCheck: true,
+    })
+
+    // supabase.rpc should not be called since checkCredentialAvailability was skipped
+    expect(supabase.rpc).not.toHaveBeenCalled()
+    expect(supabase.auth.signUp).toHaveBeenCalledWith({
+      email: 'test@example.com',
+      password: 'password123',
+      options: {
+        data: {
+          full_name: 'Test User',
+          phone: '9876543210',
+        },
+        emailRedirectTo: expect.stringContaining('/verify-email'),
+      },
+    })
+  })
+})
+
+describe('resendVerificationEmail', () => {
+  it('calls resend with verify-email redirect destination', async () => {
+    vi.mocked(supabase.auth.resend).mockResolvedValueOnce({
+      data: {} as any,
+      error: null,
+    })
+
+    await resendVerificationEmail('customer@example.com')
+
+    expect(supabase.auth.resend).toHaveBeenCalledWith({
+      type: 'signup',
+      email: 'customer@example.com',
+      options: {
+        emailRedirectTo: expect.stringContaining('/verify-email'),
+      },
+    })
+  })
+})
+
+describe('signInWithIdentifier', () => {
+  it('authenticates directly with email when input contains @', async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce({
+      data: { user: { id: 'u1' } as any, session: {} as any },
+      error: null,
+    })
+
+    await signInWithIdentifier({ identifier: 'kaka@example.com', password: 'secretpassword' })
+
+    expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
+      email: 'kaka@example.com',
+      password: 'secretpassword',
+    })
+  })
+
+  it('looks up registered email from profiles table when 10-digit phone is entered', async () => {
+    const mockSelect = vi.fn().mockReturnThis()
+    const mockEq = vi.fn().mockReturnThis()
+    const mockLimit = vi.fn().mockReturnThis()
+    const mockMaybeSingle = vi.fn().mockResolvedValueOnce({
+      data: { email: 'elderly_customer@foodiq.in' },
+      error: null,
+    })
+
+    vi.mocked(supabase.from).mockReturnValueOnce({
+      select: mockSelect,
+      eq: mockEq,
+      limit: mockLimit,
+      maybeSingle: mockMaybeSingle,
+    } as any)
+
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce({
+      data: { user: { id: 'u2' } as any, session: {} as any },
+      error: null,
+    })
+
+    await signInWithIdentifier({ identifier: '+91 98765-43210', password: 'secretpassword' })
+
+    expect(supabase.from).toHaveBeenCalledWith('profiles')
+    expect(mockEq).toHaveBeenCalledWith('phone', '9876543210')
+    expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
+      email: 'elderly_customer@foodiq.in',
+      password: 'secretpassword',
+    })
+  })
+
+  it('throws friendly error when phone number is not found in profiles', async () => {
+    const mockSelect = vi.fn().mockReturnThis()
+    const mockEq = vi.fn().mockReturnThis()
+    const mockLimit = vi.fn().mockReturnThis()
+    const mockMaybeSingle = vi.fn().mockResolvedValueOnce({
+      data: null,
+      error: null,
+    })
+
+    vi.mocked(supabase.from).mockReturnValueOnce({
+      select: mockSelect,
+      eq: mockEq,
+      limit: mockLimit,
+      maybeSingle: mockMaybeSingle,
+    } as any)
+
+    await expect(
+      signInWithIdentifier({ identifier: '9876543210', password: 'secretpassword' }),
+    ).rejects.toThrow('No account found for this mobile number')
   })
 })

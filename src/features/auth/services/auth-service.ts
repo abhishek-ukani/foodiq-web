@@ -20,7 +20,7 @@ export function toFriendlyAuthMessage(error: AuthError | Error | unknown): strin
   const message = error instanceof Error ? error.message : String(error)
 
   if (/Invalid login credentials/i.test(message)) {
-    return 'Incorrect email or password. Please check your credentials and try again.'
+    return 'Incorrect email or password (or mobile number). Please check your credentials and try again.'
   }
   if (/Email not confirmed/i.test(message)) {
     return 'Please verify your email before signing in — check your inbox or spam folder for the confirmation link.'
@@ -138,24 +138,27 @@ export async function signUpWithEmail(input: {
   email: string
   phone: string
   password: string
+  skipAvailabilityCheck?: boolean
 }) {
   const cleanEmail = input.email.trim().toLowerCase()
   const cleanPhone = normalizePhone(input.phone)
 
-  // 1. Pre-signup check: Validate individual credential uniqueness
-  const availability = await checkCredentialAvailability({
-    email: cleanEmail,
-    phone: cleanPhone,
-  })
+  // 1. Pre-signup check: Validate individual credential uniqueness (if not already verified by form caller)
+  if (!input.skipAvailabilityCheck) {
+    const availability = await checkCredentialAvailability({
+      email: cleanEmail,
+      phone: cleanPhone,
+    })
 
-  if (!availability.emailAvailable) {
-    throw new Error('An account with this email address already exists. Try signing in instead.')
-  }
+    if (!availability.emailAvailable) {
+      throw new Error('An account with this email address already exists. Try signing in instead.')
+    }
 
-  if (!availability.phoneAvailable) {
-    throw new Error(
-      'This mobile number is already registered to an account. Please use a different number or sign in.',
-    )
+    if (!availability.phoneAvailable) {
+      throw new Error(
+        'This mobile number is already registered to an account. Please use a different number or sign in.',
+      )
+    }
   }
 
   // 2. Perform Supabase Auth SignUp
@@ -167,7 +170,7 @@ export async function signUpWithEmail(input: {
         full_name: input.fullName.trim(),
         phone: cleanPhone,
       },
-      emailRedirectTo: `${env.appUrl}/login`,
+      emailRedirectTo: `${env.appUrl}/verify-email`,
     },
   })
 
@@ -212,6 +215,7 @@ export async function signUpWithEmail(input: {
           full_name: input.fullName.trim(),
           role: 'customer',
           is_active: true,
+          is_verified: false,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' },
@@ -242,6 +246,39 @@ export async function signInWithEmail(input: { email: string; password: string }
   })
   if (error) throw error
   return data
+}
+
+/**
+ * Supports logging in with either a 10-digit Indian mobile number or an email address.
+ * Extremely convenient for elderly customers who don't remember their email.
+ */
+export async function signInWithIdentifier(input: { identifier: string; password: string }) {
+  const raw = input.identifier.trim()
+
+  // 1. If it contains '@', treat directly as email
+  if (raw.includes('@')) {
+    return signInWithEmail({ email: raw.toLowerCase(), password: input.password })
+  }
+
+  // 2. Otherwise normalize to 10-digit Indian mobile number
+  const cleanPhone = normalizePhone(raw)
+  if (cleanPhone.length !== 10) {
+    throw new Error('Please enter a valid 10-digit mobile number or email address.')
+  }
+
+  // Look up the profile email associated with this mobile number
+  const { data: row, error: lookupErr } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('phone', cleanPhone)
+    .limit(1)
+    .maybeSingle()
+
+  if (lookupErr || !row?.email) {
+    throw new Error('No account found for this mobile number. Please check your number or create an account.')
+  }
+
+  return signInWithEmail({ email: row.email, password: input.password })
 }
 
 export async function signInWithGoogle(redirectTo?: string) {
@@ -281,7 +318,7 @@ export async function resendVerificationEmail(email: string) {
   const { error } = await supabase.auth.resend({
     type: 'signup',
     email: email.trim().toLowerCase(),
-    options: { emailRedirectTo: `${env.appUrl}/login` },
+    options: { emailRedirectTo: `${env.appUrl}/verify-email` },
   })
   if (error) throw error
 }

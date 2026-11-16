@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { LogOut, Zap } from 'lucide-react'
+import { CheckCircle2, LogOut, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -48,7 +48,14 @@ export function AccountPage() {
             </AvatarFallback>
           </Avatar>
           <div>
-            <h1 className="font-display text-2xl font-semibold">{profile?.full_name ?? 'Your account'}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-2xl font-semibold">{profile?.full_name ?? 'Your account'}</h1>
+              {profile?.is_verified ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                  <CheckCircle2 className="size-3" /> Verified
+                </span>
+              ) : null}
+            </div>
             <p className="text-muted-foreground text-sm">
               {profile?.total_orders ?? 0} order{profile?.total_orders === 1 ? '' : 's'} placed
             </p>

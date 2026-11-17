@@ -56,7 +56,7 @@ export function MobileMenuItemRow({
   const targetVariantId = selectedVariant?.id ?? (variants.length === 1 ? variants[0].id : null)
   const cartLine = cartItems?.find(
     (ci) =>
-      ci.food_item_id === item.id &&
+      (ci.food_item_id === item.id || ci.thali_id === item.id) &&
       (hasMultipleVariants ? ci.variant_id === targetVariantId : true) &&
       (!Array.isArray(ci.customizations) || ci.customizations.length === 0),
   )

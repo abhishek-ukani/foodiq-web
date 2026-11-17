@@ -156,9 +156,7 @@ export async function fetchThaliOptionGroups(
         .select('*, food_items(*, categories(id, name, slug, category_type)), daily_menus!inner(menu_date, is_published, meal_type)')
         .eq('daily_menus.menu_date', targetDate)
         .eq('daily_menus.meal_type', effectiveMealType as MealType)
-        .eq('daily_menus.is_published', true)
-        .eq('is_available', true)
-        .neq('is_thali_option', false),
+        .eq('daily_menus.is_published', true),
       supabase
         .from('thali_components')
         .select('*, food_items(*, categories(id, name, slug, category_type))')
@@ -169,6 +167,16 @@ export async function fetchThaliOptionGroups(
     globalComponents = fetchedGlobalRes.data || []
   }
 
+  // All food item IDs present in today's daily menu (authoritative for this meal)
+  const allDailyFoodIds = new Set(dailyItems.map((di) => di.food_item_id))
+
+  // Food item IDs explicitly DISABLED or excluded from Thali for this specific meal
+  const disabledDailyFoodIds = new Set(
+    dailyItems
+      .filter((di) => di.is_available === false || di.is_thali_option === false)
+      .map((di) => di.food_item_id),
+  )
+
   const resolvedGroups: ResolvedOptionGroup[] = []
   const now = new Date()
 
@@ -176,25 +184,34 @@ export async function fetchThaliOptionGroups(
     let resolvedOptions: ResolvedOptionItem[] = []
 
     if (grp.is_daily_menu_source) {
-      // 1. Matched daily items for this specific date/meal
+      // 1. Matched daily items that are actively available and marked as Thali options
       const matchedDaily = dailyItems.filter(
         (di) =>
-          di.food_items?.category_id === grp.target_category_id ||
-          (grp.target_category_type &&
-            di.food_items?.categories?.category_type === grp.target_category_type),
+          di.is_available === true &&
+          di.is_thali_option !== false &&
+          di.food_items?.is_available !== false &&
+          (di.food_items?.category_id === grp.target_category_id ||
+            (grp.target_category_type &&
+              di.food_items?.categories?.category_type === grp.target_category_type)),
       )
 
-      // 2. Matched global components (evergreen across all dates/meals)
-      const dailyFoodIds = new Set(matchedDaily.map((di) => di.food_item_id))
-      const matchedGlobal = globalComponents.filter(
-        (gc) =>
-          !dailyFoodIds.has(gc.food_item_id) &&
-          gc.food_items?.is_available !== false &&
-          (gc.food_items?.category_id === grp.target_category_id ||
-            (grp.target_category_type &&
-              gc.food_items?.categories?.category_type === grp.target_category_type) ||
-            gc.category_type === grp.target_category_type),
-      )
+      // 2. Matched global components:
+      // When a daily menu has active items for this category (e.g. Dinner has Vagharela Bhat for rice),
+      // the daily menu items are authoritative for this meal. Global components in that category
+      // must NOT be injected if the daily menu has already specified active items for this category.
+      const categoryHasDailyItems = matchedDaily.length > 0
+      const matchedGlobal = categoryHasDailyItems
+        ? []
+        : globalComponents.filter(
+            (gc) =>
+              !allDailyFoodIds.has(gc.food_item_id) &&
+              !disabledDailyFoodIds.has(gc.food_item_id) &&
+              gc.food_items?.is_available !== false &&
+              (gc.food_items?.category_id === grp.target_category_id ||
+                (grp.target_category_type &&
+                  gc.food_items?.categories?.category_type === grp.target_category_type) ||
+                gc.category_type === grp.target_category_type),
+          )
 
       const globalOptions: ResolvedOptionItem[] = matchedGlobal.map((gc: any) => {
         const food = gc.food_items
@@ -212,7 +229,7 @@ export async function fetchThaliOptionGroups(
         }
       })
 
-      const dailyOptions: ResolvedOptionItem[] = matchedDaily.map((dItem: any) => {
+      const dailyOptions: ResolvedOptionItem[] = matchedDaily.map((dItem: any, idx: number) => {
         const food = dItem.food_items
         const isCutoffClosed = dItem.cutoff_time ? new Date(dItem.cutoff_time) < now : false
 
@@ -220,7 +237,7 @@ export async function fetchThaliOptionGroups(
           id: dItem.id,
           label: food?.name || 'Daily Special',
           price_delta: dItem.price_override ? dItem.price_override - (food?.price || 0) : 0,
-          is_default: false,
+          is_default: idx < (grp.min_select || 1),
           is_available: dItem.is_available && !isCutoffClosed,
           is_cutoff_closed: isCutoffClosed,
           cutoff_note: dItem.cutoff_note,
@@ -241,20 +258,22 @@ export async function fetchThaliOptionGroups(
       // ✅ Static group: single source of truth for name is food_items.name
       const rawItems = (grp.thali_option_items || []).filter((i: any) => i.is_active)
 
-      resolvedOptions = rawItems.map((item: any) => {
-        const food = item.food_items
-        return {
-          id: item.id,
-          label: food?.name || 'Option Item',
-          price_delta: Number(item.price_delta || 0),
-          is_default: item.is_default,
-          is_available: food?.is_available ?? item.is_active,
-          is_cutoff_closed: false,
-          food_item_id: item.food_item_id,
-          is_jain_available: food?.is_jain_available ?? true,
-          is_swaminarayan_available: food?.is_swaminarayan_available ?? true,
-        }
-      })
+      resolvedOptions = rawItems
+        .filter((item: any) => !disabledDailyFoodIds.has(item.food_item_id))
+        .map((item: any) => {
+          const food = item.food_items
+          return {
+            id: item.id,
+            label: food?.name || 'Option Item',
+            price_delta: Number(item.price_delta || 0),
+            is_default: item.is_default,
+            is_available: food?.is_available ?? item.is_active,
+            is_cutoff_closed: false,
+            food_item_id: item.food_item_id,
+            is_jain_available: food?.is_jain_available ?? true,
+            is_swaminarayan_available: food?.is_swaminarayan_available ?? true,
+          }
+        })
     }
 
     resolvedGroups.push({

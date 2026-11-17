@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Clock, Check } from 'lucide-react'
 import { CURRENCY_SYMBOL } from '@/constants'
 import {
@@ -48,8 +49,13 @@ export function DynamicThaliOptionPicker({
   onAddOnOptionsLoaded,
 }: DynamicThaliOptionPickerProps) {
   const [groups, setGroups] = useState<ResolvedOptionGroup[]>([])
-  const [loading, setLoading] = useState(true)
   const [selectedMap, setSelectedMap] = useState<Record<string, string[]>>({})
+
+  const { data: resGroups = [], isPending: loading } = useQuery({
+    queryKey: ['thali-option-groups', foodItemId, selectedDate, mealType],
+    queryFn: () => fetchThaliOptionGroups(foodItemId, selectedDate, mealType),
+    enabled: Boolean(foodItemId),
+  })
 
   const sabjiCallbackRef = useRef(onSabjiOptionsLoaded)
   const addOnCallbackRef = useRef(onAddOnOptionsLoaded)
@@ -62,57 +68,69 @@ export function DynamicThaliOptionPicker({
   })
 
   useEffect(() => {
-    let isMounted = true
-    setLoading(true)
-    fetchThaliOptionGroups(foodItemId, selectedDate, mealType).then((resGroups) => {
-      if (!isMounted) return
-      setGroups(resGroups)
+    if (!resGroups || !resGroups.length) {
+      setGroups([])
+      return
+    }
+    setGroups(resGroups)
 
-      // Find sabji group by category foreign key or dynamic flag (no phonetic string hacks)
-      const sabjiGroup = resGroups.find(
-        (g) => g.is_daily_menu_source || g.categories?.slug === 'sabji',
-      )
-      if (sabjiGroup && sabjiCallbackRef.current) {
-        const avail = sabjiGroup.options
+    // Find sabji group by category foreign key or dynamic flag (no phonetic string hacks)
+    const sabjiGroup = resGroups.find(
+      (g) => g.is_daily_menu_source || g.categories?.slug === 'sabji',
+    )
+    if (sabjiGroup && sabjiCallbackRef.current) {
+      const avail = sabjiGroup.options
+        .filter((o) => o.is_available && !o.is_cutoff_closed)
+        .map((o) => ({ id: o.id, label: o.label }))
+      sabjiCallbackRef.current(avail)
+    }
+
+    // Collect add-on items to merge into add-ons section
+    if (addOnCallbackRef.current) {
+      const addOnGroups = resGroups.filter((g) => isAddOnGroup(g))
+      const extractedAddOns = addOnGroups.flatMap((g) =>
+        g.options
           .filter((o) => o.is_available && !o.is_cutoff_closed)
-          .map((o) => ({ id: o.id, label: o.label }))
-        sabjiCallbackRef.current(avail)
-      }
+          .map((o) => ({
+            id: o.id,
+            name: o.label,
+            price_delta: Number(o.price_delta || 0),
+          })),
+      )
+      addOnCallbackRef.current(extractedAddOns)
+    }
 
-      // Collect add-on items to merge into add-ons section
-      if (addOnCallbackRef.current) {
-        const addOnGroups = resGroups.filter((g) => isAddOnGroup(g))
-        const extractedAddOns = addOnGroups.flatMap((g) =>
-          g.options
-            .filter((o) => o.is_available && !o.is_cutoff_closed)
-            .map((o) => ({
-              id: o.id,
-              name: o.label,
-              price_delta: Number(o.price_delta || 0),
-            })),
-        )
-        addOnCallbackRef.current(extractedAddOns)
-      }
-
-      const initialMap: Record<string, string[]> = {}
+    setSelectedMap((prev) => {
+      const nextMap: Record<string, string[]> = {}
       resGroups.forEach((grp) => {
         if (isAddOnGroup(grp)) return
-        const defaults = grp.options.filter((o) => o.is_default && o.is_available)
-        if (defaults.length > 0) {
-          initialMap[grp.id] = defaults.slice(0, grp.max_select).map((o) => o.id)
-        } else if (grp.is_required && grp.options.length > 0) {
-          const first = grp.options.find((o) => o.is_available)
-          if (first) initialMap[grp.id] = [first.id]
+        // Keep previous selection only if the option is still available in the group
+        const existingValid = (prev[grp.id] || []).filter((id) =>
+          grp.options.some((o) => o.id === id && o.is_available && !o.is_cutoff_closed),
+        )
+
+        if (existingValid.length > 0) {
+          nextMap[grp.id] = existingValid
+        } else {
+          const defaults = grp.options.filter(
+            (o) => o.is_default && o.is_available && !o.is_cutoff_closed,
+          )
+          if (defaults.length > 0) {
+            nextMap[grp.id] = defaults.slice(0, grp.max_select).map((o) => o.id)
+          } else if (grp.is_required && grp.options.length > 0) {
+            const availableOptions = grp.options.filter(
+              (o) => o.is_available && !o.is_cutoff_closed,
+            )
+            const countToPick = Math.min(grp.min_select || 1, availableOptions.length)
+            if (countToPick > 0) {
+              nextMap[grp.id] = availableOptions.slice(0, countToPick).map((o) => o.id)
+            }
+          }
         }
       })
-
-      setSelectedMap(initialMap)
-      setLoading(false)
+      return nextMap
     })
-    return () => {
-      isMounted = false
-    }
-  }, [foodItemId, selectedDate, mealType])
+  }, [resGroups])
 
   useEffect(() => {
     let valid = true

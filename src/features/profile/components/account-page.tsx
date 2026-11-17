@@ -48,8 +48,19 @@ export function AccountPage() {
             </AvatarFallback>
           </Avatar>
           <div>
-            <h1 className="font-display text-2xl font-semibold">{profile?.full_name ?? 'Your account'}</h1>
-            <p className="text-muted-foreground text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-display text-2xl font-semibold">{profile?.full_name ?? 'Your account'}</h1>
+              {profile?.is_verified ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                  ✓ Verified Customer
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
+                  ⏳ Verification Pending
+                </span>
+              )}
+            </div>
+            <p className="text-muted-foreground text-sm mt-0.5">
               {profile?.total_orders ?? 0} order{profile?.total_orders === 1 ? '' : 's'} placed
             </p>
           </div>
@@ -59,6 +70,18 @@ export function AccountPage() {
           Sign out
         </Button>
       </div>
+
+      {!profile?.is_verified && (
+        <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200/90 text-amber-950 text-xs leading-relaxed shadow-2xs">
+          <span className="text-lg shrink-0 select-none">🛡️</span>
+          <div>
+            <p className="font-semibold text-amber-950">Account Under Admin Verification</p>
+            <p className="text-amber-900/85 mt-0.5">
+              Your account is registered! Our admin team verifies all new accounts before confirming orders for delivery. You can browse the daily menu and request meal orders anytime.
+            </p>
+          </div>
+        </div>
+      )}
 
       {profile?.is_subscription_eligible ? (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-foreground">

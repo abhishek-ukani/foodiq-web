@@ -992,7 +992,7 @@ export function QuickOrderPage() {
                     <MapPin className="size-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span id="address-heading" className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
                         Delivering To
                       </span>
@@ -1001,6 +1001,15 @@ export function QuickOrderPage() {
                           {context.defaultAddress.label}
                         </Badge>
                       ) : null}
+                      {context.defaultAddress?.is_route_approved ? (
+                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-emerald-500/40 bg-emerald-50 text-emerald-700 font-medium">
+                          ✓ Route Approved (Auto-Accepts)
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-amber-500/40 bg-amber-50 text-amber-800 font-medium">
+                          Alternate Address (Admin Review)
+                        </Badge>
+                      )}
                     </div>
 
                     {context.defaultAddress ? (

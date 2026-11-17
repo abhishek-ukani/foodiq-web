@@ -13,7 +13,16 @@ export function resolveCategoryKey(
   param: string | null | undefined,
   categoriesList: Tables<'categories'>[],
 ): string {
-  if (!param || param === 'all') return 'all'
+  const thaliCat = categoriesList.find(
+    (c) =>
+      c.category_type === 'thali' ||
+      (c.slug || '').toLowerCase().includes('thali') ||
+      c.name.toLowerCase().includes('thali') ||
+      c.name.toLowerCase().includes('meal'),
+  )
+  const defaultKey = thaliCat ? thaliCat.id : 'thalis'
+
+  if (!param || param === 'all') return defaultKey
   const p = param.trim().toLowerCase()
 
   // 1. Direct ID match
@@ -30,13 +39,6 @@ export function resolveCategoryKey(
 
   // 4. "meals" / "meal" / "thalis" / "thali" keyword match
   if (p === 'meals' || p === 'meal' || p === 'thali' || p === 'thalis') {
-    const thaliCat = categoriesList.find(
-      (c) =>
-        c.category_type === 'thali' ||
-        (c.slug || '').toLowerCase().includes('thali') ||
-        c.name.toLowerCase().includes('thali') ||
-        c.name.toLowerCase().includes('meal'),
-    )
     if (thaliCat) return thaliCat.id
   }
 
@@ -48,7 +50,7 @@ export function resolveCategoryKey(
   )
   if (partial) return partial.id
 
-  return 'all'
+  return defaultKey
 }
 
 export function MenuPage() {
@@ -59,7 +61,7 @@ export function MenuPage() {
   const mealParam = searchParams.get('meal') as MealType | null
   const dateParam = searchParams.get('date')
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [selectedCategory, setSelectedCategory] = useState<string>('thalis')
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
@@ -97,11 +99,9 @@ export function MenuPage() {
 
   // Resolve categoryParam when categories load or URL changes
   useEffect(() => {
-    if (categoryParam && categories.length > 0) {
+    if (categories.length > 0) {
       const resolved = resolveCategoryKey(categoryParam, categories)
       setSelectedCategory(resolved)
-    } else if (!categoryParam) {
-      setSelectedCategory('all')
     }
   }, [categoryParam, categories])
 
@@ -111,10 +111,16 @@ export function MenuPage() {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
-          if (catKey === 'all') {
+          const catObj = categories.find((c) => c.id === catKey)
+          const isThali =
+            catKey === 'thalis' ||
+            catKey === 'all' ||
+            catObj?.category_type === 'thali' ||
+            (catObj?.slug || '').toLowerCase().includes('thali')
+
+          if (isThali) {
             next.delete('category')
           } else {
-            const catObj = categories.find((c) => c.id === catKey)
             next.set('category', catObj?.slug || catKey)
           }
           return next

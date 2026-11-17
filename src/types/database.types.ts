@@ -69,6 +69,7 @@ type ProfileRow = {
   avatar_url: string | null
   date_of_birth: string | null
   is_active: boolean
+  is_verified?: boolean
   is_subscription_eligible: boolean
   total_orders: number
   total_spent: number
@@ -100,6 +101,7 @@ type AddressRow = {
   meal_type_tag: 'lunch' | 'dinner' | 'both'
   preferred_time: string | null
   is_default: boolean
+  is_route_approved?: boolean
   created_at: string
   updated_at: string
 }
@@ -757,6 +759,9 @@ export interface Database {
           p_delivery_charge?: number
           /** zone_type string from resolve-delivery (informational; stored for analytics). */
           p_zone_type?: string | null
+          p_is_out_of_zone?: boolean
+          p_zone_label?: string | null
+          p_preferred_lunch_time?: string | null
         }
         Returns: OrderRow
       }

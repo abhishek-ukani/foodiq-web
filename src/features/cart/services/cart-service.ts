@@ -95,27 +95,27 @@ export async function addToCart(input: {
   const { data: session } = await supabase.auth.getUser()
   if (!session.user) throw new Error('Please sign in to add items to your cart.')
 
-  let effectiveFoodItemId = input.food_item_id ?? null
-  let effectiveThaliId = input.thali_id ?? null
+  let effectiveFoodItemId: string | null = null
+  let effectiveThaliId: string | null = null
 
-  // If only food_item_id was passed, check if it belongs to thalis
-  if (effectiveFoodItemId && !effectiveThaliId) {
-    const { data: maybeThali } = await supabase
-      .from('thalis')
-      .select('id, is_available, name')
-      .eq('id', effectiveFoodItemId)
-      .maybeSingle()
+  const targetId = input.thali_id || input.food_item_id
+  if (!targetId) throw new Error('Item ID is required.')
 
-    if (maybeThali) {
-      effectiveThaliId = maybeThali.id
-      effectiveFoodItemId = null
-      if (!maybeThali.is_available) {
-        throw new Error(`"${maybeThali.name}" is currently disabled and unavailable.`)
-      }
+  // Check if targetId belongs to the dedicated thalis table
+  const { data: maybeThali } = await supabase
+    .from('thalis')
+    .select('id, is_available, name')
+    .eq('id', targetId)
+    .maybeSingle()
+
+  if (maybeThali) {
+    effectiveThaliId = maybeThali.id
+    if (!maybeThali.is_available) {
+      throw new Error(`"${maybeThali.name}" is currently disabled and unavailable.`)
     }
-  }
-
-  if (effectiveFoodItemId) {
+  } else {
+    // Otherwise it is an item in the food_items table (including thali items)
+    effectiveFoodItemId = targetId
     const { data: foodItem } = await supabase
       .from('food_items')
       .select('is_available, name')

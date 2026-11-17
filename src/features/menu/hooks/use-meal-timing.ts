@@ -257,8 +257,8 @@ export function useMealTiming(targetDate?: string): MealTimingState {
 
       const isPublished = !!menuMatch && menuMatch.is_published
 
-      // Slot is open if: published (or tomorrow) AND cutoff hasn't passed AND NOT closed by holiday!
-      const isOpen = (isFutureDate || isPublished) && !isCutoffPassed && !isHolidayClosed
+      // Slot is open if: published AND cutoff hasn't passed AND NOT closed by holiday!
+      const isOpen = isPublished && !isCutoffPassed && !isHolidayClosed
 
       result[type] = {
         mealType: type,

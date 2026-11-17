@@ -86,7 +86,7 @@ export function ChangeAddressDrawer({
                       {getAddressIcon(addr.label)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-sm capitalize text-foreground">
                           {addr.label || 'Address'}
                         </span>
@@ -95,6 +95,15 @@ export function ChangeAddressDrawer({
                             Default
                           </Badge>
                         ) : null}
+                        {addr.is_route_approved ? (
+                          <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-emerald-500/40 bg-emerald-50 text-emerald-700 font-medium">
+                            ✓ Route Approved
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-amber-500/40 bg-amber-50 text-amber-800 font-medium">
+                            Alternate
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
                         {addr.address_line1}

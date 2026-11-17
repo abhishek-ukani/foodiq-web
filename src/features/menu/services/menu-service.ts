@@ -129,6 +129,12 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
       const cutoffTime = menuRecord?.cutoff_time ?? (slot === 'lunch' ? '10:00:00' : '18:00:00')
       const menuId = menuRecord?.id || `synthetic-${slot}-${date}`
 
+      // If this slot is NOT published in daily_menus, do NOT inject synthetic thalis.
+      // This allows the storefront to render the "menu coming soon" state when unpublished.
+      if (!isSlotPublished) {
+        continue
+      }
+
       for (const thali of thaliFoods) {
         const key = `${slot}-${thali.id}`
         if (!existingThaliKeys.has(key)) {
@@ -145,14 +151,14 @@ export async function fetchMenuForDate(date: string, mealType?: MealType): Promi
             is_standalone_sale: true,
             is_thali_option: true,
             cutoff_time: cutoffTime,
-            cutoff_note: isSlotPublished ? null : 'Menu coming soon',
+            cutoff_note: null,
             display_order: thali.display_order ?? 0,
             created_at: thali.created_at,
             updated_at: thali.updated_at,
             food_items: thali as any,
             daily_menus: {
               menu_date: date,
-              is_published: isSlotPublished,
+              is_published: true,
               meal_type: slot,
               cutoff_time: cutoffTime,
             },

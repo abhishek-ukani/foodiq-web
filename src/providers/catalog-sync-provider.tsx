@@ -39,6 +39,7 @@ export function CatalogSyncProvider({ children }: CatalogSyncProviderProps) {
         queryClient.invalidateQueries({ queryKey: ['always-available-items'] })
         queryClient.invalidateQueries({ queryKey: ['popular-items'] })
         queryClient.invalidateQueries({ queryKey: ['todays-special'] })
+        queryClient.invalidateQueries({ queryKey: ['thali-option-groups'] })
         // Invalidate cart so active cart items reflect updated prices / availability
         queryClient.invalidateQueries({ queryKey: ['cart'] })
       }, 150)

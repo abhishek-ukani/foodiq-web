@@ -82,27 +82,16 @@ export function CategoryShowcaseBar({
     })
     .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
 
-  const displayItems: CategoryPillItem[] = [
-    { key: 'all', label: 'All', slug: 'all', image: null, emoji: '🍽️' },
-    ...activeCategories.map((cat) => ({
-      key: cat.id,
-      label: cat.name,
-      slug: cat.slug,
-      image: cat.image_url || null,
-      emoji: getCategoryVisuals(cat).emoji,
-    })),
-  ]
-
-  // If there are uncategorized items with count > 0, include "Other" pill
-  if (itemCounts && (itemCounts['other'] ?? 0) > 0) {
-    displayItems.push({
-      key: 'other',
-      label: 'Other',
-      slug: 'other',
-      image: null,
-      emoji: '🍛',
-    })
-  }
+  const displayItems: CategoryPillItem[] =
+    activeCategories.length > 0
+      ? activeCategories.map((cat) => ({
+          key: cat.id,
+          label: cat.name,
+          slug: cat.slug,
+          image: cat.image_url || null,
+          emoji: getCategoryVisuals(cat).emoji,
+        }))
+      : [{ key: 'thalis', label: 'Thalis', slug: 'thalis', image: null, emoji: '🍱' }]
 
   return (
     <div className={cn('w-full overflow-x-auto scrollbar-none no-scrollbar py-1', className)}>
@@ -110,9 +99,9 @@ export function CategoryShowcaseBar({
         {displayItems.map((cat) => {
           const isActive =
             activeCategory === cat.key ||
-            (activeCategory !== 'all' &&
-              ((Boolean(cat.slug) && cat.slug?.toLowerCase() === activeCategory.toLowerCase()) ||
-               cat.label.toLowerCase() === activeCategory.toLowerCase()))
+            ((Boolean(cat.slug) && cat.slug?.toLowerCase() === activeCategory.toLowerCase()) ||
+             cat.label.toLowerCase() === activeCategory.toLowerCase()) ||
+            activeCategory === 'all'
 
           return (
             <button

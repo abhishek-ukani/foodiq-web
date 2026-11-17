@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/constants'
 import { cn } from '@/lib/utils'
 import { HeritageCorner } from '@/components/common/heritage-corner'
-import { ThaliSunburstHalo } from '@/components/common/thali-sunburst-halo'
 
 const HERO_THALI_IMAGE = '/images/hero-thali.jpg'
 
@@ -171,8 +170,6 @@ export function HeroSection() {
             className="relative lg:col-span-5"
           >
             <div className="relative mx-auto max-w-md lg:max-w-none flex items-center justify-center">
-              {/* Radiating Sunburst Mandala Ring Halo behind Thali (Reference Image 1) */}
-              <ThaliSunburstHalo className="scale-115 sm:scale-125 lg:scale-135" />
 
               {/* Warm Kansa Aura */}
               <div

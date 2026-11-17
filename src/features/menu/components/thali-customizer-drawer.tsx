@@ -188,12 +188,9 @@ export function ThaliCustomizerDrawer({
 
     const variantId = activeVariant?.id || (variants.length === 1 ? variants[0].id : null)
 
-    const isThaliItem = item.kind === 'thali' || (item as any)?.categories?.category_type === 'thali'
-
     addToCart.mutate(
       {
-        food_item_id: isThaliItem ? null : item.id,
-        thali_id: isThaliItem ? item.id : null,
+        food_item_id: item.id,
         variant_id: variantId,
         quantity,
         special_instructions: instructions.trim() || null,
@@ -312,14 +309,17 @@ export function ThaliCustomizerDrawer({
                     Included in this Thali:
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {item.ingredients.map((ing, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[10px] bg-white text-amber-900/90 font-medium px-2 py-0.5 rounded-md border border-amber-200/80 shadow-2xs"
-                      >
-                        {ing}
-                      </span>
-                    ))}
+                    {item.ingredients.map((ing, idx) => {
+                      const displayLabel = ing.toLowerCase() === 'dal-bhat' ? 'Dal-Bhat & Rice' : ing
+                      return (
+                        <span
+                          key={idx}
+                          className="text-[10px] bg-white text-amber-900/90 font-medium px-2 py-0.5 rounded-md border border-amber-200/80 shadow-2xs"
+                        >
+                          {displayLabel}
+                        </span>
+                      )
+                    })}
                   </div>
                 </div>
               )}

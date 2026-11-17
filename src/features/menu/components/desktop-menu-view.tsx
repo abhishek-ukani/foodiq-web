@@ -1,13 +1,9 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { ArrowRight, UtensilsCrossed, Clock, CalendarOff, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/common/empty-state'
-import {
-  CategoryShowcaseBar,
-  getCategoryVisuals,
-} from '@/features/menu/components/category-showcase-bar'
-import { MenuProductCard } from '@/features/menu/components/menu-product-card'
+import { CategoryShowcaseBar } from '@/features/menu/components/category-showcase-bar'
 import { DesktopThaliCard } from '@/features/menu/components/desktop-thali-card'
 import { MenuHero } from '@/features/menu/components/menu-hero'
 import { type MenuListing } from '@/features/menu/services/menu-service'
@@ -144,6 +140,25 @@ function ContentSkeleton() {
   )
 }
 
+function isThaliCat(cat?: Tables<'categories'> | null): boolean {
+  if (!cat) return false
+  return (
+    cat.category_type === 'thali' ||
+    (cat.slug || '').toLowerCase().includes('thali') ||
+    cat.name.toLowerCase().includes('thali') ||
+    cat.name.toLowerCase().includes('meal')
+  )
+}
+
+function isThaliItem(listing: MenuListing): boolean {
+  return (
+    listing.food_items?.kind === 'thali' ||
+    listing.food_items?.categories?.category_type === 'thali' ||
+    (listing.food_items?.categories?.slug || '').toLowerCase().includes('thali') ||
+    (listing.food_items?.categories?.name || '').toLowerCase().includes('thali')
+  )
+}
+
 // ── Main Component ───────────────────────────────────────────────────────────
 export function DesktopMenuView({
   listings,
@@ -154,100 +169,41 @@ export function DesktopMenuView({
   selectedCategory: controlledSelectedCategory,
   onSelectCategory: controlledOnSelectCategory,
 }: DesktopMenuViewProps) {
-  const [internalCategory, setInternalCategory] = useState<string>('all')
+  const thaliCat = useMemo(() => {
+    return categories.find(
+      (c) =>
+        c.category_type === 'thali' ||
+        (c.slug || '').toLowerCase().includes('thali') ||
+        c.name.toLowerCase().includes('thali') ||
+        c.name.toLowerCase().includes('meal'),
+    )
+  }, [categories])
+
+  const defaultCategoryKey = thaliCat ? thaliCat.id : 'thalis'
+  const [internalCategory, setInternalCategory] = useState<string>(defaultCategoryKey)
   const selectedCategory = controlledSelectedCategory ?? internalCategory
   const setSelectedCategory = controlledOnSelectCategory ?? setInternalCategory
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortOption>('default')
   const { itemCount, subtotal } = useCartSummary()
 
-  // Item counts per category based on currently available listings
-  const itemCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: listings.length }
-    for (const cat of categories) {
-      const count = listings.filter(
-        (l) =>
-          l.food_items?.category_id === cat.id ||
-          l.food_items?.categories?.id === cat.id ||
-          l.food_items?.categories?.slug === cat.slug,
-      ).length
-      counts[cat.id] = count
-      if (cat.slug) {
-        counts[cat.slug] = count
-      }
-    }
-    const uncategorizedCount = listings.filter(
-      (l) =>
-        !l.food_items?.category_id &&
-        !l.food_items?.categories?.id &&
-        !l.food_items?.categories?.slug,
-    ).length
-    if (uncategorizedCount > 0) {
-      counts['other'] = uncategorizedCount
-    }
-    return counts
-  }, [listings, categories])
-
-  // Only display categories defined by admin products available that actually have items
-  // Always keep Thalis/Meals category active so customers can always view and switch meal slots
+  // Only display Thalis category
   const availableCategories = useMemo(() => {
-    return categories.filter((c) => {
-      if (c.is_active === false) return false
-      const isThaliCategory =
-        c.category_type === 'thali' ||
-        c.slug === 'thalis' ||
-        c.name.toLowerCase().includes('thali') ||
-        c.name.toLowerCase().includes('meal')
-      if (isThaliCategory) return true
-      const count = itemCounts[c.id] ?? (c.slug ? itemCounts[c.slug] : 0) ?? 0
-      return count > 0
-    })
-  }, [categories, itemCounts])
+    const list = categories.filter((c) => c.is_active !== false && isThaliCat(c))
+    if (list.length > 0) return list
+    return thaliCat ? [thaliCat] : []
+  }, [categories, thaliCat])
 
-  // Automatically reset category filter if currently selected category has no available items
-  useEffect(() => {
-    if (selectedCategory !== 'all' && selectedCategory !== 'other') {
-      const exists = availableCategories.some(
-        (c) => c.id === selectedCategory || c.slug === selectedCategory,
-      )
-      if (!exists) {
-        setSelectedCategory('all')
-      }
-    } else if (selectedCategory === 'other' && (itemCounts['other'] ?? 0) === 0) {
-      setSelectedCategory('all')
-    }
-  }, [availableCategories, selectedCategory, itemCounts])
-
-  // Filter & sort
+  // Filter & sort (Only Thalis)
   const filtered = useMemo(() => {
-    let items = listings
-
-    if (selectedCategory !== 'all') {
-      if (selectedCategory === 'other') {
-        items = items.filter(
-          (l) =>
-            !l.food_items?.category_id &&
-            !l.food_items?.categories?.id &&
-            !l.food_items?.categories?.slug,
-        )
-      } else {
-        items = items.filter(
-          (l) =>
-            l.food_items?.category_id === selectedCategory ||
-            l.food_items?.categories?.id === selectedCategory ||
-            l.food_items?.categories?.slug === selectedCategory ||
-            l.food_items?.categories?.name?.toLowerCase() === selectedCategory.toLowerCase(),
-        )
-      }
-    }
+    let items = listings.filter((l) => isThaliItem(l))
 
     const query = search.trim().toLowerCase()
     if (query) {
       items = items.filter(
         (l) =>
           l.food_items?.name?.toLowerCase().includes(query) ||
-          l.food_items?.description?.toLowerCase().includes(query) ||
-          l.food_items?.categories?.name?.toLowerCase().includes(query),
+          l.food_items?.description?.toLowerCase().includes(query),
       )
     }
 
@@ -257,80 +213,7 @@ export function DesktopMenuView({
     if (sort === 'name') items = [...items].sort((a, b) => a.food_items.name.localeCompare(b.food_items.name))
 
     return items
-  }, [listings, selectedCategory, search, sort])
-
-  // Grouped sections for the "all" view (Farsan first, then Thalis, matching the target mock)
-  const groupedSections = useMemo(() => {
-    const sections: {
-      category: Tables<'categories'> | null
-      key: string
-      name: string
-      subtitle: string
-      image: string | null
-      emoji: string
-      items: MenuListing[]
-      isThali: boolean
-    }[] = []
-
-    const handledIds = new Set<string>()
-
-    // Data-driven ordering from categories.display_order
-    const sortedCategories = [...availableCategories].sort(
-      (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
-    )
-
-    for (const cat of sortedCategories) {
-      const items = listings.filter(
-        (l) =>
-          l.food_items?.category_id === cat.id ||
-          l.food_items?.categories?.id === cat.id ||
-          l.food_items?.categories?.slug === cat.slug,
-      )
-      const isThali =
-        cat.category_type === 'thali' ||
-        cat.slug?.includes('thali') ||
-        items.some((i) => i.food_items?.kind === 'thali')
-
-      // Create a section if there are actually items available in this category OR if it's the core Thali category
-      if (items.length > 0 || isThali) {
-        items.forEach((item) => handledIds.add(item.id))
-
-        const subtitle = cat.description || ''
-
-        sections.push({
-          category: cat,
-          key: cat.id,
-          name: cat.name,
-          subtitle,
-          image: cat.image_url || null,
-          emoji: getCategoryVisuals(cat).emoji,
-          items,
-          isThali,
-        })
-      }
-    }
-
-    const remainingItems = listings.filter((l) => !handledIds.has(l.id))
-    if (remainingItems.length > 0) {
-      sections.push({
-        category: null,
-        key: 'other',
-        name: 'Other Dishes',
-        subtitle: 'Fresh daily additions',
-        image: null,
-        emoji: '🍛',
-        items: remainingItems,
-        isThali: remainingItems.some((i) => i.food_items?.kind === 'thali'),
-      })
-    }
-
-    return sections
-  }, [listings, availableCategories])
-
-  const selectedCategoryObj = useMemo(() => {
-    if (selectedCategory === 'all') return null
-    return availableCategories.find((c) => c.id === selectedCategory || c.slug === selectedCategory)
-  }, [availableCategories, selectedCategory])
+  }, [listings, search, sort])
 
   return (
     <div className="min-h-screen bg-[#FAF8F2]">
@@ -350,7 +233,6 @@ export function DesktopMenuView({
             categories={availableCategories}
             activeCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
-            itemCounts={itemCounts}
             isLoading={isPending}
           />
         </div>
@@ -360,170 +242,14 @@ export function DesktopMenuView({
       <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 py-8 sm:py-10">
         {isPending ? (
           <ContentSkeleton />
-        ) : filtered.length === 0 ? (
+        ) : search && filtered.length === 0 ? (
           <EmptyState
             icon={UtensilsCrossed}
-            title={search ? 'No dishes match your search' : 'No items found in this section'}
-            description="Try selecting a different category or adjusting your search."
+            title="No dishes match your search"
+            description="Try adjusting your search query."
           />
-        ) : selectedCategory === 'all' && !search ? (
-          /* ── DYNAMIC SECTIONS FEED (Target Design Mock: Farsan 4-col Grid, Thalis 2-col Grid) ── */
-          <div className="space-y-12 sm:space-y-14">
-            {groupedSections.map((sec) => {
-              return (
-                <section key={sec.key} aria-labelledby={`section-${sec.key}`} className="scroll-mt-32">
-                  {/* ── SECTION HEADER ── */}
-                  <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-                    {/* Left: Category Icon + Title + Subtitle */}
-                    <div className="flex items-center gap-3">
-                      {sec.image ? (
-                        <div className="size-9 rounded-full overflow-hidden border border-[#E9E5DA] shadow-2xs shrink-0">
-                          <img
-                            src={sec.image}
-                            alt={sec.name}
-                            loading="lazy"
-                            className="w-full h-full object-cover object-center"
-                          />
-                        </div>
-                      ) : (
-                        <div className="size-9 rounded-full bg-white border border-[#E9E5DA] shadow-2xs shrink-0 flex items-center justify-center text-lg leading-none">
-                          {sec.emoji}
-                        </div>
-                      )}
-                      <div>
-                        <h2 className="text-xl font-bold text-[#17231D] leading-tight">
-                          {sec.name}
-                        </h2>
-                        {sec.subtitle && (
-                          <p className="text-xs text-[#7A817B] mt-0.5">{sec.subtitle}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right: Controls & "View all" Link */}
-                    <div className="flex items-center gap-4 shrink-0">
-                      {sec.isThali && <ThaliSlotSwitcher timing={timing} />}
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-[#7A817B]">
-                          {sec.items.length} {sec.items.length === 1 ? 'item' : 'items'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCategory(sec.category?.id ?? sec.key)}
-                          className="flex items-center gap-1 text-xs text-primary font-bold hover:underline cursor-pointer"
-                        >
-                          <span>View all</span>
-                          <ArrowRight className="size-3 stroke-[2.5]" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Notice banner for thali section */}
-                  {sec.isThali && (() => {
-                    const notice = getClosureNotice(timing)
-                    if (!notice) return null
-                    const isHoliday = notice.type === 'holiday'
-                    const isCutoff = notice.type === 'cutoff'
-
-                    return (
-                      <div
-                        className={cn(
-                          'flex items-center gap-3 px-4 py-3 rounded-2xl mb-5 text-xs font-medium',
-                          isHoliday
-                            ? 'bg-red-50 border border-red-200 text-red-950 shadow-xs'
-                            : isCutoff
-                            ? 'bg-amber-50/80 border border-amber-200 text-amber-900'
-                            : 'bg-emerald-50/80 border border-emerald-200/80 text-emerald-950'
-                        )}
-                      >
-                        {isHoliday ? (
-                          <CalendarOff className="size-4 text-red-600 shrink-0" />
-                        ) : isCutoff ? (
-                          <Clock className="size-4 text-amber-600 shrink-0" />
-                        ) : (
-                          <Sparkles className="size-4 text-emerald-600 shrink-0" />
-                        )}
-                        <span>{notice.message}</span>
-                      </div>
-                    )
-                  })()}
-
-                  {/* ── ITEMS DISPLAY ── */}
-                  {sec.items.length === 0 ? (
-                    sec.isThali ? (
-                      <div className="py-10 text-center bg-amber-50/40 rounded-2xl border border-dashed border-amber-200">
-                        <div className="size-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-2 text-2xl">
-                          {timing.activeHoliday ? '🗓️' : timing.slots[timing.activeSlot]?.isCutoffPassed ? '🔒' : '🍱'}
-                        </div>
-                        <h3 className="text-base font-bold text-[#17231D]">
-                          {timing.activeHoliday
-                            ? `Closed for ${timing.activeHoliday.title}`
-                            : timing.slots[timing.activeSlot]?.isCutoffPassed
-                            ? `Ordering closed for ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}`
-                            : `${timing.isTomorrow ? "Tomorrow's" : "Today's"} ${
-                                timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'
-                              } menu coming soon`}
-                        </h3>
-                        <p className="text-xs text-[#7A817B] max-w-sm mx-auto mt-1 leading-relaxed">
-                          {timing.activeHoliday
-                            ? (timing.activeHoliday.message || 'We are closed during this period. Regular orders resume after the holiday.')
-                            : timing.slots[timing.activeSlot]?.isCutoffPassed
-                            ? timing.activeSlot === 'lunch'
-                              ? timing.isDinnerOpen
-                                ? "Ordering for Lunch is closed. Tonight's Dinner is available."
-                                : "Ordering for Lunch is closed. Pre-orders are open for tomorrow."
-                              : "Ordering for Dinner is closed. Pre-orders are open for tomorrow."
-                            : `Our kitchen is preparing the menu specials for ${
-                                timing.isTomorrow ? 'tomorrow' : 'today'
-                              }. Please check back shortly.`}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="py-10 text-center bg-white rounded-2xl border border-dashed border-[#E9E5DA]">
-                        <p className="text-sm text-[#7A817B] font-medium">No dishes currently available in this section.</p>
-                      </div>
-                    )
-                  ) : sec.isThali ? (
-                    /* ── THALIS: 2-Column Wide Horizontal Cards (Target Design Mock) ── */
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                      {sec.items.map((item) => (
-                        <DesktopThaliCard
-                          key={item.id}
-                          listing={item}
-                          onCustomize={onCustomize}
-                          isHolidayClosed={
-                            item.daily_menus?.meal_type
-                              ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
-                              : timing.isHolidayClosed
-                          }
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    /* ── FARSAN / REGULAR: 4-Column Vertical Product Cards (Target Design Mock) ── */
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                      {sec.items.map((item) => (
-                        <MenuProductCard
-                          key={item.id}
-                          listing={item}
-                          onCustomize={onCustomize}
-                          isHolidayClosed={
-                            item.daily_menus?.meal_type
-                              ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
-                              : timing.isHolidayClosed
-                          }
-                        />
-                      ))}
-                    </div>
-                  )}
-                </section>
-              )
-            })}
-          </div>
         ) : (
-          /* ── SINGLE CATEGORY OR SEARCH RESULTS VIEW ── */
+          /* ── THALIS VIEW ── */
           <div>
             {/* Header */}
             <div className="flex items-center justify-between mb-6 pb-2 border-b border-[#E9E5DA]/80 flex-wrap gap-3">
@@ -531,32 +257,21 @@ export function DesktopMenuView({
                 <h2 className="text-xl font-bold text-[#17231D] flex items-center gap-2">
                   {search ? (
                     <>Results for &ldquo;{search}&rdquo;</>
-                  ) : selectedCategoryObj ? (
-                    <span>{selectedCategoryObj.name}</span>
                   ) : (
-                    'Selected Dishes'
+                    <span>Thalis</span>
                   )}
                 </h2>
                 <p className="text-xs text-[#7A817B] mt-0.5">
-                  {filtered.length} {filtered.length === 1 ? 'item' : 'items'} available
+                  {filtered.length} {filtered.length === 1 ? 'thali' : 'thalis'} available
                 </p>
               </div>
 
-              {!search &&
-                (selectedCategoryObj?.category_type === 'thali' ||
-                  selectedCategoryObj?.slug?.includes('thali')) && (
-                  <ThaliSlotSwitcher timing={timing} />
-                )}
+              {!search && <ThaliSlotSwitcher timing={timing} />}
             </div>
 
-            {/* Cutoff / Closure / Coming Soon notice */}
+            {/* Cutoff / Closure banner when items are present */}
             {(() => {
-              const isSingleThali =
-                !search &&
-                (selectedCategoryObj?.category_type === 'thali' ||
-                  selectedCategoryObj?.slug?.includes('thali'))
-
-              if (!isSingleThali) return null
+              if (search || filtered.length === 0) return null
               const notice = getClosureNotice(timing)
               if (!notice) return null
               const isHoliday = notice.type === 'holiday'
@@ -585,28 +300,39 @@ export function DesktopMenuView({
               )
             })()}
 
-            {/* Grid display */}
-            {selectedCategoryObj?.category_type === 'thali' ||
-            selectedCategoryObj?.slug?.includes('thali') ||
-            filtered.every((i) => i.food_items?.kind === 'thali') ? (
+            {/* Grid display or Coming Soon card */}
+            {filtered.length === 0 ? (
+              <div className="py-12 px-6 text-center bg-amber-50/40 rounded-2xl border border-dashed border-amber-200 my-4">
+                <div className="size-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3 text-2xl">
+                  {timing.activeHoliday ? '🗓️' : timing.slots[timing.activeSlot]?.isCutoffPassed ? '🔒' : '🍱'}
+                </div>
+                <h3 className="text-lg font-bold text-[#17231D]">
+                  {timing.activeHoliday
+                    ? `Closed for ${timing.activeHoliday.title}`
+                    : timing.slots[timing.activeSlot]?.isCutoffPassed
+                    ? `Ordering closed for ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}`
+                    : `${timing.isTomorrow ? "Tomorrow's" : "Today's"} ${
+                        timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'
+                      } menu coming soon`}
+                </h3>
+                <p className="text-xs sm:text-sm text-[#7A817B] max-w-md mx-auto mt-1.5 leading-relaxed">
+                  {timing.activeHoliday
+                    ? (timing.activeHoliday.message || 'We are closed during this period. Regular orders resume after the holiday.')
+                    : timing.slots[timing.activeSlot]?.isCutoffPassed
+                    ? timing.activeSlot === 'lunch'
+                      ? timing.isDinnerOpen
+                        ? "Ordering for Lunch is closed. Tonight's Dinner is available."
+                        : "Ordering for Lunch is closed. Pre-orders are open for tomorrow."
+                      : "Ordering for Dinner is closed. Pre-orders are open for tomorrow."
+                    : `Our kitchen is preparing the menu specials for ${
+                        timing.isTomorrow ? 'tomorrow' : 'today'
+                      }. Please check back shortly.`}
+                </p>
+              </div>
+            ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {filtered.map((item) => (
                   <DesktopThaliCard
-                    key={item.id}
-                    listing={item}
-                    onCustomize={onCustomize}
-                    isHolidayClosed={
-                      item.daily_menus?.meal_type
-                        ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
-                        : timing.isHolidayClosed
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                {filtered.map((item) => (
-                  <MenuProductCard
                     key={item.id}
                     listing={item}
                     onCustomize={onCustomize}

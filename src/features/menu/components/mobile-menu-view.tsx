@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, ArrowRight, UtensilsCrossed, Sun, Moon, Clock, CalendarOff, Sparkles } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/common/empty-state'
-import { CategoryShowcaseBar, getCategoryVisuals } from '@/features/menu/components/category-showcase-bar'
+import { CategoryShowcaseBar } from '@/features/menu/components/category-showcase-bar'
 import { MobileMenuItemRow } from '@/features/menu/components/mobile-menu-item-row'
 import { useCartSummary } from '@/features/cart/hooks/use-cart'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
@@ -23,6 +23,25 @@ type MobileMenuViewProps = {
   onSelectCategory?: (key: string) => void
 }
 
+function isThaliCat(cat?: Tables<'categories'> | null): boolean {
+  if (!cat) return false
+  return (
+    cat.category_type === 'thali' ||
+    (cat.slug || '').toLowerCase().includes('thali') ||
+    cat.name.toLowerCase().includes('thali') ||
+    cat.name.toLowerCase().includes('meal')
+  )
+}
+
+function isThaliItem(listing: MenuListing): boolean {
+  return (
+    listing.food_items?.kind === 'thali' ||
+    listing.food_items?.categories?.category_type === 'thali' ||
+    (listing.food_items?.categories?.slug || '').toLowerCase().includes('thali') ||
+    (listing.food_items?.categories?.name || '').toLowerCase().includes('thali')
+  )
+}
+
 // ── Slot switcher (compact for mobile) ───────────────────────────────────────
 function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
   const lunchSlot = timing.slots.lunch
@@ -38,7 +57,7 @@ function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
           type="button"
           onClick={() => timing.setDate(timing.todayDate)}
           className={cn(
-            'px-2.5 py-1 rounded-full font-semibold transition-all min-h-[32px] cursor-pointer',
+            'px-2.5 py-1 rounded-full font-semibold transition-all min-h-[44px] flex items-center justify-center cursor-pointer',
             timing.isToday
               ? 'bg-card text-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground',
@@ -50,7 +69,7 @@ function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
           type="button"
           onClick={() => timing.setDate(timing.tomorrowDate)}
           className={cn(
-            'px-2.5 py-1 rounded-full font-semibold transition-all min-h-[32px] cursor-pointer',
+            'px-2.5 py-1 rounded-full font-semibold transition-all min-h-[44px] flex items-center justify-center cursor-pointer',
             timing.isTomorrow
               ? 'bg-card text-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground',
@@ -66,7 +85,7 @@ function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
           type="button"
           onClick={() => timing.setActiveSlot('lunch')}
           className={cn(
-            'px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 transition-all min-h-[32px] cursor-pointer',
+            'px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 transition-all min-h-[44px] cursor-pointer',
             timing.activeSlot === 'lunch'
               ? isLunchOpen
                 ? 'bg-card text-foreground shadow-xs'
@@ -88,7 +107,7 @@ function MobileSlotSwitcher({ timing }: { timing: MealTimingState }) {
           type="button"
           onClick={() => timing.setActiveSlot('dinner')}
           className={cn(
-            'px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 transition-all min-h-[32px] cursor-pointer',
+            'px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 transition-all min-h-[44px] cursor-pointer',
             timing.activeSlot === 'dinner'
               ? isDinnerOpen
                 ? 'bg-card text-foreground shadow-xs'
@@ -120,170 +139,45 @@ export function MobileMenuView({
   selectedCategory: controlledSelectedCategory,
   onSelectCategory: controlledOnSelectCategory,
 }: MobileMenuViewProps) {
-  const [internalCategory, setInternalCategory] = useState<string>('all')
+  const thaliCat = useMemo(() => {
+    return categories.find(
+      (c) =>
+        c.category_type === 'thali' ||
+        (c.slug || '').toLowerCase().includes('thali') ||
+        c.name.toLowerCase().includes('thali') ||
+        c.name.toLowerCase().includes('meal'),
+    )
+  }, [categories])
+
+  const defaultCategoryKey = thaliCat ? thaliCat.id : 'thalis'
+  const [internalCategory, setInternalCategory] = useState<string>(defaultCategoryKey)
   const selectedCategory = controlledSelectedCategory ?? internalCategory
   const setSelectedCategory = controlledOnSelectCategory ?? setInternalCategory
   const [searchQuery, setSearchQuery] = useState('')
   const { itemCount, subtotal } = useCartSummary()
 
-  // Item counts per category based on currently available listings
-  const itemCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: listings.length }
-    for (const cat of categories) {
-      const count = listings.filter(
-        (l) =>
-          l.food_items?.category_id === cat.id ||
-          l.food_items?.categories?.id === cat.id ||
-          l.food_items?.categories?.slug === cat.slug,
-      ).length
-      counts[cat.id] = count
-      if (cat.slug) {
-        counts[cat.slug] = count
-      }
-    }
-    const uncategorizedCount = listings.filter(
-      (l) =>
-        !l.food_items?.category_id &&
-        !l.food_items?.categories?.id &&
-        !l.food_items?.categories?.slug,
-    ).length
-    if (uncategorizedCount > 0) {
-      counts['other'] = uncategorizedCount
-    }
-    return counts
-  }, [listings, categories])
-
-  // Only display categories defined by admin products available that actually have items
-  // Always keep Thalis/Meals category active so customers can always view and switch meal slots
+  // Only display Thalis category
   const availableCategories = useMemo(() => {
-    return categories.filter((c) => {
-      if (c.is_active === false) return false
-      const isThaliCategory =
-        c.category_type === 'thali' ||
-        c.slug === 'thalis' ||
-        c.name.toLowerCase().includes('thali') ||
-        c.name.toLowerCase().includes('meal')
-      if (isThaliCategory) return true
-      const count = itemCounts[c.id] ?? (c.slug ? itemCounts[c.slug] : 0) ?? 0
-      return count > 0
-    })
-  }, [categories, itemCounts])
+    const list = categories.filter((c) => c.is_active !== false && isThaliCat(c))
+    if (list.length > 0) return list
+    return thaliCat ? [thaliCat] : []
+  }, [categories, thaliCat])
 
-  // Automatically reset category filter if currently selected category has no available items
-  useEffect(() => {
-    if (selectedCategory !== 'all' && selectedCategory !== 'other') {
-      const exists = availableCategories.some(
-        (c) => c.id === selectedCategory || c.slug === selectedCategory,
-      )
-      if (!exists) {
-        setSelectedCategory('all')
-      }
-    } else if (selectedCategory === 'other' && (itemCounts['other'] ?? 0) === 0) {
-      setSelectedCategory('all')
-    }
-  }, [availableCategories, selectedCategory, itemCounts])
-
-  // Filter & search
+  // Filter & search (Only Thalis)
   const filteredList = useMemo(() => {
-    let items = listings
-
-    if (selectedCategory !== 'all') {
-      if (selectedCategory === 'other') {
-        items = items.filter(
-          (l) =>
-            !l.food_items?.category_id &&
-            !l.food_items?.categories?.id &&
-            !l.food_items?.categories?.slug,
-        )
-      } else {
-        items = items.filter(
-          (l) =>
-            l.food_items?.category_id === selectedCategory ||
-            l.food_items?.categories?.id === selectedCategory ||
-            l.food_items?.categories?.slug === selectedCategory ||
-            l.food_items?.categories?.name?.toLowerCase() === selectedCategory.toLowerCase(),
-        )
-      }
-    }
+    let items = listings.filter((l) => isThaliItem(l))
 
     const q = searchQuery.trim().toLowerCase()
     if (q) {
       items = items.filter(
         (l) =>
           l.food_items?.name?.toLowerCase().includes(q) ||
-          l.food_items?.description?.toLowerCase().includes(q) ||
-          l.food_items?.categories?.name?.toLowerCase().includes(q),
+          l.food_items?.description?.toLowerCase().includes(q),
       )
     }
 
     return items
-  }, [listings, selectedCategory, searchQuery])
-
-  // Group listings by category for continuous feed
-  const groupedSections = useMemo(() => {
-    const sections: {
-      category: Tables<'categories'> | null
-      key: string
-      name: string
-      description: string | null
-      emoji: string
-      items: MenuListing[]
-      isThali: boolean
-    }[] = []
-
-    const handledIds = new Set<string>()
-    const sortedCategories = [...availableCategories].sort(
-      (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
-    )
-
-    for (const cat of sortedCategories) {
-      const items = listings.filter(
-        (l) =>
-          l.food_items?.category_id === cat.id ||
-          l.food_items?.categories?.id === cat.id ||
-          l.food_items?.categories?.slug === cat.slug,
-      )
-      const isThali =
-        cat.category_type === 'thali' ||
-        cat.slug?.includes('thali') ||
-        items.some((i) => i.food_items?.kind === 'thali')
-
-      // Create a section if there are actually items available in this category OR if it's the core Thali category
-      if (items.length > 0 || isThali) {
-        items.forEach((item) => handledIds.add(item.id))
-        const visuals = getCategoryVisuals(cat)
-        sections.push({
-          category: cat,
-          key: cat.id,
-          name: cat.name,
-          description: cat.description,
-          emoji: visuals.emoji,
-          items,
-          isThali,
-        })
-      }
-    }
-
-    const remainingItems = listings.filter((l) => !handledIds.has(l.id))
-    if (remainingItems.length > 0) {
-      sections.push({
-        category: null,
-        key: 'other',
-        name: 'Other Dishes',
-        description: 'Fresh daily additions',
-        emoji: '🍛',
-        items: remainingItems,
-        isThali: remainingItems.some((i) => i.food_items?.kind === 'thali'),
-      })
-    }
-
-    return sections
-  }, [listings, availableCategories])
-
-  const selectedCategoryObj = useMemo(() => {
-    if (selectedCategory === 'all') return null
-    return availableCategories.find((c) => c.id === selectedCategory || c.slug === selectedCategory)
-  }, [availableCategories, selectedCategory])
+  }, [listings, searchQuery])
 
   return (
     <div className="min-h-screen bg-[#faf6ee] pb-28">
@@ -315,7 +209,6 @@ export function MobileMenuView({
           categories={availableCategories}
           activeCategory={selectedCategory}
           onSelectCategory={(cat) => setSelectedCategory(cat)}
-          itemCounts={itemCounts}
           isLoading={isPending}
         />
       </div>
@@ -336,162 +229,37 @@ export function MobileMenuView({
               </div>
             ))}
           </div>
-        ) : filteredList.length === 0 ? (
+        ) : searchQuery && filteredList.length === 0 ? (
           <div className="py-12">
             <EmptyState
               icon={UtensilsCrossed}
-              title={searchQuery ? 'No dishes match your search' : 'No items found'}
-              description={
-                searchQuery
-                  ? `No matches for "${searchQuery}". Try a different search term.`
-                  : 'Check back soon as items are updated daily.'
-              }
+              title="No dishes match your search"
+              description={`No matches for "${searchQuery}". Try a different search term.`}
             />
           </div>
-        ) : selectedCategory === 'all' && !searchQuery ? (
-          /* ── DYNAMIC SECTIONS FEED ── */
-          <div className="space-y-8 pt-2">
-            {groupedSections.map((sec) => {
-              return (
-                <div key={sec.key}>
-                  {/* Section header */}
-                  <div className="flex items-start justify-between pb-3 mb-1 border-b border-[#ede4d3]">
-                    <div className="flex items-start gap-2">
-                      <span className="text-xl leading-none mt-0.5">{sec.emoji}</span>
-                      <div>
-                        <h2 className="text-sm font-extrabold text-[#221b14] leading-tight">{sec.name}</h2>
-                        {sec.description && (
-                          <p className="text-[11px] text-[#6b5847] mt-0.5">{sec.description}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {sec.isThali && <MobileSlotSwitcher timing={timing} />}
-                      {sec.items.length > 0 && (
-                        <span className="text-xs text-neutral-400 font-medium">{sec.items.length}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Notice banner for thali section */}
-                  {sec.isThali && (() => {
-                    const notice = getClosureNotice(timing)
-                    if (!notice) return null
-                    const isHoliday = notice.type === 'holiday'
-                    const isCutoff = notice.type === 'cutoff'
-
-                    return (
-                      <div
-                        className={cn(
-                          'flex items-center gap-2 px-3 py-2 rounded-xl mb-3 text-[11px] font-medium',
-                          isHoliday
-                            ? 'bg-red-50 border border-red-200 text-red-950 shadow-xs'
-                            : isCutoff
-                            ? 'bg-amber-50 border border-amber-200 text-amber-900'
-                            : 'bg-emerald-50/80 border border-emerald-200/80 text-emerald-950'
-                        )}
-                      >
-                        {isHoliday ? (
-                          <CalendarOff className="size-3.5 text-red-600 shrink-0" />
-                        ) : isCutoff ? (
-                          <Clock className="size-3.5 text-amber-600 shrink-0" />
-                        ) : (
-                          <Sparkles className="size-3.5 text-emerald-600 shrink-0" />
-                        )}
-                        <span>{notice.message}</span>
-                      </div>
-                    )
-                  })()}
-
-                  {/* Items or empty state */}
-                  {sec.items.length === 0 ? (
-                    sec.isThali ? (
-                      <div className="py-8 px-4 text-center bg-amber-50/40 rounded-2xl border border-dashed border-amber-200 my-2">
-                        <div className="size-10 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-2 text-xl">
-                          {timing.activeHoliday ? '🗓️' : timing.slots[timing.activeSlot]?.isCutoffPassed ? '🔒' : '🍱'}
-                        </div>
-                        <h3 className="text-sm font-bold text-[#221b14]">
-                          {timing.activeHoliday
-                            ? `Closed for ${timing.activeHoliday.title}`
-                            : timing.slots[timing.activeSlot]?.isCutoffPassed
-                            ? `Ordering closed for ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}`
-                            : `${timing.isTomorrow ? "Tomorrow's" : "Today's"} ${
-                                timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'
-                              } menu coming soon`}
-                        </h3>
-                        <p className="text-[11px] text-neutral-500 max-w-xs mx-auto mt-1 leading-relaxed">
-                          {timing.activeHoliday
-                            ? (timing.activeHoliday.message || 'We are closed during this period. Regular orders resume after the holiday.')
-                            : timing.slots[timing.activeSlot]?.isCutoffPassed
-                            ? timing.activeSlot === 'lunch'
-                              ? timing.isDinnerOpen
-                                ? "Ordering for Lunch is closed. Tonight's Dinner is available."
-                                : "Ordering for Lunch is closed. Pre-orders are open for tomorrow."
-                              : "Ordering for Dinner is closed. Pre-orders are open for tomorrow."
-                            : `Our kitchen is preparing the menu specials for ${
-                                timing.isTomorrow ? 'tomorrow' : 'today'
-                              }. Please check back shortly.`}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="py-5 text-center bg-white rounded-xl border border-dashed border-[#ede4d3]">
-                        <p className="text-xs text-neutral-500 font-medium">No dishes available in this section.</p>
-                      </div>
-                    )
-                  ) : (
-                    <div>
-                      {sec.items.map((item) => (
-                        <MobileMenuItemRow
-                          key={item.id}
-                          listing={item}
-                          onCustomize={onCustomize}
-                          isHolidayClosed={
-                            item.daily_menus?.meal_type
-                              ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
-                              : timing.isHolidayClosed
-                          }
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
         ) : (
-          /* ── SINGLE CATEGORY OR SEARCH RESULTS ── */
+          /* ── THALIS VIEW ── */
           <div className="pt-2">
             <div className="pb-3 mb-1 flex items-start justify-between border-b border-[#ede4d3]">
               <h2 className="text-sm font-bold text-[#221b14] flex items-center gap-1.5">
                 {searchQuery ? (
                   <span>Search: &ldquo;{searchQuery}&rdquo;</span>
-                ) : selectedCategoryObj ? (
-                  <>
-                    <span>{getCategoryVisuals(selectedCategoryObj).emoji}</span>
-                    <span>{selectedCategoryObj.name}</span>
-                  </>
                 ) : (
-                  'Selected Items'
+                  <>
+                    <span>🍱</span>
+                    <span>Thalis</span>
+                  </>
                 )}
               </h2>
               <div className="flex items-center gap-2 shrink-0">
-                {!searchQuery &&
-                  (selectedCategoryObj?.category_type === 'thali' ||
-                    selectedCategoryObj?.slug?.includes('thali')) && (
-                    <MobileSlotSwitcher timing={timing} />
-                  )}
+                {!searchQuery && <MobileSlotSwitcher timing={timing} />}
                 <span className="text-xs text-neutral-400 font-medium">{filteredList.length}</span>
               </div>
             </div>
 
-            {/* Cutoff / Closure / Coming Soon banner for single-category thali */}
+            {/* Cutoff / Closure banner when items are present (e.g. Lunch closed but showing items) */}
             {(() => {
-              const isSingleThali =
-                !searchQuery &&
-                (selectedCategoryObj?.category_type === 'thali' ||
-                  selectedCategoryObj?.slug?.includes('thali'))
-
-              if (!isSingleThali) return null
+              if (searchQuery || filteredList.length === 0) return null
               const notice = getClosureNotice(timing)
               if (!notice) return null
               const isHoliday = notice.type === 'holiday'
@@ -520,20 +288,51 @@ export function MobileMenuView({
               )
             })()}
 
-            <div>
-              {filteredList.map((item) => (
-                <MobileMenuItemRow
-                  key={item.id}
-                  listing={item}
-                  onCustomize={onCustomize}
-                  isHolidayClosed={
-                    item.daily_menus?.meal_type
-                      ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
-                      : timing.isHolidayClosed
-                  }
-                />
-              ))}
-            </div>
+            {/* Items or Coming Soon card */}
+            {filteredList.length === 0 ? (
+              <div className="py-8 px-4 text-center bg-amber-50/40 rounded-2xl border border-dashed border-amber-200 my-3">
+                <div className="size-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-2.5 text-2xl">
+                  {timing.activeHoliday ? '🗓️' : timing.slots[timing.activeSlot]?.isCutoffPassed ? '🔒' : '🍱'}
+                </div>
+                <h3 className="text-base font-bold text-[#221b14]">
+                  {timing.activeHoliday
+                    ? `Closed for ${timing.activeHoliday.title}`
+                    : timing.slots[timing.activeSlot]?.isCutoffPassed
+                    ? `Ordering closed for ${timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'}`
+                    : `${timing.isTomorrow ? "Tomorrow's" : "Today's"} ${
+                        timing.activeSlot === 'lunch' ? 'Lunch' : 'Dinner'
+                      } menu coming soon`}
+                </h3>
+                <p className="text-xs text-neutral-500 max-w-xs mx-auto mt-1 leading-relaxed">
+                  {timing.activeHoliday
+                    ? (timing.activeHoliday.message || 'We are closed during this period. Regular orders resume after the holiday.')
+                    : timing.slots[timing.activeSlot]?.isCutoffPassed
+                    ? timing.activeSlot === 'lunch'
+                      ? timing.isDinnerOpen
+                        ? "Ordering for Lunch is closed. Tonight's Dinner is available."
+                        : "Ordering for Lunch is closed. Pre-orders are open for tomorrow."
+                      : "Ordering for Dinner is closed. Pre-orders are open for tomorrow."
+                    : `Our kitchen is preparing the menu specials for ${
+                        timing.isTomorrow ? 'tomorrow' : 'today'
+                      }. Please check back shortly.`}
+                </p>
+              </div>
+            ) : (
+              <div>
+                {filteredList.map((item) => (
+                  <MobileMenuItemRow
+                    key={item.id}
+                    listing={item}
+                    onCustomize={onCustomize}
+                    isHolidayClosed={
+                      item.daily_menus?.meal_type
+                        ? timing.slots[item.daily_menus.meal_type]?.isHolidayClosed ?? timing.isHolidayClosed
+                        : timing.isHolidayClosed
+                    }
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

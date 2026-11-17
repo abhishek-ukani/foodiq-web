@@ -51,7 +51,7 @@ export function DesktopThaliCard({ listing, onCustomize, isHolidayClosed }: Desk
 
   const cartLine = cartItems?.find(
     (ci) =>
-      ci.food_item_id === item.id &&
+      (ci.food_item_id === item.id || ci.thali_id === item.id) &&
       (!Array.isArray(ci.customizations) || ci.customizations.length === 0),
   )
   const isBusy = addToCart.isPending || updateQuantity.isPending || removeItem.isPending

@@ -11,6 +11,7 @@ export function useAuth() {
     profile,
     isLoading: status === 'loading',
     isAuthenticated: status === 'authenticated',
+    isVerified: Boolean(profile?.is_verified),
     isAdmin: profile?.role === 'admin',
     isDeliveryBoy: profile?.role === 'delivery_boy',
     isCustomer: profile?.role === 'customer',

@@ -52,11 +52,13 @@ import {
 } from '@/features/cart/hooks/use-cart'
 import { customizationsTotal, type SelectedCustomization } from '@/features/cart/services/cart-service'
 import { useMealTiming } from '@/features/menu/hooks/use-meal-timing'
+import { useAuth } from '@/hooks/use-auth'
 import { CURRENCY_SYMBOL, ROUTES } from '@/constants'
 import type { MealType, PaymentMethod, Tables } from '@/types/database.types'
 
 export function CheckoutPage() {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   // Delivery date is fixed to today (cannot be changed by user)
   const deliveryDate = dayjs().format('YYYY-MM-DD')
   const timing = useMealTiming(deliveryDate)
@@ -174,6 +176,15 @@ export function CheckoutPage() {
 
   const deliveryFee = deliveryResolution.fee
   const total = subtotal + deliveryFee
+
+  const isAutoAcceptEligible = useMemo(() => {
+    const isSubEligible = Boolean(profile?.is_subscription_eligible)
+    const isUserVerified = Boolean(profile?.is_verified)
+    const isRouteApproved = Boolean(selectedAddress?.is_route_approved)
+    const isWithinQuantity = itemCount <= 3
+    const isWithinAmount = total <= 800
+    return isSubEligible && isUserVerified && isRouteApproved && isWithinQuantity && isWithinAmount
+  }, [profile, selectedAddress, itemCount, total])
 
   const isOnly24x7Items =
     items.length > 0 &&
@@ -609,6 +620,14 @@ export function CheckoutPage() {
                           {selectedAddress.meal_type_tag === 'lunch' ? '☀️ Lunch Address' : '🌙 Dinner Address'}
                         </span>
                       )}
+                      {selectedAddress.is_route_approved && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold"
+                        >
+                          ✓ Route Approved
+                        </Badge>
+                      )}
                     </div>
 
                     <Button
@@ -775,6 +794,14 @@ export function CheckoutPage() {
                               {address.meal_type_tag === 'lunch' ? '☀️ Lunch' : '🌙 Dinner'}
                             </span>
                           )}
+                          {address.is_route_approved && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 border-emerald-500/40 bg-emerald-50 text-emerald-700 font-medium"
+                            >
+                              ✓ Route Approved
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground leading-relaxed">
                           {address.address_line1}
@@ -890,6 +917,25 @@ export function CheckoutPage() {
                 )}
               </div>
 
+              {/* Kitchen Confirmation Notice (Only shown when manual kitchen review is required) */}
+              {!isAutoAcceptEligible && (
+                <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/90 bg-amber-50/80 p-2.5 text-xs text-amber-900">
+                  <Clock className="size-4 shrink-0 text-amber-600 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-amber-950">Needs Kitchen Confirmation</p>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      {!selectedAddress?.is_route_approved && profile?.is_subscription_eligible
+                        ? 'This delivery address is awaiting route approval. Order will be reviewed by the kitchen.'
+                        : !profile?.is_verified
+                        ? 'New account — our team will call to confirm before preparation.'
+                        : itemCount > 3 || total > 800
+                        ? 'Large order — submitted to kitchen for bulk prep confirmation.'
+                        : 'Orders are submitted to the kitchen for review. Preparation begins once accepted by our team.'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <Button
                 className="w-full font-bold h-11 rounded-xl text-sm"
                 size="lg"
@@ -936,6 +982,9 @@ export function CheckoutPage() {
             </p>
             <p className="text-lg font-extrabold text-foreground leading-tight">
               {CURRENCY_SYMBOL}{total}
+            </p>
+            <p className="text-[10px] text-amber-700 font-medium leading-none mt-0.5">
+              Needs confirmation
             </p>
           </div>
 

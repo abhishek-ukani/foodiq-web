@@ -5,6 +5,7 @@ import {
   submitQuickOrder,
   type SubmitQuickOrderInput,
 } from '../services/quick-order-service'
+import { broadcastOrderCreated } from '@/lib/orders-realtime'
 import type { MealType } from '@/types/database.types'
 
 export function useQuickOrderContext(
@@ -23,10 +24,19 @@ export function useSubmitQuickOrder() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input: SubmitQuickOrderInput) => submitQuickOrder(input),
-    onSuccess: () => {
+    onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.orders() })
       queryClient.invalidateQueries({ queryKey: ['quick-order-context'] })
+      if (order?.id) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.order(order.id) })
+        broadcastOrderCreated({
+          id: order.id,
+          order_number: order.order_number,
+          total_amount: order.total_amount,
+          user_id: order.user_id,
+        })
+      }
     },
   })
 }

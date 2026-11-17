@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { queryClient } from '@/lib/query-client'
 import { AuthProvider } from '@/providers/auth-provider'
 import { CatalogSyncProvider } from '@/providers/catalog-sync-provider'
+import { OrderSyncProvider } from '@/providers/order-sync-provider'
 import { ErrorBoundary } from '@/components/common/error-boundary'
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -14,17 +15,19 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <CatalogSyncProvider>
           <AuthProvider>
-            <TooltipProvider delayDuration={200}>
-              {children}
-              <Toaster
-                position="top-center"
-                toastOptions={{
-                  className:
-                    '!bg-card !text-card-foreground !border !border-border !shadow-lg !rounded-xl',
-                  duration: 4000,
-                }}
-              />
-            </TooltipProvider>
+            <OrderSyncProvider>
+              <TooltipProvider delayDuration={200}>
+                {children}
+                <Toaster
+                  position="top-center"
+                  toastOptions={{
+                    className:
+                      '!bg-card !text-card-foreground !border !border-border !shadow-lg !rounded-xl',
+                    duration: 4000,
+                  }}
+                />
+              </TooltipProvider>
+            </OrderSyncProvider>
           </AuthProvider>
           {import.meta.env.DEV ? <ReactQueryDevtools initialIsOpen={false} /> : null}
         </CatalogSyncProvider>

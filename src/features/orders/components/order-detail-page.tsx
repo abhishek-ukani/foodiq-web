@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
-import { Star } from 'lucide-react'
+import { Star, Clock, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -59,10 +59,40 @@ export function OrderDetailPage() {
         <OrderStatusBadge status={order.status} />
       </div>
 
+      {order.status === 'pending' && (
+        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200/90 bg-amber-50/90 p-4 shadow-xs">
+          <Clock className="size-5 text-amber-700 mt-0.5 shrink-0" />
+          <div className="space-y-0.5">
+            <h3 className="font-semibold text-sm text-amber-950">Awaiting Kitchen &amp; Admin Confirmation</h3>
+            <p className="text-xs text-amber-900/90 leading-relaxed">
+              We have received your order. Our kitchen team is reviewing it and will confirm acceptance shortly before meal preparation begins.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {order.status === 'accepted' && (
+        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-200/90 bg-emerald-50/90 p-4 shadow-xs">
+          <CheckCircle2 className="size-5 text-emerald-700 mt-0.5 shrink-0" />
+          <div className="space-y-0.5">
+            <h3 className="font-semibold text-sm text-emerald-950">Order Confirmed &amp; In Kitchen</h3>
+            <p className="text-xs text-emerald-900/90 leading-relaxed">
+              Your order is confirmed! Fresh cooking and packing have begun. You can track live updates below as your meal prepares for dispatch.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 sm:grid-cols-3">
         <Card className="sm:col-span-2">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base">Status</CardTitle>
+            {['pending', 'accepted', 'ready', 'out_for_delivery'].includes(order.status) && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live updates active
+              </span>
+            )}
           </CardHeader>
           <CardContent>
             <OrderStatusTimeline status={order.status} />
